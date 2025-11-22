@@ -1,108 +1,123 @@
 # Toolify
 
-AI-powered voice transcription and translation tool for macOS. Record audio, transcribe it using OpenAI Whisper, and optionally translate it to different languages. Perfect for quick voice-to-text conversion and multilingual communication.
+AI-powered voice transcription and translation tool for macOS. Toolify allows you to record audio, transcribe it using OpenAI's Whisper, and optionally translate it to another language.
 
 ## Features
 
-- 🎤 **Voice Recording**: Record audio with customizable keyboard shortcuts
-- 📝 **Transcription**: Convert speech to text using OpenAI Whisper API
-- 🌍 **Translation**: Translate transcribed text between multiple languages
-- 📋 **Auto-paste**: Automatically paste transcribed text to active application
-- 🎨 **Modern UI**: Beautiful dark-themed interface with waveform visualization
-- ⚙️ **Customizable**: Configure shortcuts, notifications, and more
+- 🎤 **Voice Recording**: Record audio using a global keyboard shortcut
+- 🔤 **Transcription**: Automatic transcription using OpenAI Whisper API
+- 🌍 **Translation**: Optional translation to multiple languages
+- 🎨 **Modern UI**: Clean, dark-themed interface
+- 📊 **Real-time Waveform**: Visual feedback during recording
+- ⚙️ **Customizable**: Configure API keys, shortcuts, and preferences
+- 🔔 **Notifications**: Optional sound alerts and system notifications
+- 💾 **Credit System**: Built-in credit management for AI operations
 
 ## Requirements
 
-- macOS (tested on macOS 13+)
-- Node.js 18+
+- macOS 10.12 or later
 - OpenAI API key
 
 ## Installation
 
-### Download DMG (Recommended)
+### From DMG (Recommended)
 
-Download the latest DMG file from [Releases](https://github.com/yourusername/toolify/releases) and install Toolify by dragging it to your Applications folder.
+1. Download the latest `Toolify-x.x.x-arm64.dmg` from [Releases](https://github.com/mehmetsagir/toolify/releases)
+2. Open the DMG file
+3. Drag Toolify to your Applications folder
+4. **Important**: Since the app is not signed, you need to bypass macOS Gatekeeper:
+
+#### Opening the App for the First Time
+
+**Method 1: Right-Click (Easiest)**
+1. Right-click (or Control + Click) on Toolify.app in Applications
+2. Select "Open" from the menu
+3. Click "Open" in the warning dialog
+4. The app will open and you won't see this warning again
+
+**Method 2: System Settings**
+1. Try to open the app normally (you'll get the warning)
+2. Go to System Settings > Privacy & Security
+3. Scroll down to find "Toolify.app was blocked from use"
+4. Click "Open Anyway"
+5. Enter your password and confirm
+
+**Method 3: Terminal Command**
+```bash
+sudo xattr -rd com.apple.quarantine /Applications/Toolify.app
+```
 
 ### From Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/toolify.git
+git clone https://github.com/mehmetsagir/toolify.git
 cd toolify
 
 # Install dependencies
 npm install
 
-# Build the application
-npm run build:mac
+# Run in development mode
+npm run dev
 
-# Or build DMG directly
-npm run build:dmg
+# Build for production
+npm run build:mac
 ```
 
 ## Configuration
 
-1. Launch Toolify from Applications
-2. Right-click the menu bar icon and select "Settings"
+1. Launch Toolify
+2. Click the settings icon (⚙️)
 3. Enter your OpenAI API key
-4. Configure your preferred settings:
+4. Configure your preferences:
+   - Translation settings
    - Keyboard shortcut (default: Command+Space)
-   - Source and target languages for translation
-   - Notification preferences
    - Sound alerts
+   - Notifications
+   - Recording overlay
 
 ## Usage
 
 1. Press your configured keyboard shortcut (default: Command+Space) to start recording
 2. Speak into your microphone
 3. Press the shortcut again to stop recording
-4. The transcribed text will be automatically copied to clipboard and pasted to the active application
-
-### Translation Mode
-
-Enable translation in settings and select your source and target languages. The app will transcribe your speech in the source language and translate it to the target language.
-
-## Development
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Setup
-
-```bash
-npm install
-```
-
-### Development Mode
-
-```bash
-npm run dev
-```
-
-### Build
-
-```bash
-# macOS
-npm run build:mac
-
-# Windows
-npm run build:win
-
-# Linux
-npm run build:linux
-```
+4. The transcription (and optional translation) will be automatically copied to your clipboard
+5. A notification will appear when processing is complete
 
 ## Privacy
 
 - All audio processing is done through OpenAI's API
-- No audio data is stored locally
-- API keys are stored securely using electron-store
+- No data is stored locally except for user preferences
+- Your API key is stored securely in your system keychain
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Development mode with hot reload
+npm run dev
+
+# Type checking
+npm run typecheck
+
+# Linting
+npm run lint
+
+# Format code
+npm run format
+
+# Build for production
+npm run build
+
+# Build DMG
+npm run build:dmg
+```
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details
 
 ## Contributing
 
@@ -111,5 +126,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Acknowledgments
 
 - Built with [Electron](https://www.electronjs.org/)
-- Uses [OpenAI Whisper](https://openai.com/research/whisper) for transcription
-- UI built with [React](https://reactjs.org/) and [Tailwind CSS](https://tailwindcss.com/)
+- Powered by [OpenAI](https://openai.com/)
+- UI built with [React](https://react.dev/) and [Tailwind CSS](https://tailwindcss.com/)
