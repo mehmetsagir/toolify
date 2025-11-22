@@ -3,14 +3,15 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 jobs:
   build:
     runs-on: macos-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,16 +25,26 @@ jobs:
       - name: Build DMG
         run: npm run build:dmg
       
-      - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: toolify-dmg
-          path: dist/*.dmg
+      - name: Get version from package.json
+        id: version
+        run: echo "VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*.dmg
+          name: Release v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Toolify v${{ steps.version.outputs.VERSION }}
+            
+            ### Installation
+            1. Download the DMG file below
+            2. Open the DMG file
+            3. Drag Toolify to your Applications folder
+            4. Launch Toolify from Applications
+            
+            ### Changes
+            See [CHANGELOG.md](CHANGELOG.md) for details.
           draft: false
           prerelease: false
         env:
