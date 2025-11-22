@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Status } from './components/Status'
 import { Settings } from './components/Settings'
 
-function App(): JSX.Element {
+function App(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'recording' | 'processing'>('idle')
   const [showSettings, setShowSettings] = useState(false)
   const [apiKey, setApiKey] = useState('')
@@ -465,7 +465,6 @@ function App(): JSX.Element {
               settings.showRecordingOverlay
             )
           }
-          onClose={() => window.api.closeSettings()}
         />
       </div>
     )

@@ -40,7 +40,6 @@ interface SettingsProps {
   setAutoStart: (val: boolean) => void
   showRecordingOverlay: boolean
   setShowRecordingOverlay: (val: boolean) => void
-  onClose: () => void
   onSave?: (settings: {
     apiKey: string
     language: string
@@ -82,7 +81,6 @@ export const Settings: React.FC<SettingsProps> = ({
   setAutoStart,
   showRecordingOverlay: initialShowRecordingOverlay,
   setShowRecordingOverlay,
-  onClose,
   onSave
 }) => {
   const [localKey, setLocalKey] = useState(initialKey)

@@ -19,6 +19,10 @@ AI-powered voice transcription and translation tool for macOS. Record audio, tra
 
 ## Installation
 
+### Download DMG (Recommended)
+
+Download the latest DMG file from [Releases](https://github.com/yourusername/toolify/releases) and install Toolify by dragging it to your Applications folder.
+
 ### From Source
 
 ```bash
@@ -31,6 +35,9 @@ npm install
 
 # Build the application
 npm run build:mac
+
+# Or build DMG directly
+npm run build:dmg
 ```
 
 ## Configuration

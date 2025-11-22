@@ -6,11 +6,16 @@ declare global {
     api: {
       onStartRecording: (callback: () => void) => () => void
       onStopRecording: (callback: () => void) => () => void
+      onProcessingComplete: (callback: () => void) => () => void
       processAudio: (buffer: ArrayBuffer) => void
       saveSettings: (settings: Settings) => void
       getSettings: () => Promise<Settings>
       hideWindow: () => void
+      openSettings: () => void
+      closeSettings: () => void
       setRecordingState: (state: boolean) => void
+      setProcessingState: (state: boolean) => void
+      previewSound: (soundType: string) => void
       checkAccessibilityPermission: () => Promise<{ granted: boolean; required: boolean }>
       openAccessibilitySettings: () => void
       resizeSettingsWindow: (height: number) => void
