@@ -5,7 +5,9 @@ on:
     tags:
       - 'v*.*.*'
       - 'v*'
-  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -25,23 +27,20 @@ jobs:
         run: npm ci
       
       - name: Build DMG
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI: false
         run: npm run build:dmg
       
       - name: Get version from package.json
         id: version
-        run: echo "VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ github.ref_name }}
           files: dist/*.dmg
-          name: Release v${{ steps.version.outputs.VERSION }}
+          name: Release ${{ github.ref_name }}
           body: |
-            ## Toolify v${{ steps.version.outputs.VERSION }}
+            ## Toolify ${{ github.ref_name }}
             
             ### Installation
             1. Download the DMG file below
@@ -49,10 +48,7 @@ jobs:
             3. Drag Toolify to your Applications folder
             4. Launch Toolify from Applications
             
-            ### Changes
-            See [CHANGELOG.md](CHANGELOG.md) for details.
+            ### What's New
+            - Initial release
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
