@@ -1,0 +1,488 @@
+import { useState, useEffect, useRef } from 'react'
+import { Status } from './components/Status'
+import { Settings } from './components/Settings'
+
+function App(): JSX.Element {
+  const [status, setStatus] = useState<'idle' | 'recording' | 'processing'>('idle')
+  const [showSettings, setShowSettings] = useState(false)
+  const [apiKey, setApiKey] = useState('')
+  const [translate, setTranslate] = useState(false)
+  const [language, setLanguage] = useState('')
+  const [sourceLanguage, setSourceLanguage] = useState('en')
+  const [targetLanguage, setTargetLanguage] = useState('tr')
+  const [shortcut, setShortcut] = useState('Command+Space')
+  const [trayAnimations, setTrayAnimations] = useState(true)
+  const [processNotifications, setProcessNotifications] = useState(false)
+  const [soundAlert, setSoundAlert] = useState(false)
+  const [soundType, setSoundType] = useState('Glass')
+  const [autoStart, setAutoStart] = useState(true)
+  const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
+
+  const [audioLevel, setAudioLevel] = useState(0)
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
+
+  const statusRef = useRef(status)
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+
+  useEffect(() => {
+    const isSettingsMode = window.location.hash === '#settings'
+    setShowSettings(isSettingsMode)
+
+    const loadSettings = () => {
+      window.api.getSettings().then((settings: any) => {
+        setApiKey(settings.apiKey || '')
+        setTranslate(settings.translate || false)
+        setLanguage(settings.language || '')
+        setSourceLanguage(settings.sourceLanguage || 'en')
+        setTargetLanguage(settings.targetLanguage || 'tr')
+        setShortcut(settings.shortcut || 'Command+Space')
+        setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
+        setProcessNotifications(
+          settings.processNotifications !== undefined ? settings.processNotifications : false
+        )
+        setSoundAlert(settings.soundAlert !== undefined ? settings.soundAlert : false)
+        setSoundType(settings.soundType || 'Glass')
+        setAutoStart(settings.autoStart !== false)
+        setShowRecordingOverlay(settings.showRecordingOverlay !== false)
+      })
+    }
+
+    loadSettings()
+
+    if (isSettingsMode) {
+      loadSettings()
+    }
+
+    const removeStartListener = window.api.onStartRecording(() => {
+      if (statusRef.current === 'idle') {
+        startRecording()
+      }
+    })
+
+    const removeStopListener = window.api.onStopRecording(() => {
+      if (statusRef.current === 'recording') {
+        stopRecording()
+      }
+    })
+
+    const removeProcessingCompleteListener = window.api.onProcessingComplete(() => {
+      setStatus('idle')
+      window.api.setProcessingState(false)
+    })
+
+    return () => {
+      removeStartListener()
+      removeStopListener()
+      removeProcessingCompleteListener()
+      cancelAnimationFrame(animationFrameRef.current!)
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+      }
+    }
+  }, [])
+
+  const saveSettings = (
+    newKey: string,
+    newTranslate: boolean,
+    newLanguage: string,
+    newSourceLanguage: string,
+    newTargetLanguage: string,
+    newShortcut: string,
+    newTrayAnimations: boolean,
+    newProcessNotifications: boolean,
+    newSoundAlert: boolean,
+    newSoundType: string,
+    newAutoStart: boolean,
+    newShowRecordingOverlay: boolean
+  ) => {
+    setApiKey(newKey)
+    setTranslate(newTranslate)
+    setLanguage(newLanguage)
+    setSourceLanguage(newSourceLanguage)
+    setTargetLanguage(newTargetLanguage)
+    setShortcut(newShortcut)
+    setTrayAnimations(newTrayAnimations)
+    setProcessNotifications(newProcessNotifications)
+    setSoundAlert(newSoundAlert)
+    setSoundType(newSoundType)
+    setAutoStart(newAutoStart)
+    setShowRecordingOverlay(newShowRecordingOverlay)
+    window.api.saveSettings({
+      apiKey: newKey,
+      translate: newTranslate,
+      language: newLanguage,
+      sourceLanguage: newSourceLanguage,
+      targetLanguage: newTargetLanguage,
+      shortcut: newShortcut,
+      trayAnimations: newTrayAnimations,
+      processNotifications: newProcessNotifications,
+      soundAlert: newSoundAlert,
+      soundType: newSoundType,
+      autoStart: newAutoStart,
+      showRecordingOverlay: newShowRecordingOverlay
+    })
+  }
+
+  const analyzeAudio = () => {
+    if (!analyserRef.current) return
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+    analyserRef.current.getByteFrequencyData(dataArray)
+
+    let sum = 0
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i]
+    }
+    const average = sum / dataArray.length
+    const normalizedLevel = Math.min(100, average * 2.5)
+
+    setAudioLevel(normalizedLevel)
+
+    if (window.api?.updateRecordingAudioLevel && statusRef.current === 'recording') {
+      window.api.updateRecordingAudioLevel(normalizedLevel)
+    }
+
+    animationFrameRef.current = requestAnimationFrame(analyzeAudio)
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+      const audioContext = new AudioContext()
+      const analyser = audioContext.createAnalyser()
+      const source = audioContext.createMediaStreamSource(stream)
+
+      analyser.fftSize = 256
+      source.connect(analyser)
+
+      audioContextRef.current = audioContext
+      analyserRef.current = analyser
+      sourceRef.current = source
+
+      analyzeAudio()
+
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      chunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const buffer = await blob.arrayBuffer()
+        console.log('Sending audio buffer to main process, size:', buffer.byteLength)
+        setStatus('processing')
+        window.api.setProcessingState(true)
+        window.api.processAudio(buffer)
+        window.api.setRecordingState(false)
+        setAudioLevel(0)
+
+        // Cleanup Audio Context
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+        if (audioContextRef.current) audioContextRef.current.close()
+
+        // Stop all tracks
+        stream.getTracks().forEach((track) => track.stop())
+
+        // Reset to idle after processing (will be set by main process when done)
+        // Main process will handle the copied state
+      }
+
+      mediaRecorder.start()
+      setStatus('recording')
+      window.api.setRecordingState(true)
+    } catch (err) {
+      console.error('Failed to start recording', err)
+    }
+  }
+
+  const stopRecording = () => {
+    if (!mediaRecorderRef.current) return
+
+    setStatus('processing')
+    mediaRecorderRef.current.stop()
+  }
+
+  const handleRecordToggle = () => {
+    if (status === 'idle') {
+      startRecording()
+    } else if (status === 'recording') {
+      stopRecording()
+    }
+  }
+
+  // Reload settings when settings window opens/closes
+  useEffect(() => {
+    if (showSettings || window.location.hash === '#settings') {
+      window.api.getSettings().then((settings: any) => {
+        console.log('Reloading settings for settings window:', {
+          apiKey: settings.apiKey ? settings.apiKey.substring(0, 10) + '...' : 'empty',
+          shortcut: settings.shortcut
+        })
+        setApiKey(settings.apiKey || '')
+        setTranslate(settings.translate || false)
+        setLanguage(settings.language || '')
+        setShortcut(settings.shortcut || 'Shift+Command+Space')
+        setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
+      })
+    }
+  }, [showSettings])
+
+  if (showSettings || window.location.hash === '#settings') {
+    return (
+      <div className="h-screen w-screen bg-zinc-950">
+        <Settings
+          apiKey={apiKey}
+          setApiKey={(val) =>
+            saveSettings(
+              val,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          translate={translate}
+          setTranslate={(val) =>
+            saveSettings(
+              apiKey,
+              val,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          language={language}
+          setLanguage={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              val,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          sourceLanguage={sourceLanguage}
+          setSourceLanguage={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              val,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          targetLanguage={targetLanguage}
+          setTargetLanguage={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              val,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          shortcut={shortcut}
+          setShortcut={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              val,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          trayAnimations={trayAnimations}
+          setTrayAnimations={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              val,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          processNotifications={processNotifications}
+          setProcessNotifications={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              val,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          soundAlert={soundAlert}
+          setSoundAlert={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              val,
+              soundType,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          soundType={soundType}
+          setSoundType={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              val,
+              autoStart,
+              showRecordingOverlay
+            )
+          }
+          autoStart={autoStart}
+          setAutoStart={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              val,
+              showRecordingOverlay
+            )
+          }
+          showRecordingOverlay={showRecordingOverlay}
+          setShowRecordingOverlay={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              val
+            )
+          }
+          onSave={(settings) =>
+            saveSettings(
+              settings.apiKey,
+              settings.translate,
+              settings.language,
+              settings.sourceLanguage,
+              settings.targetLanguage,
+              settings.shortcut,
+              settings.trayAnimations,
+              settings.processNotifications,
+              settings.soundAlert,
+              settings.soundType,
+              settings.autoStart,
+              settings.showRecordingOverlay
+            )
+          }
+          onClose={() => window.api.closeSettings()}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="drag h-screen w-screen bg-transparent rounded-2xl overflow-hidden border border-white/10 shadow-2xl relative">
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay" />
+      <Status
+        status={status}
+        audioLevel={audioLevel}
+        shortcut={shortcut}
+        onRecordToggle={handleRecordToggle}
+        onOpenSettings={() => window.api.openSettings()}
+      />
+    </div>
+  )
+}
+
+export default App
