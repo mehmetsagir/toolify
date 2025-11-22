@@ -28,7 +28,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: false
-        run: npm run build:skip-check && electron-builder --mac dmg --publish never
+        run: npm run build:skip-check && electron-builder --mac dmg --publish never --config.mac.identity=null
       
       - name: Get version from package.json
         id: version
