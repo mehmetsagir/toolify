@@ -30,12 +30,14 @@ AI-powered voice transcription and translation tool for macOS. Toolify allows yo
 #### Opening the App for the First Time
 
 **Method 1: Right-Click (Easiest)**
+
 1. Right-click (or Control + Click) on Toolify.app in Applications
 2. Select "Open" from the menu
 3. Click "Open" in the warning dialog
 4. The app will open and you won't see this warning again
 
 **Method 2: System Settings**
+
 1. Try to open the app normally (you'll get the warning)
 2. Go to System Settings > Privacy & Security
 3. Scroll down to find "Toolify.app was blocked from use"
@@ -43,6 +45,7 @@ AI-powered voice transcription and translation tool for macOS. Toolify allows yo
 5. Enter your password and confirm
 
 **Method 3: Terminal Command**
+
 ```bash
 sudo xattr -rd com.apple.quarantine /Applications/Toolify.app
 ```
