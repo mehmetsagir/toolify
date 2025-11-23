@@ -21,6 +21,13 @@ import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/s
 import { createMainWindow, createSettingsWindow } from './utils/windows'
 import { getOverlayHTML } from './utils/overlay-template'
 import { getSettings, saveSettings as saveSettingsUtil } from './utils/settings'
+import {
+  setupAutoUpdater,
+  checkForUpdates,
+  downloadUpdate,
+  quitAndInstall,
+  getUpdateStatus
+} from './auto-updater'
 
 let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
@@ -241,6 +248,12 @@ app.whenReady().then(() => {
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
 
+  setupAutoUpdater(mainWindow)
+
+  setTimeout(() => {
+    checkForUpdates()
+  }, 5000)
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { systemPreferences } = require('electron')
 
@@ -409,6 +422,23 @@ app.whenReady().then(() => {
 
   ipcMain.on('preview-sound', (_, soundType: string) => {
     playSound(soundType)
+  })
+
+  ipcMain.handle('check-for-updates', async () => {
+    checkForUpdates()
+    return getUpdateStatus()
+  })
+
+  ipcMain.handle('download-update', async () => {
+    downloadUpdate()
+  })
+
+  ipcMain.handle('quit-and-install', async () => {
+    quitAndInstall()
+  })
+
+  ipcMain.handle('get-update-status', async () => {
+    return getUpdateStatus()
   })
 
   ipcMain.on('process-audio', async (_, buffer) => {

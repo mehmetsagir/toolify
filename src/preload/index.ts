@@ -34,7 +34,29 @@ const api = {
   openAccessibilitySettings: () => ipcRenderer.send('open-accessibility-settings'),
   resizeSettingsWindow: (height: number) => ipcRenderer.send('resize-settings-window', height),
   updateRecordingAudioLevel: (level: number) =>
-    ipcRenderer.send('update-recording-audio-level', level)
+    ipcRenderer.send('update-recording-audio-level', level),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
+  onUpdateAvailable: (callback: (info: any) => void) => {
+    ipcRenderer.on('update-available', (_, info) => callback(info))
+    return () => {
+      ipcRenderer.removeAllListeners('update-available')
+    }
+  },
+  onUpdateDownloaded: (callback: (info: any) => void) => {
+    ipcRenderer.on('update-downloaded', (_, info) => callback(info))
+    return () => {
+      ipcRenderer.removeAllListeners('update-downloaded')
+    }
+  },
+  onUpdateDownloadProgress: (callback: (progress: any) => void) => {
+    ipcRenderer.on('update-download-progress', (_, progress) => callback(progress))
+    return () => {
+      ipcRenderer.removeAllListeners('update-download-progress')
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

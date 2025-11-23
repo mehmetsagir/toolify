@@ -1,6 +1,6 @@
 {
   "name": "toolify",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "build": {
     "appId": "com.toolify.app",
     "productName": "Toolify",
@@ -12,7 +12,11 @@
   "main": "./out/main/index.js",
   "author": "",
   "license": "MIT",
-  "homepage": "https://github.com/yourusername/toolify",
+  "homepage": "https://github.com/mehmetsagir/toolify",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mehmetsagir/toolify.git"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -36,6 +40,7 @@
     "@tailwindcss/postcss": "^4.1.17",
     "clsx": "^2.1.1",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.6.2",
     "lucide-react": "^0.554.0",
     "openai": "^6.9.1",
     "tailwind-merge": "^3.4.0"

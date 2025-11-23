@@ -3,6 +3,10 @@ productName: Toolify
 directories:
   buildResources: build
 icon: resources/icon.png
+publish:
+  provider: github
+  owner: mehmetsagir
+  repo: toolify
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -29,6 +33,9 @@ mac:
   notarize: false
   gatekeeperAssess: false
   hardenedRuntime: false
+  target:
+    - dmg
+    - zip
 dmg:
   artifactName: ${name}-${version}.${ext}
   title: ${productName} ${version}
@@ -50,4 +57,3 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish: null

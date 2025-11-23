@@ -12,7 +12,10 @@ import {
   AlertTriangle,
   ExternalLink,
   Power,
-  Radio
+  Radio,
+  Download,
+  RefreshCw,
+  Zap
 } from 'lucide-react'
 
 interface SettingsProps {
@@ -102,6 +105,11 @@ export const Settings: React.FC<SettingsProps> = ({
   const [saved, setSaved] = useState(false)
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
   const [accessibilityRequired, setAccessibilityRequired] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [updateDownloaded, setUpdateDownloaded] = useState(false)
+  const [latestVersion, setLatestVersion] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState(0)
 
   useEffect(() => {
     setLocalKey(initialKey)
@@ -144,6 +152,43 @@ export const Settings: React.FC<SettingsProps> = ({
       }
     }
     checkPermission()
+
+    const checkUpdates = async () => {
+      if (window.api?.getUpdateStatus) {
+        try {
+          const status = await window.api.getUpdateStatus()
+          setUpdateAvailable(status.updateAvailable)
+          setUpdateDownloaded(status.updateDownloaded)
+          setLatestVersion(status.latestVersion)
+        } catch (error) {
+          console.error('Failed to check update status:', error)
+        }
+      }
+    }
+    checkUpdates()
+
+    if (window.api?.onUpdateAvailable) {
+      const unsubscribe1 = window.api.onUpdateAvailable((info) => {
+        setUpdateAvailable(true)
+        setLatestVersion(info.version)
+      })
+
+      const unsubscribe2 = window.api.onUpdateDownloaded((info) => {
+        setUpdateDownloaded(true)
+        setDownloading(false)
+        setLatestVersion(info.version)
+      })
+
+      const unsubscribe3 = window.api.onUpdateDownloadProgress((progress) => {
+        setDownloadProgress(Math.round(progress.percent))
+      })
+
+      return () => {
+        unsubscribe1()
+        unsubscribe2()
+        unsubscribe3()
+      }
+    }
 
     const interval = setInterval(checkPermission, 5000)
     return () => clearInterval(interval)
@@ -191,9 +236,103 @@ export const Settings: React.FC<SettingsProps> = ({
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const handleDownloadUpdate = async () => {
+    if (window.api?.downloadUpdate) {
+      setDownloading(true)
+      setDownloadProgress(0)
+      try {
+        await window.api.downloadUpdate()
+      } catch (error) {
+        console.error('Failed to download update:', error)
+        setDownloading(false)
+      }
+    }
+  }
+
+  const handleQuitAndInstall = async () => {
+    if (window.api?.quitAndInstall) {
+      try {
+        await window.api.quitAndInstall()
+      } catch (error) {
+        console.error('Failed to quit and install:', error)
+      }
+    }
+  }
+
   return (
     <div className="h-full w-full bg-zinc-950 flex flex-col">
       <div className="space-y-6 no-drag overflow-y-auto pr-2 flex-1 custom-scrollbar p-8 pb-4">
+        {/* Update Available Banner */}
+        {updateAvailable && !updateDownloaded && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 flex-shrink-0">
+                <Sparkles size={18} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-blue-400 font-medium text-sm">New Update Available</h3>
+                  <span className="text-blue-300 text-xs font-mono">{latestVersion}</span>
+                </div>
+                <p className="text-blue-300/80 text-xs leading-relaxed">
+                  A new version of Toolify is available. Download and install to get the latest
+                  features and improvements.
+                </p>
+                {downloading && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-blue-300">
+                      <span>Downloading...</span>
+                      <span>{downloadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-blue-500/20 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-blue-500 h-full transition-all duration-300"
+                        style={{ width: `${downloadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {!downloading && (
+                  <button
+                    onClick={handleDownloadUpdate}
+                    className="w-full mt-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg px-4 py-2 text-xs font-medium transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download size={14} />
+                    <span>Download Update</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Update Downloaded Banner */}
+        {updateDownloaded && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-green-500/20 text-green-400 flex-shrink-0">
+                <Zap size={18} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-green-400 font-medium text-sm">Update Ready to Install</h3>
+                  <span className="text-green-300 text-xs font-mono">{latestVersion}</span>
+                </div>
+                <p className="text-green-300/80 text-xs leading-relaxed">
+                  The update has been downloaded. Click below to quit and install the new version.
+                </p>
+                <button
+                  onClick={handleQuitAndInstall}
+                  className="w-full mt-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-lg px-4 py-2 text-xs font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  <RefreshCw size={14} />
+                  <span>Quit and Install</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Accessibility Permission Warning - Only show if permission is NOT granted */}
         {accessibilityRequired && accessibilityGranted === false && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
@@ -715,7 +854,7 @@ export const Settings: React.FC<SettingsProps> = ({
         <div className="mt-4 flex flex-col items-center gap-2">
           <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           <p className="text-zinc-600 text-[10px] font-medium tracking-widest uppercase pt-2">
-            Toolify v0.0.2
+            Toolify v0.0.3
           </p>
         </div>
       </div>

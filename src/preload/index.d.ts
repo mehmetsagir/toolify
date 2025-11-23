@@ -20,6 +20,21 @@ declare global {
       openAccessibilitySettings: () => void
       resizeSettingsWindow: (height: number) => void
       updateRecordingAudioLevel: (level: number) => void
+      checkForUpdates: () => Promise<{
+        updateAvailable: boolean
+        updateDownloaded: boolean
+        latestVersion: string | null
+      }>
+      downloadUpdate: () => Promise<void>
+      quitAndInstall: () => Promise<void>
+      getUpdateStatus: () => Promise<{
+        updateAvailable: boolean
+        updateDownloaded: boolean
+        latestVersion: string | null
+      }>
+      onUpdateAvailable: (callback: (info: any) => void) => () => void
+      onUpdateDownloaded: (callback: (info: any) => void) => () => void
+      onUpdateDownloadProgress: (callback: (progress: any) => void) => () => void
     }
   }
 }
