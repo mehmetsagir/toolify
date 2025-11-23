@@ -1,15 +1,28 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
 
+function getScreenDimensions(): { width: number; height: number } {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  return primaryDisplay.workAreaSize
+}
+
 export function createMainWindow(): BrowserWindow {
+  const { height: screenHeight } = getScreenDimensions()
+
+  const defaultWidth = 500
+  const defaultHeight = Math.floor(screenHeight * 0.7)
+
   const window = new BrowserWindow({
-    width: 320,
-    height: 450,
+    width: defaultWidth,
+    height: defaultHeight,
+    minWidth: 320,
+    minHeight: 400,
+    maxHeight: screenHeight,
     show: false,
     frame: false,
-    resizable: false,
+    resizable: true,
     fullscreenable: false,
     transparent: true,
     skipTaskbar: true,
@@ -36,11 +49,13 @@ export function createMainWindow(): BrowserWindow {
 }
 
 export function createSettingsWindow(): BrowserWindow {
+  const { height: screenHeight } = getScreenDimensions()
+
   const window = new BrowserWindow({
-    minWidth: 750,
-    maxWidth: 760,
-    minHeight: 1200,
-    maxHeight: 2000,
+    minWidth: 800,
+    maxWidth: 800,
+    minHeight: Math.floor(screenHeight * 0.4),
+    maxHeight: screenHeight,
     show: false,
     frame: true,
     resizable: true,
@@ -68,4 +83,3 @@ export function createSettingsWindow(): BrowserWindow {
 
   return window
 }
-

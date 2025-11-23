@@ -92,11 +92,11 @@ export async function transcribe(
 
       const targetLangName = getLanguageName(targetLanguage || 'en')
       const sourceLangName = getLanguageName(sourceLanguage || 'auto')
-      const translationResponse = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
+        const translationResponse = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
             content: `You are a professional translator. Translate the following ${sourceLangName} text to ${targetLangName}.
 
 Important guidelines:
@@ -107,14 +107,14 @@ Important guidelines:
 - Do not add, remove, or change the meaning
 - Do not add any commentary, explanations, or metadata
 - Only return the translation itself, nothing else`
-          },
-          {
-            role: 'user',
+            },
+            {
+              role: 'user',
             content: sourceText
-          }
-        ],
+            }
+          ],
         temperature: 0.3
-      })
+        })
       text = cleanTranslationText(translationResponse.choices[0]?.message?.content || sourceText)
     } else {
       const fileStream2 = fs.createReadStream(tempFilePath)

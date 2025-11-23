@@ -74,7 +74,7 @@ function updateTrayIcon(
       const overlaySettings = getSettings()
       if (overlaySettings.showRecordingOverlay !== false) {
         createRecordingOverlay()
-      }
+        }
       break
     }
 

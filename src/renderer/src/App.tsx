@@ -17,9 +17,9 @@ function App(): React.JSX.Element {
   const [soundType, setSoundType] = useState('Glass')
   const [autoStart, setAutoStart] = useState(true)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
-
+  
   const [audioLevel, setAudioLevel] = useState(0)
-
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -35,7 +35,7 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const isSettingsMode = window.location.hash === '#settings'
     setShowSettings(isSettingsMode)
-
+    
     const loadSettings = () => {
       window.api.getSettings().then((settings: any) => {
         setApiKey(settings.apiKey || '')
@@ -54,9 +54,9 @@ function App(): React.JSX.Element {
         setShowRecordingOverlay(settings.showRecordingOverlay !== false)
       })
     }
-
+    
     loadSettings()
-
+    
     if (isSettingsMode) {
       loadSettings()
     }
@@ -66,7 +66,7 @@ function App(): React.JSX.Element {
         startRecording()
       }
     })
-
+    
     const removeStopListener = window.api.onStopRecording(() => {
       if (statusRef.current === 'recording') {
         stopRecording()
@@ -115,16 +115,16 @@ function App(): React.JSX.Element {
     setSoundType(newSoundType)
     setAutoStart(newAutoStart)
     setShowRecordingOverlay(newShowRecordingOverlay)
-    window.api.saveSettings({
-      apiKey: newKey,
-      translate: newTranslate,
-      language: newLanguage,
+    window.api.saveSettings({ 
+      apiKey: newKey, 
+      translate: newTranslate, 
+      language: newLanguage, 
       sourceLanguage: newSourceLanguage,
       targetLanguage: newTargetLanguage,
-      shortcut: newShortcut,
-      trayAnimations: newTrayAnimations,
-      processNotifications: newProcessNotifications,
-      soundAlert: newSoundAlert,
+      shortcut: newShortcut, 
+      trayAnimations: newTrayAnimations, 
+      processNotifications: newProcessNotifications, 
+      soundAlert: newSoundAlert, 
       soundType: newSoundType,
       autoStart: newAutoStart,
       showRecordingOverlay: newShowRecordingOverlay
@@ -143,7 +143,7 @@ function App(): React.JSX.Element {
     }
     const average = sum / dataArray.length
     const normalizedLevel = Math.min(100, average * 2.5)
-
+    
     setAudioLevel(normalizedLevel)
 
     if (window.api?.updateRecordingAudioLevel && statusRef.current === 'recording') {
@@ -156,18 +156,18 @@ function App(): React.JSX.Element {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-
+      
       const audioContext = new AudioContext()
       const analyser = audioContext.createAnalyser()
       const source = audioContext.createMediaStreamSource(stream)
-
+      
       analyser.fftSize = 256
       source.connect(analyser)
-
+      
       audioContextRef.current = audioContext
       analyserRef.current = analyser
       sourceRef.current = source
-
+      
       analyzeAudio()
 
       const mediaRecorder = new MediaRecorder(stream)
@@ -189,14 +189,14 @@ function App(): React.JSX.Element {
         window.api.processAudio(buffer)
         window.api.setRecordingState(false)
         setAudioLevel(0)
-
+        
         // Cleanup Audio Context
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
         if (audioContextRef.current) audioContextRef.current.close()
-
+        
         // Stop all tracks
         stream.getTracks().forEach((track) => track.stop())
-
+        
         // Reset to idle after processing (will be set by main process when done)
         // Main process will handle the copied state
       }
@@ -211,7 +211,7 @@ function App(): React.JSX.Element {
 
   const stopRecording = () => {
     if (!mediaRecorderRef.current) return
-
+    
     setStatus('processing')
     mediaRecorderRef.current.stop()
   }
@@ -228,9 +228,9 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (showSettings || window.location.hash === '#settings') {
       window.api.getSettings().then((settings: any) => {
-        console.log('Reloading settings for settings window:', {
+        console.log('Reloading settings for settings window:', { 
           apiKey: settings.apiKey ? settings.apiKey.substring(0, 10) + '...' : 'empty',
-          shortcut: settings.shortcut
+          shortcut: settings.shortcut 
         })
         setApiKey(settings.apiKey || '')
         setTranslate(settings.translate || false)

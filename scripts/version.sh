@@ -39,3 +39,4 @@ echo "   npm run build:dmg"
 echo ""
 echo "5. The DMG will be available at: dist/toolify-$NEW_VERSION.dmg"
 
+

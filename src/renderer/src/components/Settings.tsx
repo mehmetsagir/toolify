@@ -192,8 +192,8 @@ export const Settings: React.FC<SettingsProps> = ({
   }
 
   return (
-    <div className="h-full w-full bg-zinc-950 p-8 flex flex-col">
-      <div className="space-y-6 no-drag overflow-y-auto pr-2 flex-1 custom-scrollbar">
+    <div className="h-full w-full bg-zinc-950 flex flex-col">
+      <div className="space-y-6 no-drag overflow-y-auto pr-2 flex-1 custom-scrollbar p-8 pb-4">
         {/* Accessibility Permission Warning - Only show if permission is NOT granted */}
         {accessibilityRequired && accessibilityGranted === false && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
@@ -685,8 +685,10 @@ export const Settings: React.FC<SettingsProps> = ({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Save Button */}
+      {/* Save Button - Fixed at bottom */}
+      <div className="px-8 py-4 bg-zinc-950 border-t border-white/5">
         <button
           onClick={handleSave}
           disabled={saved}
@@ -708,14 +710,14 @@ export const Settings: React.FC<SettingsProps> = ({
             </>
           )}
         </button>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-auto flex flex-col items-center gap-2">
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <p className="text-zinc-600 text-[10px] font-medium tracking-widest uppercase pt-4">
-          Toolify v1.0.0
-        </p>
+        
+        {/* Footer */}
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <p className="text-zinc-600 text-[10px] font-medium tracking-widest uppercase pt-2">
+            Toolify v0.0.2
+          </p>
+        </div>
       </div>
     </div>
   )
