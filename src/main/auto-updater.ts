@@ -4,8 +4,12 @@ import { showNotification } from './utils/system'
 
 let updateDownloaded = false
 let latestVersion: string | null = null
+let allWindows: BrowserWindow[] = []
 
 export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
+  if (mainWindow) {
+    allWindows = [mainWindow]
+  }
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
 
@@ -24,13 +28,15 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
     latestVersion = info.version
     updateDownloaded = false
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-available', {
-        version: info.version,
-        releaseNotes: info.releaseNotes,
-        releaseDate: info.releaseDate
-      })
-    }
+    allWindows.forEach((window) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('update-available', {
+          version: info.version,
+          releaseNotes: info.releaseNotes,
+          releaseDate: info.releaseDate
+        })
+      }
+    })
 
     showNotification(
       'Update Available',
@@ -41,29 +47,35 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
 
   autoUpdater.on('update-not-available', (info) => {
     console.log('Update not available:', info.version)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-not-available')
-    }
+    allWindows.forEach((window) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('update-not-available')
+      }
+    })
   })
 
   autoUpdater.on('error', (err) => {
     console.error('Update error:', err)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-error', err.message)
-    }
+    allWindows.forEach((window) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('update-error', err.message)
+      }
+    })
   })
 
   autoUpdater.on('download-progress', (progressObj) => {
     console.log(
       `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`
     )
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-download-progress', {
-        percent: progressObj.percent,
-        transferred: progressObj.transferred,
-        total: progressObj.total
-      })
-    }
+    allWindows.forEach((window) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('update-download-progress', {
+          percent: progressObj.percent,
+          transferred: progressObj.transferred,
+          total: progressObj.total
+        })
+      }
+    })
   })
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -71,11 +83,13 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
     updateDownloaded = true
     latestVersion = info.version
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-downloaded', {
-        version: info.version
-      })
-    }
+    allWindows.forEach((window) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('update-downloaded', {
+          version: info.version
+        })
+      }
+    })
 
     showNotification(
       'Update Ready',
@@ -85,19 +99,21 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   })
 }
 
-export function checkForUpdates(): void {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Skipping update check in development mode')
-    return
+export function registerWindow(window: BrowserWindow): void {
+  if (!allWindows.includes(window)) {
+    allWindows.push(window)
   }
+}
+
+export function unregisterWindow(window: BrowserWindow): void {
+  allWindows = allWindows.filter((w) => w !== window)
+}
+
+export function checkForUpdates(): void {
   autoUpdater.checkForUpdates()
 }
 
 export function downloadUpdate(): void {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Skipping update download in development mode')
-    return
-  }
   autoUpdater.downloadUpdate()
 }
 

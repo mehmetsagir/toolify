@@ -26,7 +26,9 @@ import {
   checkForUpdates,
   downloadUpdate,
   quitAndInstall,
-  getUpdateStatus
+  getUpdateStatus,
+  registerWindow,
+  unregisterWindow
 } from './auto-updater'
 
 let tray: Tray | null = null
@@ -137,7 +139,11 @@ function createSettingsWindowInstance(): void {
     return
   }
   settingsWindow = createSettingsWindow()
+  registerWindow(settingsWindow)
   settingsWindow.on('closed', () => {
+    if (settingsWindow) {
+      unregisterWindow(settingsWindow)
+    }
     settingsWindow = null
   })
   settingsWindow.on('enter-full-screen', () => {

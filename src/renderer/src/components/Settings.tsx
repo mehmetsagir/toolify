@@ -167,10 +167,15 @@ export const Settings: React.FC<SettingsProps> = ({
     }
     checkUpdates()
 
+    const interval = setInterval(checkPermission, 5000)
+    const updateCheckInterval = setInterval(checkUpdates, 3000)
+
     if (window.api?.onUpdateAvailable) {
       const unsubscribe1 = window.api.onUpdateAvailable((info) => {
         setUpdateAvailable(true)
         setLatestVersion(info.version)
+        setUpdateDownloaded(false)
+        setDownloading(false)
       })
 
       const unsubscribe2 = window.api.onUpdateDownloaded((info) => {
@@ -180,6 +185,7 @@ export const Settings: React.FC<SettingsProps> = ({
       })
 
       const unsubscribe3 = window.api.onUpdateDownloadProgress((progress) => {
+        setDownloading(true)
         setDownloadProgress(Math.round(progress.percent))
       })
 
@@ -187,12 +193,16 @@ export const Settings: React.FC<SettingsProps> = ({
         unsubscribe1()
         unsubscribe2()
         unsubscribe3()
+        clearInterval(interval)
+        clearInterval(updateCheckInterval)
       }
     }
 
-    const interval = setInterval(checkPermission, 5000)
-    return () => clearInterval(interval)
-  }, [localShortcut])
+    return () => {
+      clearInterval(interval)
+      clearInterval(updateCheckInterval)
+    }
+  }, [])
 
   useEffect(() => {
     if (window.api?.resizeSettingsWindow) {
