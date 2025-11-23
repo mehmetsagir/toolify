@@ -3,9 +3,11 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'
       - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -24,33 +26,47 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build DMG
+      - name: Build App
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: false
-        run: npm run build:dmg
+        run: npm run build:mac
       
       - name: Get version from package.json
         id: version
         run: echo "VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
       
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
-          files: dist/*.dmg
-          name: Release v${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/latest-mac.yml
+          name: Release ${{ github.ref_name }}
           body: |
-            ## Toolify v${{ steps.version.outputs.VERSION }}
+            ## Toolify ${{ github.ref_name }}
             
             ### Installation
+            
+            **For New Users (DMG):**
             1. Download the DMG file below
             2. Open the DMG file
             3. Drag Toolify to your Applications folder
             4. Launch Toolify from Applications
             
-            ### Changes
-            See [CHANGELOG.md](CHANGELOG.md) for details.
+            **For Auto-Update (ZIP):**
+            The ZIP file is used for automatic updates. If you already have Toolify installed, the app will notify you and download this update automatically.
+            
+            ### What's New
+            - Auto-update system with GitHub releases integration
+            - In-app update notifications
+            - Download progress tracking
+            - One-click install and restart
+            
+            ### macOS Gatekeeper
+            If you see a warning on first launch, right-click the app and select "Open".
           draft: false
           prerelease: false
         env:
