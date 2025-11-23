@@ -864,7 +864,7 @@ export const Settings: React.FC<SettingsProps> = ({
         <div className="mt-4 flex flex-col items-center gap-2">
           <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           <p className="text-zinc-600 text-[10px] font-medium tracking-widest uppercase pt-2">
-            Toolify v0.0.4
+            Toolify v0.0.5
           </p>
         </div>
       </div>

@@ -20,7 +20,20 @@ AI-powered voice transcription and translation tool for macOS. Toolify allows yo
 
 ## Installation
 
-### From DMG (Recommended)
+### Via Homebrew (Easiest)
+
+```bash
+# Add the tap
+brew tap mehmetsagir/toolify
+
+# Install Toolify
+brew install --cask toolify
+
+# Update Toolify
+brew upgrade --cask toolify
+```
+
+### From DMG (Alternative)
 
 1. Download the latest `Toolify-x.x.x-arm64.dmg` from [Releases](https://github.com/mehmetsagir/toolify/releases)
 2. Open the DMG file
