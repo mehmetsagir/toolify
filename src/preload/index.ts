@@ -1,4 +1,5 @@
-import { contextBridge, ipcRenderer, Settings } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+import type { Settings, UpdateInfo, UpdateDownloadProgress } from '../shared/types'
 import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
@@ -39,19 +40,19 @@ const api = {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
-  onUpdateAvailable: (callback: (info: any) => void) => {
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => {
     ipcRenderer.on('update-available', (_, info) => callback(info))
     return () => {
       ipcRenderer.removeAllListeners('update-available')
     }
   },
-  onUpdateDownloaded: (callback: (info: any) => void) => {
+  onUpdateDownloaded: (callback: (info: Pick<UpdateInfo, 'version'>) => void) => {
     ipcRenderer.on('update-downloaded', (_, info) => callback(info))
     return () => {
       ipcRenderer.removeAllListeners('update-downloaded')
     }
   },
-  onUpdateDownloadProgress: (callback: (progress: any) => void) => {
+  onUpdateDownloadProgress: (callback: (progress: UpdateDownloadProgress) => void) => {
     ipcRenderer.on('update-download-progress', (_, progress) => callback(progress))
     return () => {
       ipcRenderer.removeAllListeners('update-download-progress')

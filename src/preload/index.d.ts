@@ -1,4 +1,11 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type {
+  Settings,
+  UpdateInfo,
+  UpdateDownloadProgress,
+  UpdateStatus,
+  AccessibilityPermission
+} from '../shared/types'
 
 declare global {
   interface Window {
@@ -16,25 +23,17 @@ declare global {
       setRecordingState: (state: boolean) => void
       setProcessingState: (state: boolean) => void
       previewSound: (soundType: string) => void
-      checkAccessibilityPermission: () => Promise<{ granted: boolean; required: boolean }>
+      checkAccessibilityPermission: () => Promise<AccessibilityPermission>
       openAccessibilitySettings: () => void
       resizeSettingsWindow: (height: number) => void
       updateRecordingAudioLevel: (level: number) => void
-      checkForUpdates: () => Promise<{
-        updateAvailable: boolean
-        updateDownloaded: boolean
-        latestVersion: string | null
-      }>
+      checkForUpdates: () => Promise<UpdateStatus>
       downloadUpdate: () => Promise<void>
       quitAndInstall: () => Promise<void>
-      getUpdateStatus: () => Promise<{
-        updateAvailable: boolean
-        updateDownloaded: boolean
-        latestVersion: string | null
-      }>
-      onUpdateAvailable: (callback: (info: any) => void) => () => void
-      onUpdateDownloaded: (callback: (info: any) => void) => () => void
-      onUpdateDownloadProgress: (callback: (progress: any) => void) => () => void
+      getUpdateStatus: () => Promise<UpdateStatus>
+      onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
+      onUpdateDownloaded: (callback: (info: Pick<UpdateInfo, 'version'>) => void) => () => void
+      onUpdateDownloadProgress: (callback: (progress: UpdateDownloadProgress) => void) => () => void
     }
   }
 }

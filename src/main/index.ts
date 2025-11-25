@@ -83,7 +83,7 @@ function updateTrayIcon(
       const overlaySettings = getSettings()
       if (overlaySettings.showRecordingOverlay !== false) {
         createRecordingOverlay()
-        }
+      }
       break
     }
 
@@ -519,7 +519,7 @@ app.whenReady().then(() => {
   const updateContextMenu = (): void => {
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Settings',
+        label: 'Dictation Settings',
         type: 'normal',
         click: () => createSettingsWindowInstance()
       },
