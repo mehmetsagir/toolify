@@ -52,6 +52,8 @@ export function createSettingsWindow(): BrowserWindow {
   const { height: screenHeight } = getScreenDimensions()
 
   const window = new BrowserWindow({
+    width: 800,
+    height: Math.min(950, Math.floor(screenHeight * 0.9)),
     minWidth: 800,
     maxWidth: 800,
     minHeight: Math.floor(screenHeight * 0.4),
@@ -60,7 +62,7 @@ export function createSettingsWindow(): BrowserWindow {
     frame: true,
     resizable: true,
     fullscreenable: false,
-    title: 'Toolify - Settings',
+    title: 'Toolify - Dictation Settings',
     backgroundColor: '#18181b',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {

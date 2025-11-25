@@ -52,4 +52,3 @@ export function unmuteSystem(): void {
     previousVolume = null
   }
 }
-
