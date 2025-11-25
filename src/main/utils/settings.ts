@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import { Settings } from '../types'
+import type { Settings } from '../../shared/types'
 
 const store = new Store()
 
@@ -25,4 +25,3 @@ export function getSettings(): Settings {
 export function saveSettings(settings: Settings): void {
   store.set('settings', settings)
 }
-

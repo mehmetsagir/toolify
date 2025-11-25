@@ -1,6 +1,7 @@
 import { autoUpdater } from 'electron-updater'
 import { BrowserWindow } from 'electron'
 import { showNotification } from './utils/system'
+import type { UpdateStatus } from '../shared/types'
 
 let updateDownloaded = false
 let latestVersion: string | null = null
@@ -10,8 +11,11 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   if (mainWindow) {
     allWindows = [mainWindow]
   }
+
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.allowDowngrade = false
+  autoUpdater.allowPrerelease = false
 
   autoUpdater.setFeedURL({
     provider: 'github',
@@ -20,11 +24,10 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   })
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('Checking for updates...')
+    // Checking for updates
   })
 
   autoUpdater.on('update-available', (info) => {
-    console.log('Update available:', info.version)
     latestVersion = info.version
     updateDownloaded = false
 
@@ -45,8 +48,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
     )
   })
 
-  autoUpdater.on('update-not-available', (info) => {
-    console.log('Update not available:', info.version)
+  autoUpdater.on('update-not-available', () => {
     allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('update-not-available')
@@ -55,7 +57,6 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   })
 
   autoUpdater.on('error', (err) => {
-    console.error('Update error:', err)
     allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('update-error', err.message)
@@ -64,9 +65,6 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   })
 
   autoUpdater.on('download-progress', (progressObj) => {
-    console.log(
-      `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`
-    )
     allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('update-download-progress', {
@@ -79,7 +77,6 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   })
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('Update downloaded:', info.version)
     updateDownloaded = true
     latestVersion = info.version
 
@@ -93,7 +90,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
 
     showNotification(
       'Update Ready',
-      `Version ${info.version} has been downloaded. Restart to install.`,
+      `Version ${info.version} has been downloaded. Click "Quit and Install" in Settings.`,
       true
     )
   })
@@ -119,19 +116,22 @@ export function downloadUpdate(): void {
 
 export function quitAndInstall(): void {
   if (updateDownloaded) {
-    autoUpdater.quitAndInstall(false, true)
+    allWindows.forEach((window) => {
+      if (window && !window.isDestroyed()) {
+        window.close()
+      }
+    })
+
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(true, true)
+    }, 100)
   }
 }
 
-export function getUpdateStatus(): {
-  updateAvailable: boolean
-  updateDownloaded: boolean
-  latestVersion: string | null
-} {
+export function getUpdateStatus(): UpdateStatus {
   return {
     updateAvailable: latestVersion !== null,
     updateDownloaded,
     latestVersion
   }
 }
-
