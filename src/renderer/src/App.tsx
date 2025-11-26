@@ -184,29 +184,23 @@ function App(): React.JSX.Element {
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
         const buffer = await blob.arrayBuffer()
-        console.log('Sending audio buffer to main process, size:', buffer.byteLength)
         setStatus('processing')
         window.api.setProcessingState(true)
         window.api.processAudio(buffer)
         window.api.setRecordingState(false)
         setAudioLevel(0)
 
-        // Cleanup Audio Context
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
         if (audioContextRef.current) audioContextRef.current.close()
 
-        // Stop all tracks
         stream.getTracks().forEach((track) => track.stop())
-
-        // Reset to idle after processing (will be set by main process when done)
-        // Main process will handle the copied state
       }
 
       mediaRecorder.start()
       setStatus('recording')
       window.api.setRecordingState(true)
-    } catch (err) {
-      console.error('Failed to start recording', err)
+    } catch {
+      // Failed to start recording - user may have denied permission
     }
   }
 
@@ -225,18 +219,13 @@ function App(): React.JSX.Element {
     }
   }
 
-  // Reload settings when settings window opens/closes
   useEffect(() => {
     if (showSettings || window.location.hash === '#settings') {
       window.api.getSettings().then((settings) => {
-        console.log('Reloading settings for settings window:', {
-          apiKey: settings.apiKey ? settings.apiKey.substring(0, 10) + '...' : 'empty',
-          shortcut: settings.shortcut
-        })
         setApiKey(settings.apiKey || '')
         setTranslate(settings.translate || false)
         setLanguage(settings.language || '')
-        setShortcut(settings.shortcut || 'Shift+Command+Space')
+        setShortcut(settings.shortcut || 'Command+Space')
         setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
       })
     }
