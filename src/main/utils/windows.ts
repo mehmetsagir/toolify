@@ -8,15 +8,49 @@ function getScreenDimensions(): { width: number; height: number } {
   return primaryDisplay.workAreaSize
 }
 
+/**
+ * Gets the display where the focused window is located, or primary display if no focused window
+ */
+function getActiveDisplay(): Electron.Display {
+  const focusedWindow = BrowserWindow.getFocusedWindow()
+  
+  if (focusedWindow) {
+    const bounds = focusedWindow.getBounds()
+    const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+    return screen.getDisplayNearestPoint(point)
+  }
+  
+  // If no focused window, try to find any visible window
+  const allWindows = BrowserWindow.getAllWindows()
+  for (const win of allWindows) {
+    if (!win.isDestroyed() && win.isVisible()) {
+      const bounds = win.getBounds()
+      const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+      return screen.getDisplayNearestPoint(point)
+    }
+  }
+  
+  // Fallback to primary display
+  return screen.getPrimaryDisplay()
+}
+
 export function createMainWindow(): BrowserWindow {
-  const { height: screenHeight } = getScreenDimensions()
+  const activeDisplay = getActiveDisplay()
+  const { height: screenHeight } = activeDisplay.workAreaSize
+  const { x: displayX, y: displayY } = activeDisplay.workArea
 
   const defaultWidth = 500
   const defaultHeight = Math.floor(screenHeight * 0.7)
+  
+  // Center the window on the active display
+  const x = displayX + (activeDisplay.workAreaSize.width - defaultWidth) / 2
+  const y = displayY + (activeDisplay.workAreaSize.height - defaultHeight) / 2
 
   const window = new BrowserWindow({
     width: defaultWidth,
     height: defaultHeight,
+    x: Math.round(x),
+    y: Math.round(y),
     minWidth: 320,
     minHeight: 400,
     maxHeight: screenHeight,
@@ -49,20 +83,29 @@ export function createMainWindow(): BrowserWindow {
 }
 
 export function createSettingsWindow(): BrowserWindow {
-  const { height: screenHeight } = getScreenDimensions()
+  const activeDisplay = getActiveDisplay()
+  const { height: screenHeight, width: screenWidth } = activeDisplay.workAreaSize
+  const { x: displayX, y: displayY } = activeDisplay.workArea
+
+  const windowWidth = 1000
+  const windowHeight = Math.min(700, Math.floor(screenHeight * 0.85))
+  
+  // Center the window on the active display
+  const x = displayX + (activeDisplay.workAreaSize.width - windowWidth) / 2
+  const y = displayY + (activeDisplay.workAreaSize.height - windowHeight) / 2
 
   const window = new BrowserWindow({
-    width: 800,
-    height: Math.min(950, Math.floor(screenHeight * 0.9)),
+    width: windowWidth,
+    height: windowHeight,
+    x: Math.round(x),
+    y: Math.round(y),
     minWidth: 800,
-    maxWidth: 800,
-    minHeight: Math.floor(screenHeight * 0.4),
-    maxHeight: screenHeight,
+    minHeight: 500,
     show: false,
     frame: true,
     resizable: true,
     fullscreenable: false,
-    title: 'Toolify - Dictation Settings',
+    title: 'Toolify - Settings',
     backgroundColor: '#18181b',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
