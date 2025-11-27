@@ -22,6 +22,19 @@ import { createMainWindow, createSettingsWindow } from './utils/windows'
 import { getOverlayHTML } from './utils/overlay-template'
 import { getSettings, saveSettings as saveSettingsUtil } from './utils/settings'
 import {
+  getAllHistory,
+  addHistoryItem,
+  deleteHistoryItem,
+  toggleFavorite,
+  searchHistory,
+  getFavorites,
+  clearHistory,
+  clearOldHistory,
+  deleteHistoryItems,
+  getHistorySettings,
+  saveHistorySettings
+} from './utils/history'
+import {
   setupAutoUpdater,
   checkForUpdates,
   downloadUpdate,
@@ -159,16 +172,37 @@ function createRecordingOverlay(): void {
     recordingOverlay.close()
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay()
-  const { width: screenWidth } = primaryDisplay.workAreaSize
+  // Get the display where the focused window is, or primary display
+  let activeDisplay = screen.getPrimaryDisplay()
+  const focusedWindow = BrowserWindow.getFocusedWindow()
+  
+  if (focusedWindow) {
+    const bounds = focusedWindow.getBounds()
+    const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+    activeDisplay = screen.getDisplayNearestPoint(point)
+  } else {
+    // If no focused window, try to find any visible window
+    const allWindows = BrowserWindow.getAllWindows()
+    for (const win of allWindows) {
+      if (!win.isDestroyed() && win.isVisible()) {
+        const bounds = win.getBounds()
+        const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+        activeDisplay = screen.getDisplayNearestPoint(point)
+        break
+      }
+    }
+  }
+
+  const { width: screenWidth } = activeDisplay.workAreaSize
+  const { x: displayX, y: displayY } = activeDisplay.workArea
 
   const overlayWidth = 160
   const overlayHeight = 60
   const rightPadding = 5
   const topPadding = 30
 
-  const x = screenWidth - overlayWidth - rightPadding
-  const y = topPadding
+  const x = displayX + screenWidth - overlayWidth - rightPadding
+  const y = displayY + topPadding
 
   recordingOverlay = new BrowserWindow({
     width: overlayWidth,
@@ -390,6 +424,18 @@ app.whenReady().then(() => {
     settingsWindow?.close()
   })
 
+  ipcMain.on('open-history', () => {
+    // Open settings window and show history tab
+    if (!settingsWindow || settingsWindow.isDestroyed()) {
+      createSettingsWindowInstance()
+    }
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.show()
+      settingsWindow.focus()
+      settingsWindow.webContents.send('show-history')
+    }
+  })
+
   ipcMain.on('resize-settings-window', (_, height: number) => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       const currentSize = settingsWindow.getSize()
@@ -447,6 +493,54 @@ app.whenReady().then(() => {
     return getUpdateStatus()
   })
 
+  // History IPC handlers
+  ipcMain.handle('get-all-history', async () => {
+    return getAllHistory()
+  })
+
+  ipcMain.handle('get-history-item', async (_, id: string) => {
+    const history = getAllHistory()
+    return history.find((item) => item.id === id) || null
+  })
+
+  ipcMain.handle('delete-history-item', async (_, id: string) => {
+    return deleteHistoryItem(id)
+  })
+
+  ipcMain.handle('toggle-favorite', async (_, id: string) => {
+    return toggleFavorite(id)
+  })
+
+  ipcMain.handle('search-history', async (_, query: string) => {
+    return searchHistory(query)
+  })
+
+  ipcMain.handle('get-favorites', async () => {
+    return getFavorites()
+  })
+
+  ipcMain.handle('clear-history', async () => {
+    clearHistory()
+    return true
+  })
+
+  ipcMain.handle('delete-history-items', async (_, ids: string[]) => {
+    return deleteHistoryItems(ids)
+  })
+
+  ipcMain.handle('get-history-settings', async () => {
+    return getHistorySettings()
+  })
+
+  ipcMain.handle('save-history-settings', async (_, settings) => {
+    saveHistorySettings(settings)
+    return true
+  })
+
+  ipcMain.handle('clear-old-history', async () => {
+    return clearOldHistory()
+  })
+
   ipcMain.on('process-audio', async (_, buffer) => {
     const settings = getSettings()
 
@@ -484,6 +578,19 @@ app.whenReady().then(() => {
           playSound(settings.soundType)
         }
 
+        // Save to history
+        try {
+          addHistoryItem({
+            text,
+            isFavorite: false,
+            translated: settings.translate ?? false,
+            sourceLanguage: settings.sourceLanguage,
+            targetLanguage: settings.targetLanguage
+          })
+        } catch (error) {
+          console.error('Failed to save history:', error)
+        }
+
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('processing-complete')
         }
@@ -519,7 +626,7 @@ app.whenReady().then(() => {
   const updateContextMenu = (): void => {
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Dictation Settings',
+        label: 'Settings',
         type: 'normal',
         click: () => createSettingsWindowInstance()
       },

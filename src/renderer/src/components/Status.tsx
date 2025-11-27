@@ -1,5 +1,5 @@
 import React from 'react'
-import { Mic, Settings2, Loader2, Sparkles } from 'lucide-react'
+import { Mic, Settings2, Loader2, Sparkles, History as HistoryIcon } from 'lucide-react'
 
 interface StatusProps {
   status: 'idle' | 'recording' | 'processing'
@@ -7,6 +7,7 @@ interface StatusProps {
   shortcut?: string
   onRecordToggle: () => void
   onOpenSettings: () => void
+  onOpenHistory?: () => void
 }
 
 export const Status: React.FC<StatusProps> = ({
@@ -14,7 +15,8 @@ export const Status: React.FC<StatusProps> = ({
   audioLevel = 0,
   shortcut = 'Shift+Command+Space',
   onRecordToggle,
-  onOpenSettings
+  onOpenSettings,
+  onOpenHistory
 }) => {
   const scale = 1 + (audioLevel / 100) * 0.1
 
@@ -41,10 +43,20 @@ export const Status: React.FC<StatusProps> = ({
       </div>
 
       {/* Header */}
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        {onOpenHistory && (
+          <button
+            onClick={onOpenHistory}
+            className="no-drag w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white transition-all backdrop-blur-sm cursor-pointer"
+            title="History"
+          >
+            <HistoryIcon size={16} />
+          </button>
+        )}
         <button
           onClick={onOpenSettings}
           className="no-drag w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white transition-all backdrop-blur-sm cursor-pointer"
+          title="Settings"
         >
           <Settings2 size={16} />
         </button>

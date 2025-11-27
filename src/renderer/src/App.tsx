@@ -469,6 +469,7 @@ function App(): React.JSX.Element {
         shortcut={shortcut}
         onRecordToggle={handleRecordToggle}
         onOpenSettings={() => window.api.openSettings()}
+        onOpenHistory={() => window.api.openHistory()}
       />
     </div>
   )
