@@ -11,6 +11,8 @@ export interface Settings {
   soundType?: string
   autoStart?: boolean
   showRecordingOverlay?: boolean
+  historyAutoDeleteDays?: number // 0 = never delete
+  historyMaxItems?: number // 0 = unlimited
 }
 
 export interface AccessibilityPermission {
