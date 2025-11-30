@@ -284,7 +284,16 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
   )
 }
 
-const SidebarItem = ({ icon, label, count, active, color, onClick }: any) => (
+interface SidebarItemProps {
+  icon: React.ReactElement
+  label: string
+  count: number
+  active: boolean
+  color: string
+  onClick: () => void
+}
+
+const SidebarItem = ({ icon, label, count, active, color, onClick }: SidebarItemProps) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
@@ -293,7 +302,7 @@ const SidebarItem = ({ icon, label, count, active, color, onClick }: any) => (
   >
     <div className="flex items-center gap-3">
       <div className={`p-1.5 rounded-md ${active ? color : 'bg-zinc-800'} text-white`}>
-        {React.cloneElement(icon, { size: 14 })}
+        {React.isValidElement(icon) ? React.cloneElement(icon, { size: 14 } as React.HTMLAttributes<SVGElement>) : icon}
       </div>
       <span className="text-sm font-medium">{label}</span>
     </div>
