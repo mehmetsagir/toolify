@@ -15,3 +15,4 @@ export interface HistorySettings {
   autoDeleteDays: number // 0 = never delete
   maxHistoryItems: number // 0 = unlimited
 }
+
