@@ -34,7 +34,7 @@ const api = {
       ipcRenderer.removeAllListeners('show-history')
     }
   },
-  processAudio: (buffer: ArrayBuffer) => ipcRenderer.send('process-audio', buffer),
+  processAudio: (buffer: ArrayBuffer, duration: number) => ipcRenderer.send('process-audio', buffer, duration),
   saveSettings: (settings: Settings) => ipcRenderer.send('save-settings', settings),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   hideWindow: () => ipcRenderer.send('hide-window'),

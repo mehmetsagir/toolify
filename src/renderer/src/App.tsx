@@ -26,6 +26,7 @@ function App(): React.JSX.Element {
   const analyserRef = useRef<AnalyserNode | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const startTimeRef = useRef<number>(0)
 
   const statusRef = useRef(status)
   useEffect(() => {
@@ -186,7 +187,8 @@ function App(): React.JSX.Element {
         const buffer = await blob.arrayBuffer()
         setStatus('processing')
         window.api.setProcessingState(true)
-        window.api.processAudio(buffer)
+        const duration = (Date.now() - startTimeRef.current) / 1000
+        window.api.processAudio(buffer, duration)
         window.api.setRecordingState(false)
         setAudioLevel(0)
 
@@ -197,6 +199,7 @@ function App(): React.JSX.Element {
       }
 
       mediaRecorder.start()
+      startTimeRef.current = Date.now()
       setStatus('recording')
       window.api.setRecordingState(true)
     } catch {

@@ -87,7 +87,7 @@ export function createSettingsWindow(): BrowserWindow {
   const { height: screenHeight, width: screenWidth } = activeDisplay.workAreaSize
   const { x: displayX, y: displayY } = activeDisplay.workArea
 
-  const windowWidth = 1000
+  const windowWidth = 1200
   const windowHeight = Math.min(700, Math.floor(screenHeight * 0.85))
   
   // Center the window on the active display
@@ -99,7 +99,7 @@ export function createSettingsWindow(): BrowserWindow {
     height: windowHeight,
     x: Math.round(x),
     y: Math.round(y),
-    minWidth: 800,
+    minWidth: 1000,
     minHeight: 500,
     show: false,
     frame: true,

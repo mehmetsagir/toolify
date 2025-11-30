@@ -17,7 +17,7 @@ declare global {
       onStopRecording: (callback: () => void) => () => void
       onProcessingComplete: (callback: () => void) => () => void
       onShowHistory: (callback: () => void) => () => void
-      processAudio: (buffer: ArrayBuffer) => void
+      processAudio: (buffer: ArrayBuffer, duration: number) => void
       saveSettings: (settings: Settings) => void
       getSettings: () => Promise<Settings>
       hideWindow: () => void

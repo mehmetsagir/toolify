@@ -7,6 +7,8 @@ export interface HistoryItem {
   targetLanguage?: string
   translated: boolean
   duration?: number // Recording duration in seconds
+  provider?: string
+  audioPath?: string
 }
 
 export interface HistorySettings {

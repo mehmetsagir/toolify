@@ -12,6 +12,7 @@ import {
   screen
 } from 'electron'
 import { join } from 'path'
+import { writeFile, mkdir } from 'fs/promises'
 import { exec } from 'child_process'
 import { electronApp } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -541,7 +542,9 @@ app.whenReady().then(() => {
     return clearOldHistory()
   })
 
-  ipcMain.on('process-audio', async (_, buffer) => {
+
+
+  ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
 
     if (!settings.apiKey) {
@@ -567,6 +570,44 @@ app.whenReady().then(() => {
         settings.targetLanguage ?? 'tr'
       )
 
+      // Save audio file
+      let audioPath: string | undefined
+      try {
+        const recordingsDir = join(app.getPath('userData'), 'recordings')
+        await mkdir(recordingsDir, { recursive: true })
+        
+        // First save as WebM (original format from MediaRecorder)
+        const webmFileName = `recording-${Date.now()}.webm`
+        const webmPath = join(recordingsDir, webmFileName)
+        await writeFile(webmPath, Buffer.from(buffer))
+        
+        // Convert to MP3 using ffmpeg (better browser support than MP4)
+        const mp3FileName = webmFileName.replace('.webm', '.mp3')
+        const mp3Path = join(recordingsDir, mp3FileName)
+        
+        await new Promise<void>((resolve, reject) => {
+          exec(
+            `ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`,
+            (error) => {
+              if (error) {
+                console.error('FFmpeg conversion failed:', error)
+                // If conversion fails, use the WebM file
+                audioPath = webmPath
+                reject(error)
+              } else {
+                // Conversion successful, delete WebM and use MP3
+                audioPath = mp3Path
+                // Delete the WebM file
+                exec(`rm "${webmPath}"`, () => {})
+                resolve()
+              }
+            }
+          )
+        })
+      } catch (error) {
+        console.error('Failed to save audio file:', error)
+      }
+
       if (text) {
         clipboard.writeText(text)
         updateTrayIcon('copied', settings.trayAnimations)
@@ -585,7 +626,10 @@ app.whenReady().then(() => {
             isFavorite: false,
             translated: settings.translate ?? false,
             sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage
+            targetLanguage: settings.targetLanguage,
+            provider: 'OpenAI Whisper',
+            audioPath,
+            duration
           })
         } catch (error) {
           console.error('Failed to save history:', error)
