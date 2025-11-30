@@ -3,11 +3,6 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
 
-function getScreenDimensions(): { width: number; height: number } {
-  const primaryDisplay = screen.getPrimaryDisplay()
-  return primaryDisplay.workAreaSize
-}
-
 /**
  * Gets the display where the focused window is located, or primary display if no focused window
  */
@@ -84,7 +79,7 @@ export function createMainWindow(): BrowserWindow {
 
 export function createSettingsWindow(): BrowserWindow {
   const activeDisplay = getActiveDisplay()
-  const { height: screenHeight, width: screenWidth } = activeDisplay.workAreaSize
+  const { height: screenHeight } = activeDisplay.workAreaSize
   const { x: displayX, y: displayY } = activeDisplay.workArea
 
   const windowWidth = 1200
