@@ -50,6 +50,9 @@ declare global {
       getHistorySettings: () => Promise<HistorySettings>
       saveHistorySettings: (settings: HistorySettings) => Promise<boolean>
       clearOldHistory: () => Promise<number>
+      checkLocalModel: (modelType: string) => Promise<boolean>
+      downloadLocalModel: (modelType: string) => Promise<void>
+      deleteLocalModel: (modelType: string) => Promise<void>
     }
   }
 }

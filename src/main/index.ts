@@ -17,6 +17,12 @@ import { exec } from 'child_process'
 import { electronApp } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { transcribe } from './openai'
+import {
+  transcribeLocal,
+  checkLocalModelExists,
+  downloadLocalModel,
+  deleteLocalModel
+} from './local-whisper'
 import { Settings } from './types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
 import { createMainWindow, createSettingsWindow } from './utils/windows'
@@ -544,6 +550,18 @@ app.whenReady().then(() => {
 
 
 
+  ipcMain.handle('check-local-model', async (_, modelType: string) => {
+    return await checkLocalModelExists(modelType)
+  })
+
+  ipcMain.handle('download-local-model', async (_, modelType: string) => {
+    return await downloadLocalModel(modelType)
+  })
+
+  ipcMain.handle('delete-local-model', async (_, modelType: string) => {
+    return deleteLocalModel(modelType)
+  })
+
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
 
@@ -557,18 +575,40 @@ app.whenReady().then(() => {
     }
 
     try {
-      const languageToUse = settings.translate
-        ? settings.sourceLanguage || 'en'
-        : settings.language || ''
+      // Use sourceLanguage if specified, otherwise fall back to auto.
+      // We do NOT use settings.language (app language) as it causes hallucinations if different from spoken language.
+      const languageToUse = settings.sourceLanguage === 'auto' ? undefined : (settings.sourceLanguage || undefined)
 
-      const text = await transcribe(
-        settings.apiKey ?? '',
-        Buffer.from(buffer),
-        settings.translate ?? false,
-        languageToUse,
-        settings.sourceLanguage ?? 'en',
-        settings.targetLanguage ?? 'tr'
-      )
+      let text = ''
+
+      if (settings.useLocalModel) {
+        text = await transcribeLocal(
+          Buffer.from(buffer),
+          settings.localModelType || 'medium',
+          {
+            translate: settings.translate ?? false,
+            language: 'auto' // Force auto-detection for mixed language support
+          }
+        )
+      } else {
+        if (!settings.apiKey) {
+           showNotification('Toolify Error', 'API Key missing for online transcription.')
+           updateTrayIcon('idle', settings.trayAnimations)
+           if (mainWindow && !mainWindow.isDestroyed()) {
+             mainWindow.webContents.send('processing-complete')
+           }
+           return
+        }
+
+        text = await transcribe(
+          settings.apiKey,
+          Buffer.from(buffer),
+          settings.translate ?? false,
+          languageToUse,
+          settings.sourceLanguage ?? 'auto',
+          settings.targetLanguage ?? 'tr'
+        )
+      }
 
       // Save audio file
       let audioPath: string | undefined
@@ -627,7 +667,9 @@ app.whenReady().then(() => {
             translated: settings.translate ?? false,
             sourceLanguage: settings.sourceLanguage,
             targetLanguage: settings.targetLanguage,
-            provider: 'OpenAI Whisper',
+            provider: settings.useLocalModel 
+              ? `Whisper ${settings.localModelType === 'large-v3' ? 'Large V3' : 'Medium'} (GGML)`
+              : 'OpenAI Whisper-1',
             audioPath,
             duration
           })

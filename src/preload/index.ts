@@ -82,7 +82,11 @@ const api = {
   deleteHistoryItems: (ids: string[]) => ipcRenderer.invoke('delete-history-items', ids) as Promise<number>,
   getHistorySettings: () => ipcRenderer.invoke('get-history-settings') as Promise<HistorySettings>,
   saveHistorySettings: (settings: HistorySettings) => ipcRenderer.invoke('save-history-settings', settings) as Promise<boolean>,
-  clearOldHistory: () => ipcRenderer.invoke('clear-old-history') as Promise<number>
+  clearOldHistory: () => ipcRenderer.invoke('clear-old-history') as Promise<number>,
+  // Local Model
+  checkLocalModel: (modelType: string) => ipcRenderer.invoke('check-local-model', modelType) as Promise<boolean>,
+  downloadLocalModel: (modelType: string) => ipcRenderer.invoke('download-local-model', modelType) as Promise<void>,
+  deleteLocalModel: (modelType: string) => ipcRenderer.invoke('delete-local-model', modelType) as Promise<void>
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

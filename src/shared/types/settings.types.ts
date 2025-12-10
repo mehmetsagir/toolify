@@ -13,6 +13,8 @@ export interface Settings {
   showRecordingOverlay?: boolean
   historyAutoDeleteDays?: number // 0 = never delete
   historyMaxItems?: number // 0 = unlimited
+  useLocalModel?: boolean
+  localModelType?: 'base' | 'small' | 'medium' | 'large-v3'
 }
 
 export interface AccessibilityPermission {
