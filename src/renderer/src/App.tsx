@@ -17,6 +17,8 @@ function App(): React.JSX.Element {
   const [soundType, setSoundType] = useState('Glass')
   const [autoStart, setAutoStart] = useState(true)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
+  const [useLocalModel, setUseLocalModel] = useState(false)
+  const [localModelType, setLocalModelType] = useState<'base' | 'tiny' | 'small' | 'medium'>('base')
 
   const [audioLevel, setAudioLevel] = useState(0)
 
@@ -53,6 +55,8 @@ function App(): React.JSX.Element {
         setSoundType(settings.soundType || 'Glass')
         setAutoStart(settings.autoStart !== false)
         setShowRecordingOverlay(settings.showRecordingOverlay !== false)
+        setUseLocalModel(settings.useLocalModel || false)
+        setLocalModelType((settings.localModelType as 'base' | 'tiny' | 'small' | 'medium') || 'base')
       })
     }
 
@@ -103,7 +107,9 @@ function App(): React.JSX.Element {
     newSoundAlert: boolean,
     newSoundType: string,
     newAutoStart: boolean,
-    newShowRecordingOverlay: boolean
+    newShowRecordingOverlay: boolean,
+    newUseLocalModel: boolean,
+    newLocalModelType: 'base' | 'tiny' | 'small' | 'medium'
   ): void => {
     setApiKey(newKey)
     setTranslate(newTranslate)
@@ -117,6 +123,8 @@ function App(): React.JSX.Element {
     setSoundType(newSoundType)
     setAutoStart(newAutoStart)
     setShowRecordingOverlay(newShowRecordingOverlay)
+    setUseLocalModel(newUseLocalModel)
+    setLocalModelType(newLocalModelType)
     window.api.saveSettings({
       apiKey: newKey,
       translate: newTranslate,
@@ -129,7 +137,9 @@ function App(): React.JSX.Element {
       soundAlert: newSoundAlert,
       soundType: newSoundType,
       autoStart: newAutoStart,
-      showRecordingOverlay: newShowRecordingOverlay
+      showRecordingOverlay: newShowRecordingOverlay,
+      useLocalModel: newUseLocalModel,
+      localModelType: newLocalModelType
     })
   }
 
@@ -157,7 +167,14 @@ function App(): React.JSX.Element {
 
   const startRecording = async (): Promise<void> => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 24000, // Whisper works well with 16kHz-24kHz, 24k is a safe sweet spot
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      })
 
       const audioContext = new AudioContext()
       const analyser = audioContext.createAnalyser()
@@ -172,7 +189,17 @@ function App(): React.JSX.Element {
 
       analyzeAudio()
 
-      const mediaRecorder = new MediaRecorder(stream)
+      const options: MediaRecorderOptions = {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 32000 // 32kbps is sufficient for speech
+      }
+      
+      // Fallback if the specific mimeType isn't supported
+      if (options.mimeType && !MediaRecorder.isTypeSupported(options.mimeType)) {
+        delete options.mimeType
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, options)
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
@@ -252,7 +279,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           translate={translate}
@@ -269,7 +298,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           language={language}
@@ -286,7 +317,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           sourceLanguage={sourceLanguage}
@@ -303,7 +336,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           targetLanguage={targetLanguage}
@@ -320,7 +355,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           shortcut={shortcut}
@@ -337,7 +374,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           trayAnimations={trayAnimations}
@@ -354,7 +393,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           processNotifications={processNotifications}
@@ -371,7 +412,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           soundAlert={soundAlert}
@@ -388,7 +431,9 @@ function App(): React.JSX.Element {
               val,
               soundType,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           soundType={soundType}
@@ -405,7 +450,9 @@ function App(): React.JSX.Element {
               soundAlert,
               val,
               autoStart,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           autoStart={autoStart}
@@ -422,7 +469,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               val,
-              showRecordingOverlay
+              showRecordingOverlay,
+              useLocalModel,
+              localModelType
             )
           }
           showRecordingOverlay={showRecordingOverlay}
@@ -439,6 +488,46 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
+              val,
+              useLocalModel,
+              localModelType
+            )
+          }
+          useLocalModel={useLocalModel}
+          setUseLocalModel={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay,
+              val,
+              localModelType
+            )
+          }
+          localModelType={localModelType}
+          setLocalModelType={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              language,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay,
+              useLocalModel,
               val
             )
           }
@@ -455,7 +544,9 @@ function App(): React.JSX.Element {
               settings.soundAlert,
               settings.soundType,
               settings.autoStart,
-              settings.showRecordingOverlay
+              settings.showRecordingOverlay,
+              settings.useLocalModel,
+              settings.localModelType
             )
           }
         />

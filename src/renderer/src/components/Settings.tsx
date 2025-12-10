@@ -19,7 +19,8 @@ import {
   Mic,
   Settings as SettingsIcon,
   History as HistoryIcon,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react'
 import { History } from './History'
 import appIcon from '../assets/app-icon.png'
@@ -49,6 +50,10 @@ interface SettingsProps {
   setAutoStart: (val: boolean) => void
   showRecordingOverlay: boolean
   setShowRecordingOverlay: (val: boolean) => void
+  useLocalModel: boolean
+  setUseLocalModel: (val: boolean) => void
+  localModelType: string
+  setLocalModelType: (val: string) => void
   onSave?: (settings: {
     apiKey: string
     language: string
@@ -62,6 +67,8 @@ interface SettingsProps {
     soundType: string
     autoStart: boolean
     showRecordingOverlay: boolean
+    useLocalModel: boolean
+    localModelType: string
   }) => void
 }
 
@@ -90,6 +97,10 @@ export const Settings: React.FC<SettingsProps> = ({
   setAutoStart,
   showRecordingOverlay: initialShowRecordingOverlay,
   setShowRecordingOverlay,
+  useLocalModel: initialUseLocalModel,
+  setUseLocalModel,
+  localModelType: initialLocalModelType,
+  setLocalModelType,
   onSave
 }) => {
   const [localKey, setLocalKey] = useState(initialKey)
@@ -108,6 +119,8 @@ export const Settings: React.FC<SettingsProps> = ({
   const [localShowRecordingOverlay, setLocalShowRecordingOverlay] = useState(
     initialShowRecordingOverlay !== false
   )
+  const [localUseLocalModel, setLocalUseLocalModel] = useState(initialUseLocalModel || false)
+  const [localLocalModelType, setLocalLocalModelType] = useState(initialLocalModelType || 'base')
   const [saved, setSaved] = useState(false)
 
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
@@ -122,6 +135,40 @@ export const Settings: React.FC<SettingsProps> = ({
   const [activeTab, setActiveTab] = useState<'settings' | 'history'>('settings')
   const [activeSection, setActiveSection] = useState<string>('general')
 
+  const [modelDownloadStatus, setModelDownloadStatus] = useState<'idle' | 'checking' | 'downloading' | 'ready' | 'missing'>('idle')
+
+  const checkModelStatus = async (modelType: string): Promise<void> => {
+    if (!window.api?.checkLocalModel) return
+    setModelDownloadStatus('checking')
+    try {
+      const exists = await window.api.checkLocalModel(modelType)
+      setModelDownloadStatus(exists ? 'ready' : 'missing')
+    } catch (error) {
+      console.error('Failed to check model status:', error)
+      setModelDownloadStatus('missing')
+    }
+  }
+
+  const handleDownloadModel = async (): Promise<void> => {
+    if (!window.api?.downloadLocalModel) return
+    setModelDownloadStatus('downloading')
+    try {
+      await window.api.downloadLocalModel(localLocalModelType)
+      setModelDownloadStatus('ready')
+    } catch (error) {
+      console.error('Failed to download model:', error)
+      setModelDownloadStatus('missing')
+      // You might want to show an error toast here
+    }
+  }
+
+  // Check model status when toggle is on or model type changes
+  useEffect(() => {
+    if (localUseLocalModel) {
+      checkModelStatus(localLocalModelType)
+    }
+  }, [localUseLocalModel, localLocalModelType])
+
   useEffect(() => {
     setLocalKey(initialKey)
     setLocalLanguage(initialLanguage)
@@ -135,6 +182,8 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalSoundType(initialSoundType || 'Glass')
     setLocalAutoStart(initialAutoStart !== false)
     setLocalShowRecordingOverlay(initialShowRecordingOverlay !== false)
+    setLocalUseLocalModel(initialUseLocalModel || false)
+    setLocalLocalModelType(initialLocalModelType || 'base')
   }, [
     initialKey,
     initialLanguage,
@@ -147,7 +196,11 @@ export const Settings: React.FC<SettingsProps> = ({
     initialSoundAlert,
     initialSoundType,
     initialAutoStart,
-    initialShowRecordingOverlay
+    initialSoundType,
+    initialAutoStart,
+    initialShowRecordingOverlay,
+    initialUseLocalModel,
+    initialLocalModelType
   ])
 
   useEffect(() => {
@@ -253,7 +306,9 @@ export const Settings: React.FC<SettingsProps> = ({
         soundAlert: localSoundAlert,
         soundType: localSoundType,
         autoStart: localAutoStart,
-        showRecordingOverlay: localShowRecordingOverlay
+        showRecordingOverlay: localShowRecordingOverlay,
+        useLocalModel: localUseLocalModel,
+        localModelType: localLocalModelType
       })
     } else {
       setApiKey(localKey)
@@ -268,6 +323,8 @@ export const Settings: React.FC<SettingsProps> = ({
       setSoundType(localSoundType)
       setAutoStart(localAutoStart)
       setShowRecordingOverlay(localShowRecordingOverlay)
+      setUseLocalModel(localUseLocalModel)
+      setLocalModelType(localLocalModelType)
     }
 
     // Save history settings
@@ -590,7 +647,136 @@ export const Settings: React.FC<SettingsProps> = ({
                     </p>
                   </div>
                   <div className="space-y-4">
-                    {/* API Key */}
+
+
+                    {/* Local Model Toggle */}
+                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-lg transition-colors ${localUseLocalModel ? 'bg-green-500/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}
+                          >
+                            <Zap size={18} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-zinc-200 text-sm font-medium">Use Local Model</span>
+                            <span className="text-zinc-500 text-xs">
+                              {localUseLocalModel
+                                ? 'Processing on your device (Offline)'
+                                : 'Using OpenAI Cloud (Requires API Key)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setLocalUseLocalModel(!localUseLocalModel)}
+                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-green-500/50 ${
+                            localUseLocalModel ? 'bg-green-600' : 'bg-zinc-800'
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                              localUseLocalModel ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          >
+                            {localUseLocalModel && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Check size={10} className="text-green-600" strokeWidth={3} />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+
+                      {localUseLocalModel && (
+                        <div className="pt-2 border-t border-white/5 space-y-3">
+                          <div className="space-y-2">
+                             <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs">
+                               <p className="text-blue-300 font-medium mb-1">First Time Setup</p>
+                               <p className="text-blue-200/80">Using a local model requires downloading the model file (~140MB - 3GB depending on model). Please download it before collecting audio.</p>
+                             </div>
+                             <label className="text-zinc-400 text-xs font-medium block">Model Size</label>
+                             <select
+                               value={localLocalModelType}
+                               onChange={(e) => {
+                                 const newValue = e.target.value
+                                 setLocalLocalModelType(newValue)
+                                 
+                                 // Auto-save using all current local state values
+                                 window.api.saveSettings({
+                                    apiKey: localKey,
+                                    language: localLanguage,
+                                    sourceLanguage: localSourceLanguage,
+                                    targetLanguage: localTargetLanguage,
+                                    shortcut: localShortcut,
+                                    translate: localTranslate,
+                                    trayAnimations: localTrayAnimations,
+                                    processNotifications: localProcessNotifications,
+                                    soundAlert: localSoundAlert,
+                                    soundType: localSoundType,
+                                    autoStart: localAutoStart,
+                                    showRecordingOverlay: localShowRecordingOverlay,
+                                    useLocalModel: localUseLocalModel,
+                                    localModelType: newValue as any
+                                 })
+                                 
+                                 checkModelStatus(newValue)
+                               }}
+                               className="w-full bg-zinc-900/50 text-white rounded-lg p-2.5 text-sm border border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 focus:outline-none transition-all cursor-pointer"
+                             >
+                                <option value="base">Whisper Base (Fastest) (~140MB)</option>
+                                <option value="small">Whisper Small (Balanced) (~460MB)</option>
+                                <option value="medium">Whisper Medium (GGML) (~1.5GB)</option>
+                                <option value="large-v3">Whisper Large V3 (GGML) (~2.9GB)</option>
+                             </select>
+
+                             <div className="flex items-center justify-between pt-2">
+                               <div className="text-xs">
+                                 {modelDownloadStatus === 'ready' && (
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-green-400 flex items-center gap-1"><Check size={12}/> Model Ready ({localLocalModelType})</span>
+                                     <button
+                                       title="Delete Local Model"
+                                       onClick={async () => {
+                                         if (confirm(`Are you sure you want to delete the ${localLocalModelType} model? You will need to download it again to use it.`)) {
+                                           await window.api.deleteLocalModel(localLocalModelType)
+                                           checkModelStatus(localLocalModelType)
+                                         }
+                                       }}
+                                       className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                                     >
+                                       <Trash2 size={12} />
+                                     </button>
+                                   </div>
+                                 )}
+                                 {modelDownloadStatus === 'missing' && <span className="text-zinc-500">Model not found</span>}
+                                 {modelDownloadStatus === 'downloading' && <span className="text-blue-400">Downloading...</span>}
+                               </div>
+
+                               {(modelDownloadStatus === 'missing' || modelDownloadStatus === 'idle') && (
+                                 <button
+                                   onClick={handleDownloadModel}
+                                   className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium rounded-lg transition-colors border border-blue-500/20"
+                                 >
+                                   <Download size={12} />
+                                   Download Model
+                                 </button>
+                               )}
+                               
+                               {modelDownloadStatus === 'downloading' && (
+                                  <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 text-zinc-400 text-xs font-medium rounded-lg border border-white/5">
+                                    <Loader2 size={12} className="animate-spin" />
+                                    Downloading...
+                                  </div>
+                               )}
+                             </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* API Key (Only if not using local model) */}
+                    {!localUseLocalModel && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                         <Key size={12} />
@@ -604,12 +790,29 @@ export const Settings: React.FC<SettingsProps> = ({
                           placeholder="sk-..."
                           className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all placeholder:text-zinc-700"
                         />
-                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
-                      </div>
-                      <p className="text-[10px] text-zinc-600 px-1">
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
+                           <svg
+                             width="12"
+                             height="12"
+                             viewBox="0 0 12 12"
+                             fill="none"
+                             xmlns="http://www.w3.org/2000/svg"
+                           >
+                             <path
+                               d="M3 4.5L6 7.5L9 4.5"
+                               stroke="currentColor"
+                               strokeWidth="1.5"
+                               strokeLinecap="round"
+                               strokeLinejoin="round"
+                             />
+                           </svg>
+                         </div>
+                       </div>
+                       <p className="text-[10px] text-zinc-600 px-1">
                         Required for speech transcription and translation
                       </p>
                     </div>
+                    )}
 
                     {/* Shortcut */}
                     <div className="space-y-2">
@@ -672,6 +875,45 @@ export const Settings: React.FC<SettingsProps> = ({
                       </p>
                     </div>
 
+                    {/* Spoken Language */}
+                    {!localUseLocalModel && (
+                    <div className="space-y-2">
+                       <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
+                         <Languages size={12} />
+                         <span>Spoken Language</span>
+                       </div>
+                       <div className="relative group">
+                         <select
+                           value={localSourceLanguage}
+                           onChange={(e) => setLocalSourceLanguage(e.target.value)}
+                           className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
+                         >
+                           <option value="auto">Auto Detect</option>
+                           <option value="en">English</option>
+                           <option value="tr">Turkish</option>
+                           <option value="es">Spanish</option>
+                           <option value="fr">French</option>
+                           <option value="de">German</option>
+                           <option value="it">Italian</option>
+                           <option value="pt">Portuguese</option>
+                           <option value="ru">Russian</option>
+                           <option value="ja">Japanese</option>
+                           <option value="ko">Korean</option>
+                           <option value="zh">Chinese</option>
+                           <option value="ar">Arabic</option>
+                         </select>
+                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
+                           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                             <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                           </svg>
+                         </div>
+                       </div>
+                       <p className="text-[10px] text-zinc-600 px-1">
+                         Language of the audio being recorded
+                       </p>
+                    </div>
+                    )}
+
                     {/* Translation */}
                     <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5 space-y-4">
                       <div className="flex items-center justify-between">
@@ -714,36 +956,13 @@ export const Settings: React.FC<SettingsProps> = ({
                       </div>
 
                       {localTranslate && (
-                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
-                          <div className="space-y-2">
-                            <label className="text-zinc-400 text-xs font-medium flex items-center gap-2">
-                              <Languages size={14} />
-                              From
-                            </label>
-                            <select
-                              value={localSourceLanguage}
-                              onChange={(e) => setLocalSourceLanguage(e.target.value)}
-                              className="w-full bg-zinc-900/50 text-white rounded-lg p-2.5 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer"
-                            >
-                              <option value="en">English</option>
-                              <option value="tr">Turkish</option>
-                              <option value="es">Spanish</option>
-                              <option value="fr">French</option>
-                              <option value="de">German</option>
-                              <option value="it">Italian</option>
-                              <option value="pt">Portuguese</option>
-                              <option value="ru">Russian</option>
-                              <option value="ja">Japanese</option>
-                              <option value="ko">Korean</option>
-                              <option value="zh">Chinese</option>
-                              <option value="ar">Arabic</option>
-                            </select>
-                          </div>
+                        <div className="pt-2 border-t border-white/5 space-y-2">
+
 
                           <div className="space-y-2">
                             <label className="text-zinc-400 text-xs font-medium flex items-center gap-2">
                               <Languages size={14} />
-                              To
+                              Translate To
                             </label>
                             <select
                               value={localTargetLanguage}
