@@ -11,15 +11,27 @@ const defaultSettings: Settings = {
   targetLanguage: 'tr',
   shortcut: 'Command+Space',
   trayAnimations: true,
-  processNotifications: false,
-  soundAlert: false,
+  processNotifications: true,
+  soundAlert: true,
   soundType: 'Glass',
   autoStart: true,
-  showRecordingOverlay: true
+  showRecordingOverlay: true,
+  historyAutoDeleteDays: 30,
+  historyMaxItems: 0,
+  useLocalModel: false,
+  localModelType: 'medium'
 }
 
 export function getSettings(): Settings {
-  return store.get('settings', defaultSettings) as Settings
+  const settings = store.get('settings', defaultSettings) as Settings
+  
+  // Migration: force legacy models to medium (REMOVED - now supported again)
+  // if (['tiny', 'base', 'small'].includes(settings.localModelType || '')) {
+  //     settings.localModelType = 'medium'
+  //     store.set('settings', settings)
+  // }
+  
+  return settings
 }
 
 export function saveSettings(settings: Settings): void {
