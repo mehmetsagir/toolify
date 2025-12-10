@@ -18,7 +18,7 @@ function App(): React.JSX.Element {
   const [autoStart, setAutoStart] = useState(true)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
   const [useLocalModel, setUseLocalModel] = useState(false)
-  const [localModelType, setLocalModelType] = useState<'base' | 'tiny' | 'small' | 'medium'>('base')
+  const [localModelType, setLocalModelType] = useState<'base' | 'small' | 'medium' | 'large-v3'>('base')
 
   const [audioLevel, setAudioLevel] = useState(0)
 
@@ -56,7 +56,7 @@ function App(): React.JSX.Element {
         setAutoStart(settings.autoStart !== false)
         setShowRecordingOverlay(settings.showRecordingOverlay !== false)
         setUseLocalModel(settings.useLocalModel || false)
-        setLocalModelType((settings.localModelType as 'base' | 'tiny' | 'small' | 'medium') || 'base')
+        setLocalModelType((settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base')
       })
     }
 
@@ -109,7 +109,7 @@ function App(): React.JSX.Element {
     newAutoStart: boolean,
     newShowRecordingOverlay: boolean,
     newUseLocalModel: boolean,
-    newLocalModelType: 'base' | 'tiny' | 'small' | 'medium'
+    newLocalModelType: 'base' | 'small' | 'medium' | 'large-v3'
   ): void => {
     setApiKey(newKey)
     setTranslate(newTranslate)

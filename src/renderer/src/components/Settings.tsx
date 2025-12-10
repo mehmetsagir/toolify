@@ -52,8 +52,8 @@ interface SettingsProps {
   setShowRecordingOverlay: (val: boolean) => void
   useLocalModel: boolean
   setUseLocalModel: (val: boolean) => void
-  localModelType: string
-  setLocalModelType: (val: string) => void
+  localModelType: 'base' | 'small' | 'medium' | 'large-v3'
+  setLocalModelType: (val: 'base' | 'small' | 'medium' | 'large-v3') => void
   onSave?: (settings: {
     apiKey: string
     language: string
@@ -68,7 +68,7 @@ interface SettingsProps {
     autoStart: boolean
     showRecordingOverlay: boolean
     useLocalModel: boolean
-    localModelType: string
+    localModelType: 'base' | 'small' | 'medium' | 'large-v3'
   }) => void
 }
 
@@ -699,7 +699,7 @@ export const Settings: React.FC<SettingsProps> = ({
                              <select
                                value={localLocalModelType}
                                onChange={(e) => {
-                                 const newValue = e.target.value
+                                 const newValue = e.target.value as 'base' | 'small' | 'medium' | 'large-v3'
                                  setLocalLocalModelType(newValue)
                                  
                                  // Auto-save using all current local state values

@@ -61,7 +61,10 @@ function updateTrayIcon(
   state: 'idle' | 'recording' | 'processing' | 'copied',
   trayAnimations?: boolean
 ): void {
-  if (!tray) return
+  if (!tray) {
+    console.warn('Tray icon not initialized yet, skipping update')
+    return
+  }
 
   const settings = getSettings()
   const useAnimations =
@@ -291,6 +294,34 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.setName('Toolify')
   }
+
+  // Initialize tray icon early, before IPC handlers
+  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
+  tray = new Tray(trayIcon)
+  tray.setToolTip('Toolify')
+
+  const updateContextMenu = (): void => {
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Settings',
+        type: 'normal',
+        click: () => createSettingsWindowInstance()
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit Toolify',
+        type: 'normal',
+        click: () => app.quit()
+      }
+    ])
+    tray?.setContextMenu(contextMenu)
+  }
+
+  updateContextMenu()
+
+  tray.on('click', () => {
+    tray?.popUpContextMenu()
+  })
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
@@ -703,33 +734,6 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('processing-complete')
       }
     }
-  })
-
-  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
-  tray = new Tray(trayIcon)
-  tray.setToolTip('Toolify')
-
-  const updateContextMenu = (): void => {
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: 'Settings',
-        type: 'normal',
-        click: () => createSettingsWindowInstance()
-      },
-      { type: 'separator' },
-      {
-        label: 'Quit Toolify',
-        type: 'normal',
-        click: () => app.quit()
-      }
-    ])
-    tray?.setContextMenu(contextMenu)
-  }
-
-  updateContextMenu()
-
-  tray.on('click', () => {
-    tray?.popUpContextMenu()
   })
 
   app.on('activate', function () {
