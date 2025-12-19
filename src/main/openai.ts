@@ -70,7 +70,7 @@ export async function transcribe(
   audioBuffer: Buffer,
   translate: boolean,
   language?: string,
-  sourceLanguage?: string,
+  _sourceLanguage?: string, // Not used when translating (auto-detected)
   targetLanguage?: string
 ): Promise<string> {
   const openai = new OpenAI({ apiKey })
@@ -81,23 +81,23 @@ export async function transcribe(
     let text = ''
     if (translate) {
       const fileStream1 = fs.createReadStream(tempFilePath)
-      const transcriptionPrompt = `Transcribe the audio accurately in ${sourceLanguage || 'the original language'}. Write naturally and preserve the meaning. Do not add any commentary or metadata.`
+      // Always auto-detect source language when translating
+      const transcriptionPrompt = `Transcribe the audio accurately. Write naturally and preserve the meaning. Do not add any commentary or metadata.`
       const transcriptionResponse = await openai.audio.transcriptions.create({
         file: fileStream1,
         model: 'whisper-1',
-        language: sourceLanguage || undefined,
+        language: undefined, // Auto-detect source language
         prompt: transcriptionPrompt
       })
       const sourceText = cleanTranslationText(transcriptionResponse.text)
 
       const targetLangName = getLanguageName(targetLanguage || 'en')
-      const sourceLangName = getLanguageName(sourceLanguage || 'auto')
       const translationResponse = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `You are a professional translator. Translate the following ${sourceLangName} text to ${targetLangName}.
+            content: `You are a professional translator. Translate the following text to ${targetLangName}. The source language will be automatically detected from the text.
 
 Important guidelines:
 - Understand the full meaning and context of what is being said

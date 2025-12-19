@@ -61,10 +61,7 @@ function updateTrayIcon(
   state: 'idle' | 'recording' | 'processing' | 'copied',
   trayAnimations?: boolean
 ): void {
-  if (!tray) {
-    console.warn('Tray icon not initialized yet, skipping update')
-    return
-  }
+  if (!tray) return
 
   const settings = getSettings()
   const useAnimations =
@@ -185,7 +182,7 @@ function createRecordingOverlay(): void {
   // Get the display where the focused window is, or primary display
   let activeDisplay = screen.getPrimaryDisplay()
   const focusedWindow = BrowserWindow.getFocusedWindow()
-  
+
   if (focusedWindow) {
     const bounds = focusedWindow.getBounds()
     const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
@@ -294,34 +291,6 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.setName('Toolify')
   }
-
-  // Initialize tray icon early, before IPC handlers
-  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
-  tray = new Tray(trayIcon)
-  tray.setToolTip('Toolify')
-
-  const updateContextMenu = (): void => {
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: 'Settings',
-        type: 'normal',
-        click: () => createSettingsWindowInstance()
-      },
-      { type: 'separator' },
-      {
-        label: 'Quit Toolify',
-        type: 'normal',
-        click: () => app.quit()
-      }
-    ])
-    tray?.setContextMenu(contextMenu)
-  }
-
-  updateContextMenu()
-
-  tray.on('click', () => {
-    tray?.popUpContextMenu()
-  })
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
@@ -595,8 +564,32 @@ app.whenReady().then(() => {
 
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
+    
+    console.log('Processing audio with settings:', {
+      useLocalModel: settings.useLocalModel,
+      translate: settings.translate,
+      targetLanguage: settings.targetLanguage,
+      sourceLanguage: settings.sourceLanguage,
+      hasApiKey: !!settings.apiKey
+    })
 
-    if (!settings.apiKey) {
+    // Only require API key if using online model OR if translation is enabled (which needs API key)
+    if (!settings.useLocalModel && !settings.apiKey) {
+      showNotification('Toolify Error', 'API Key required for online transcription.')
+      updateTrayIcon('idle', settings.trayAnimations)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('processing-complete')
+      }
+      return
+    }
+
+    // If using local model with translation, API key is required for translation
+    if (settings.useLocalModel && settings.translate && !settings.apiKey) {
+      showNotification('Toolify Error', 'API Key required for translation feature.')
+      updateTrayIcon('idle', settings.trayAnimations)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('processing-complete')
+      }
       return
     }
 
@@ -618,7 +611,10 @@ app.whenReady().then(() => {
           settings.localModelType || 'medium',
           {
             translate: settings.translate ?? false,
-            language: 'auto' // Force auto-detection for mixed language support
+            language: 'auto', // Force auto-detection for mixed language support
+            sourceLanguage: 'auto', // Always auto-detect source language when translating
+            targetLanguage: settings.targetLanguage ?? 'en',
+            apiKey: settings.apiKey // Required for translation
           }
         )
       } else {
@@ -636,7 +632,7 @@ app.whenReady().then(() => {
           Buffer.from(buffer),
           settings.translate ?? false,
           languageToUse,
-          settings.sourceLanguage ?? 'auto',
+          settings.translate ? 'auto' : (settings.sourceLanguage ?? 'auto'), // Auto-detect when translating
           settings.targetLanguage ?? 'tr'
         )
       }
@@ -646,16 +642,16 @@ app.whenReady().then(() => {
       try {
         const recordingsDir = join(app.getPath('userData'), 'recordings')
         await mkdir(recordingsDir, { recursive: true })
-        
+
         // First save as WebM (original format from MediaRecorder)
         const webmFileName = `recording-${Date.now()}.webm`
         const webmPath = join(recordingsDir, webmFileName)
         await writeFile(webmPath, Buffer.from(buffer))
-        
+
         // Convert to MP3 using ffmpeg (better browser support than MP4)
         const mp3FileName = webmFileName.replace('.webm', '.mp3')
         const mp3Path = join(recordingsDir, mp3FileName)
-        
+
         await new Promise<void>((resolve, reject) => {
           exec(
             `ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`,
@@ -698,7 +694,7 @@ app.whenReady().then(() => {
             translated: settings.translate ?? false,
             sourceLanguage: settings.sourceLanguage,
             targetLanguage: settings.targetLanguage,
-            provider: settings.useLocalModel 
+            provider: settings.useLocalModel
               ? `Whisper ${settings.localModelType === 'large-v3' ? 'Large V3' : 'Medium'} (GGML)`
               : 'OpenAI Whisper-1',
             audioPath,
@@ -734,6 +730,33 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('processing-complete')
       }
     }
+  })
+
+  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
+  tray = new Tray(trayIcon)
+  tray.setToolTip('Toolify')
+
+  const updateContextMenu = (): void => {
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Settings',
+        type: 'normal',
+        click: () => createSettingsWindowInstance()
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit Toolify',
+        type: 'normal',
+        click: () => app.quit()
+      }
+    ])
+    tray?.setContextMenu(contextMenu)
+  }
+
+  updateContextMenu()
+
+  tray.on('click', () => {
+    tray?.popUpContextMenu()
   })
 
   app.on('activate', function () {
