@@ -11,27 +11,31 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   onStartRecording: (callback: () => void) => {
-    ipcRenderer.on('start-recording', () => callback())
+    const handler = () => callback()
+    ipcRenderer.on('start-recording', handler)
     return () => {
-      ipcRenderer.removeAllListeners('start-recording')
+      ipcRenderer.removeListener('start-recording', handler)
     }
   },
   onStopRecording: (callback: () => void) => {
-    ipcRenderer.on('stop-recording', () => callback())
+    const handler = () => callback()
+    ipcRenderer.on('stop-recording', handler)
     return () => {
-      ipcRenderer.removeAllListeners('stop-recording')
+      ipcRenderer.removeListener('stop-recording', handler)
     }
   },
   onProcessingComplete: (callback: () => void) => {
-    ipcRenderer.on('processing-complete', () => callback())
+    const handler = () => callback()
+    ipcRenderer.on('processing-complete', handler)
     return () => {
-      ipcRenderer.removeAllListeners('processing-complete')
+      ipcRenderer.removeListener('processing-complete', handler)
     }
   },
   onShowHistory: (callback: () => void) => {
-    ipcRenderer.on('show-history', () => callback())
+    const handler = () => callback()
+    ipcRenderer.on('show-history', handler)
     return () => {
-      ipcRenderer.removeAllListeners('show-history')
+      ipcRenderer.removeListener('show-history', handler)
     }
   },
   processAudio: (buffer: ArrayBuffer, duration: number) => ipcRenderer.send('process-audio', buffer, duration),
