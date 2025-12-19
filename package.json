@@ -28,6 +28,8 @@
     "build": "npm run typecheck && electron-vite build",
     "build:skip-check": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
+    "prebuild:mac": "node scripts/copy-whisper-executables.js",
+    "prebuild:dmg": "node scripts/copy-whisper-executables.js",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac --publish always --config.mac.identity=null",
@@ -43,10 +45,10 @@
     "electron-updater": "^6.6.2",
     "lucide-react": "^0.554.0",
     "openai": "^6.9.1",
-    "tailwind-merge": "^3.4.0",
-    "whisper-node": "^1.1.1"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "whisper-node": "^1.1.1",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",

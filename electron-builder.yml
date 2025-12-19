@@ -14,8 +14,58 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # Exclude development tools and scripts
+  - '!scripts/**'
+  - '!claudedocs/**'
+  # CRITICAL: Exclude ALL devDependencies from node_modules
+  - '!**/node_modules/whisper-node/**'
+  - '!**/node_modules/electron/**'
+  - '!**/node_modules/electron-builder/**'
+  - '!**/node_modules/electron-vite/**'
+  - '!**/node_modules/@vitejs/**'
+  - '!**/node_modules/vite/**'
+  - '!**/node_modules/typescript/**'
+  - '!**/node_modules/prettier/**'
+  - '!**/node_modules/eslint/**'
+  - '!**/node_modules/@typescript-eslint/**'
+  - '!**/node_modules/@types/**'
+  - '!**/node_modules/eslint-plugin-*/**'
+  - '!**/node_modules/autoprefixer/**'
+  - '!**/node_modules/postcss/**'
+  - '!**/node_modules/@electron-toolkit/eslint-*/**'
+  - '!**/node_modules/@electron-toolkit/tsconfig/**'
+  # Include whisper-node dist files from build directory (copied by prebuild script)
+  - 'build/whisper-node-dist/**/*'
+  # Include whisper.cpp executables from build directory (copied by prebuild script)
+  - 'build/whisper-executables/**/*'
+  # Global exclusions for ALL model files (safety net)
+  - '!**/*.bin'
+  - '!**/*.ggml'
+  - '!**/*.pt'
+  - '!**/*.h5'
+  - '!**/*.coreml'
+  - '!**/models/**'
+  # Exclude source maps and test files
+  - '!**/*.map'
+  - '!**/*.test.js'
+  - '!**/*.test.ts'
+  - '!**/*.spec.js'
+  - '!**/*.spec.ts'
+  - '!**/__tests__/**'
+  - '!**/test/**'
+  - '!**/tests/**'
+  # Exclude documentation and examples
+  - '!**/docs/**'
+  - '!**/examples/**'
+  - '!**/samples/**'
+  - '!**/*.md'
+  - '!**/LICENSE*'
+  - '!**/CHANGELOG*'
 asarUnpack:
   - resources/**
+  # Unpack whisper-node dist files and executables from build directory (no models included)
+  - 'build/whisper-node-dist/**/*'
+  - 'build/whisper-executables/**/*'
 win:
   executableName: toolify
 nsis:
