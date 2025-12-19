@@ -8,13 +8,13 @@ import icon from '../../../resources/icon.png?asset'
  */
 function getActiveDisplay(): Electron.Display {
   const focusedWindow = BrowserWindow.getFocusedWindow()
-  
+
   if (focusedWindow) {
     const bounds = focusedWindow.getBounds()
     const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
     return screen.getDisplayNearestPoint(point)
   }
-  
+
   // If no focused window, try to find any visible window
   const allWindows = BrowserWindow.getAllWindows()
   for (const win of allWindows) {
@@ -24,38 +24,25 @@ function getActiveDisplay(): Electron.Display {
       return screen.getDisplayNearestPoint(point)
     }
   }
-  
+
   // Fallback to primary display
   return screen.getPrimaryDisplay()
 }
 
 export function createMainWindow(): BrowserWindow {
-  const activeDisplay = getActiveDisplay()
-  const { height: screenHeight } = activeDisplay.workAreaSize
-  const { x: displayX, y: displayY } = activeDisplay.workArea
-
-  const defaultWidth = 500
-  const defaultHeight = Math.floor(screenHeight * 0.7)
-  
-  // Center the window on the active display
-  const x = displayX + (activeDisplay.workAreaSize.width - defaultWidth) / 2
-  const y = displayY + (activeDisplay.workAreaSize.height - defaultHeight) / 2
-
+  // Create minimal hidden window for background recording
   const window = new BrowserWindow({
-    width: defaultWidth,
-    height: defaultHeight,
-    x: Math.round(x),
-    y: Math.round(y),
-    minWidth: 320,
-    minHeight: 400,
-    maxHeight: screenHeight,
+    width: 1,
+    height: 1,
+    x: -1000,
+    y: -1000,
     show: false,
     frame: false,
-    resizable: true,
+    resizable: false,
     fullscreenable: false,
     transparent: true,
     skipTaskbar: true,
-    autoHideMenuBar: true,
+    alwaysOnTop: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -84,7 +71,7 @@ export function createSettingsWindow(): BrowserWindow {
 
   const windowWidth = 1200
   const windowHeight = Math.min(700, Math.floor(screenHeight * 0.85))
-  
+
   // Center the window on the active display
   const x = displayX + (activeDisplay.workAreaSize.width - windowWidth) / 2
   const y = displayY + (activeDisplay.workAreaSize.height - windowHeight) / 2

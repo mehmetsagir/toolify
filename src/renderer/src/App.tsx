@@ -18,7 +18,9 @@ function App(): React.JSX.Element {
   const [autoStart, setAutoStart] = useState(true)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
   const [useLocalModel, setUseLocalModel] = useState(false)
-  const [localModelType, setLocalModelType] = useState<'base' | 'small' | 'medium' | 'large-v3'>('base')
+  const [localModelType, setLocalModelType] = useState<'base' | 'small' | 'medium' | 'large-v3'>(
+    'base'
+  )
 
   const [audioLevel, setAudioLevel] = useState(0)
 
@@ -56,7 +58,9 @@ function App(): React.JSX.Element {
         setAutoStart(settings.autoStart !== false)
         setShowRecordingOverlay(settings.showRecordingOverlay !== false)
         setUseLocalModel(settings.useLocalModel || false)
-        setLocalModelType((settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base')
+        setLocalModelType(
+          (settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base'
+        )
       })
     }
 
@@ -67,14 +71,24 @@ function App(): React.JSX.Element {
     }
 
     const removeStartListener = window.api.onStartRecording(() => {
+      console.log('Renderer: Received start-recording IPC message')
+      console.log('Renderer: Current status:', statusRef.current)
       if (statusRef.current === 'idle') {
+        console.log('Renderer: Starting recording...')
         startRecording()
+      } else {
+        console.warn('Renderer: Cannot start recording, current status:', statusRef.current)
       }
     })
 
     const removeStopListener = window.api.onStopRecording(() => {
+      console.log('Renderer: Received stop-recording IPC message')
+      console.log('Renderer: Current status:', statusRef.current)
       if (statusRef.current === 'recording') {
+        console.log('Renderer: Stopping recording...')
         stopRecording()
+      } else {
+        console.warn('Renderer: Cannot stop recording, current status:', statusRef.current)
       }
     })
 
@@ -166,15 +180,24 @@ function App(): React.JSX.Element {
   }
 
   const startRecording = async (): Promise<void> => {
+    console.log('startRecording called, current status:', statusRef.current)
     try {
+      console.log('Requesting microphone access...')
+
+      // Ensure window is focused for microphone permission
+      window.focus()
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          sampleRate: 24000, // Whisper works well with 16kHz-24kHz, 24k is a safe sweet spot
+          sampleRate: 16000, // Whisper works best with 16kHz
           echoCancellation: true,
-          noiseSuppression: true
+          noiseSuppression: true,
+          autoGainControl: true
         }
       })
+
+      console.log('Microphone access granted, stream obtained')
 
       const audioContext = new AudioContext()
       const analyser = audioContext.createAnalyser()
@@ -193,7 +216,7 @@ function App(): React.JSX.Element {
         mimeType: 'audio/webm;codecs=opus',
         audioBitsPerSecond: 32000 // 32kbps is sufficient for speech
       }
-      
+
       // Fallback if the specific mimeType isn't supported
       if (options.mimeType && !MediaRecorder.isTypeSupported(options.mimeType)) {
         delete options.mimeType
@@ -229,8 +252,23 @@ function App(): React.JSX.Element {
       startTimeRef.current = Date.now()
       setStatus('recording')
       window.api.setRecordingState(true)
-    } catch {
+      console.log('Recording started successfully')
+    } catch (error) {
       // Failed to start recording - user may have denied permission
+      console.error('Failed to start recording:', error)
+      setStatus('idle')
+      window.api.setRecordingState(false)
+
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          alert('Microphone permission denied. Please grant microphone access in System Settings.')
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          alert('No microphone found. Please connect a microphone and try again.')
+        } else {
+          alert(`Failed to start recording: ${error.message}`)
+        }
+      }
     }
   }
 
