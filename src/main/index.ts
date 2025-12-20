@@ -55,6 +55,7 @@ let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let recordingOverlay: BrowserWindow | null = null
+let overlayCloseTimeout: NodeJS.Timeout | null = null
 let isRecording = false
 
 function updateTrayIcon(
@@ -109,7 +110,7 @@ function updateTrayIcon(
 
     case 'processing':
       tray.setToolTip('Toolify - Processing...')
-      closeRecordingOverlay()
+      updateRecordingOverlayProcessingState(true)
       if (process.platform === 'darwin') {
         // @ts-ignore - macOS specific API
         tray.setTitle('')
@@ -175,9 +176,18 @@ function createSettingsWindowInstance(): void {
 }
 
 function createRecordingOverlay(): void {
-  if (recordingOverlay && !recordingOverlay.isDestroyed()) {
-    recordingOverlay.close()
+  // Cancel any pending close timeout to prevent conflicts
+  if (overlayCloseTimeout) {
+    clearTimeout(overlayCloseTimeout)
+    overlayCloseTimeout = null
   }
+
+  // If overlay already exists and is not destroyed, just return (don't recreate)
+  if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+    return
+  }
+
+  recordingOverlay = null
 
   // Get the display where the focused window is, or primary display
   let activeDisplay = screen.getPrimaryDisplay()
@@ -203,8 +213,8 @@ function createRecordingOverlay(): void {
   const { width: screenWidth } = activeDisplay.workAreaSize
   const { x: displayX, y: displayY } = activeDisplay.workArea
 
-  const overlayWidth = 160
-  const overlayHeight = 60
+  const overlayWidth = 100
+  const overlayHeight = 40
   const rightPadding = 5
   const topPadding = 30
 
@@ -236,11 +246,22 @@ function createRecordingOverlay(): void {
   recordingOverlay.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
 
   recordingOverlay.on('closed', () => {
+    console.log('Recording overlay closed event')
     recordingOverlay = null
   })
 
+  // Set highest window level for macOS to ensure overlay stays on top
+  if (process.platform === 'darwin') {
+    recordingOverlay.setWindowButtonVisibility(false)
+    // Use screen-saver level to stay above everything
+    // @ts-ignore - macOS specific API
+    recordingOverlay.setAlwaysOnTop(true, 'screen-saver')
+  }
+
   recordingOverlay.show()
   recordingOverlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  console.log('Recording overlay created and shown at position:', { x, y })
 }
 
 function updateRecordingOverlayAudioLevel(level: number): void {
@@ -253,22 +274,61 @@ function updateRecordingOverlayAudioLevel(level: number): void {
   }
 }
 
-function closeRecordingOverlay(): void {
+function updateRecordingOverlayProcessingState(processing: boolean): void {
   if (recordingOverlay && !recordingOverlay.isDestroyed()) {
     try {
+      recordingOverlay.webContents.send('processing-state', { processing })
+    } catch {
+      // Overlay might not be ready yet, ignore
+    }
+  }
+}
+
+function showRecordingOverlaySuccess(): void {
+  if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+    try {
+      recordingOverlay.webContents.send('success-state')
+    } catch {
+      // Overlay might not be ready yet, ignore
+    }
+  }
+}
+
+function closeRecordingOverlay(): void {
+  console.log('closeRecordingOverlay called')
+
+  // Cancel any existing close timeout
+  if (overlayCloseTimeout) {
+    clearTimeout(overlayCloseTimeout)
+    overlayCloseTimeout = null
+  }
+
+  if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+    try {
+      console.log('Sending fade-out to overlay')
       recordingOverlay.webContents.send('fade-out')
-      setTimeout(() => {
+
+      // Track the close timeout so it can be cancelled if needed
+      overlayCloseTimeout = setTimeout(() => {
         if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+          console.log('Closing overlay window')
           recordingOverlay.close()
         }
         recordingOverlay = null
+        overlayCloseTimeout = null
       }, 800)
-    } catch {
-      recordingOverlay.close()
+    } catch (error) {
+      console.error('Error closing overlay:', error)
+      if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+        recordingOverlay.close()
+      }
       recordingOverlay = null
+      overlayCloseTimeout = null
     }
   } else {
+    console.log('Overlay already destroyed or null')
     recordingOverlay = null
+    overlayCloseTimeout = null
   }
 }
 
@@ -345,8 +405,50 @@ app.whenReady().then(() => {
     }
   }
 
+  const handleCancelRecording = (): void => {
+    console.log('Cancel recording requested')
+    if (isRecording) {
+      console.log('Cancelling active recording')
+
+      // Unregister ESC shortcut when cancelling
+      globalShortcut.unregister('Escape')
+      console.log('ESC shortcut unregistered')
+
+      // IMPORTANT: Send cancel-recording (NOT stop-recording) to abort without processing
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('cancel-recording')
+      }
+
+      isRecording = false
+
+      // Unmute system
+      unmuteSystem()
+
+      // Close overlay immediately
+      if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+        recordingOverlay.destroy()
+        recordingOverlay = null
+      }
+
+      // Clear any pending close timeout
+      if (overlayCloseTimeout) {
+        clearTimeout(overlayCloseTimeout)
+        overlayCloseTimeout = null
+      }
+
+      // Reset tray icon without animations/notifications (silent cancel)
+      updateTrayIcon('idle', false)
+
+      // NO notification or sound on cancel - user already knows they cancelled
+
+      console.log('Recording cancelled successfully')
+    }
+  }
+
   const registerShortcut = (shortcut: string): void => {
     globalShortcut.unregisterAll()
+
+    // DO NOT register ESC globally - it will be handled in renderer only during recording
 
     const unsafeShortcuts = [
       'LeftCommand',
@@ -454,16 +556,29 @@ app.whenReady().then(() => {
     isRecording = state
     const settings = getSettings()
     if (state) {
+      // Register ESC shortcut when recording starts
+      try {
+        globalShortcut.register('Escape', handleCancelRecording)
+        console.log('ESC shortcut registered for recording session')
+      } catch (error) {
+        console.error('Failed to register ESC shortcut:', error)
+      }
+
       muteSystem()
       updateTrayIcon('recording', settings.trayAnimations)
       if (settings.processNotifications) {
         showNotification('Toolify', 'Recording started')
       }
     } else {
+      // Unregister ESC shortcut when recording stops
+      globalShortcut.unregister('Escape')
+      console.log('ESC shortcut unregistered - recording stopped')
+
       unmuteSystem()
-      updateTrayIcon('idle', settings.trayAnimations)
+      // Don't set to idle immediately - processing will start right after
+      // The processAudio handler will set the correct state (processing)
       if (settings.processNotifications) {
-        showNotification('Toolify', 'Recording stopped')
+        showNotification('Toolify', 'Processing...')
       }
     }
   })
@@ -548,8 +663,6 @@ app.whenReady().then(() => {
     return clearOldHistory()
   })
 
-
-
   ipcMain.handle('check-local-model', async (_, modelType: string) => {
     return await checkLocalModelExists(modelType)
   })
@@ -564,7 +677,7 @@ app.whenReady().then(() => {
 
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
-    
+
     console.log('Processing audio with settings:', {
       useLocalModel: settings.useLocalModel,
       translate: settings.translate,
@@ -601,30 +714,27 @@ app.whenReady().then(() => {
     try {
       // Use sourceLanguage if specified, otherwise fall back to auto.
       // We do NOT use settings.language (app language) as it causes hallucinations if different from spoken language.
-      const languageToUse = settings.sourceLanguage === 'auto' ? undefined : (settings.sourceLanguage || undefined)
+      const languageToUse =
+        settings.sourceLanguage === 'auto' ? undefined : settings.sourceLanguage || undefined
 
       let text = ''
 
       if (settings.useLocalModel) {
-        text = await transcribeLocal(
-          Buffer.from(buffer),
-          settings.localModelType || 'medium',
-          {
-            translate: settings.translate ?? false,
-            language: 'auto', // Force auto-detection for mixed language support
-            sourceLanguage: 'auto', // Always auto-detect source language when translating
-            targetLanguage: settings.targetLanguage ?? 'en',
-            apiKey: settings.apiKey // Required for translation
-          }
-        )
+        text = await transcribeLocal(Buffer.from(buffer), settings.localModelType || 'medium', {
+          translate: settings.translate ?? false,
+          language: 'auto', // Force auto-detection for mixed language support
+          sourceLanguage: 'auto', // Always auto-detect source language when translating
+          targetLanguage: settings.targetLanguage ?? 'en',
+          apiKey: settings.apiKey // Required for translation
+        })
       } else {
         if (!settings.apiKey) {
-           showNotification('Toolify Error', 'API Key missing for online transcription.')
-           updateTrayIcon('idle', settings.trayAnimations)
-           if (mainWindow && !mainWindow.isDestroyed()) {
-             mainWindow.webContents.send('processing-complete')
-           }
-           return
+          showNotification('Toolify Error', 'API Key missing for online transcription.')
+          updateTrayIcon('idle', settings.trayAnimations)
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('processing-complete')
+          }
+          return
         }
 
         text = await transcribe(
@@ -653,23 +763,20 @@ app.whenReady().then(() => {
         const mp3Path = join(recordingsDir, mp3FileName)
 
         await new Promise<void>((resolve, reject) => {
-          exec(
-            `ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`,
-            (error) => {
-              if (error) {
-                console.error('FFmpeg conversion failed:', error)
-                // If conversion fails, use the WebM file
-                audioPath = webmPath
-                reject(error)
-              } else {
-                // Conversion successful, delete WebM and use MP3
-                audioPath = mp3Path
-                // Delete the WebM file
-                exec(`rm "${webmPath}"`, () => {})
-                resolve()
-              }
+          exec(`ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`, (error) => {
+            if (error) {
+              console.error('FFmpeg conversion failed:', error)
+              // If conversion fails, use the WebM file
+              audioPath = webmPath
+              reject(error)
+            } else {
+              // Conversion successful, delete WebM and use MP3
+              audioPath = mp3Path
+              // Delete the WebM file
+              exec(`rm "${webmPath}"`, () => {})
+              resolve()
             }
-          )
+          })
         })
       } catch (error) {
         console.error('Failed to save audio file:', error)
@@ -677,7 +784,7 @@ app.whenReady().then(() => {
 
       if (text) {
         clipboard.writeText(text)
-        updateTrayIcon('copied', settings.trayAnimations)
+        // Keep processing state (loader visible) until text is pasted
         if (settings.processNotifications) {
           showNotification('Toolify', 'Text copied to clipboard!')
         }
@@ -710,7 +817,15 @@ app.whenReady().then(() => {
 
         exec(
           'osascript -e "tell application \\"System Events\\" to keystroke \\"v\\" using command down"',
-          () => {}
+          () => {
+            // Show success checkmark animation
+            showRecordingOverlaySuccess()
+
+            // Wait for checkmark animation to complete, then close overlay
+            setTimeout(() => {
+              updateTrayIcon('copied', settings.trayAnimations)
+            }, 800)
+          }
         )
       } else {
         updateTrayIcon('idle', settings.trayAnimations)

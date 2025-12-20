@@ -24,6 +24,13 @@ const api = {
       ipcRenderer.removeListener('stop-recording', handler)
     }
   },
+  onCancelRecording: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('cancel-recording', handler)
+    return () => {
+      ipcRenderer.removeListener('cancel-recording', handler)
+    }
+  },
   onProcessingComplete: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('processing-complete', handler)

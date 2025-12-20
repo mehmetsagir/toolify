@@ -15,6 +15,7 @@ declare global {
     api: {
       onStartRecording: (callback: () => void) => () => void
       onStopRecording: (callback: () => void) => () => void
+      onCancelRecording: (callback: () => void) => () => void
       onProcessingComplete: (callback: () => void) => () => void
       onShowHistory: (callback: () => void) => () => void
       processAudio: (buffer: ArrayBuffer, duration: number) => void

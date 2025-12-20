@@ -7,7 +7,6 @@ function App(): React.JSX.Element {
   const [showSettings, setShowSettings] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [translate, setTranslate] = useState(false)
-  const [language, setLanguage] = useState('')
   const [sourceLanguage, setSourceLanguage] = useState('en')
   const [targetLanguage, setTargetLanguage] = useState('tr')
   const [shortcut, setShortcut] = useState('Command+Space')
@@ -45,7 +44,6 @@ function App(): React.JSX.Element {
       window.api.getSettings().then((settings) => {
         setApiKey(settings.apiKey || '')
         setTranslate(settings.translate || false)
-        setLanguage(settings.language || '')
         setSourceLanguage(settings.sourceLanguage || 'en')
         setTargetLanguage(settings.targetLanguage || 'tr')
         setShortcut(settings.shortcut || 'Command+Space')
@@ -92,6 +90,15 @@ function App(): React.JSX.Element {
       }
     })
 
+    const removeCancelListener = window.api.onCancelRecording(() => {
+      console.log('Renderer: Received cancel-recording IPC message')
+      console.log('Renderer: Current status:', statusRef.current)
+      if (statusRef.current === 'recording') {
+        console.log('Renderer: Cancelling recording (no processing)...')
+        cancelRecording()
+      }
+    })
+
     const removeProcessingCompleteListener = window.api.onProcessingComplete(() => {
       setStatus('idle')
       window.api.setProcessingState(false)
@@ -100,6 +107,7 @@ function App(): React.JSX.Element {
     return () => {
       removeStartListener()
       removeStopListener()
+      removeCancelListener()
       removeProcessingCompleteListener()
       cancelAnimationFrame(animationFrameRef.current!)
       if (audioContextRef.current) {
@@ -112,7 +120,6 @@ function App(): React.JSX.Element {
   const saveSettings = (
     newKey: string,
     newTranslate: boolean,
-    newLanguage: string,
     newSourceLanguage: string,
     newTargetLanguage: string,
     newShortcut: string,
@@ -127,7 +134,6 @@ function App(): React.JSX.Element {
   ): void => {
     setApiKey(newKey)
     setTranslate(newTranslate)
-    setLanguage(newLanguage)
     setSourceLanguage(newSourceLanguage)
     setTargetLanguage(newTargetLanguage)
     setShortcut(newShortcut)
@@ -142,7 +148,7 @@ function App(): React.JSX.Element {
     window.api.saveSettings({
       apiKey: newKey,
       translate: newTranslate,
-      language: newLanguage,
+      language: '',
       sourceLanguage: newSourceLanguage,
       targetLanguage: newTargetLanguage,
       shortcut: newShortcut,
@@ -279,6 +285,62 @@ function App(): React.JSX.Element {
     mediaRecorderRef.current.stop()
   }
 
+  const cancelRecording = (): void => {
+    console.log('Cancelling recording without processing')
+
+    if (!mediaRecorderRef.current) {
+      console.log('No media recorder to cancel')
+      setStatus('idle')
+      window.api.setRecordingState(false)
+      return
+    }
+
+    // CRITICAL: Remove BOTH handlers to prevent ANY processing
+    const mediaRecorder = mediaRecorderRef.current
+
+    // Clear chunks
+    chunksRef.current = []
+
+    // Remove handlers BEFORE stopping
+    if (mediaRecorder.state !== 'inactive') {
+      console.log('Removing handlers and stopping recorder')
+
+      // Remove onstop handler - THIS WAS THE BUG!
+      mediaRecorder.onstop = null
+
+      // Remove ondataavailable handler
+      mediaRecorder.ondataavailable = null
+
+      // Now stop - won't trigger any processing
+      mediaRecorder.stop()
+    }
+
+    // Clean up audio analysis
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+
+    // Clean up audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+    }
+
+    // Stop all tracks
+    if (mediaRecorder.stream) {
+      mediaRecorder.stream.getTracks().forEach((track) => track.stop())
+    }
+
+    // Reset state
+    mediaRecorderRef.current = null
+    setStatus('idle')
+    window.api.setRecordingState(false)
+    setAudioLevel(0)
+
+    console.log('Recording cancelled - NO processing, NO AI, NO paste')
+  }
+
   const handleRecordToggle = (): void => {
     if (status === 'idle') {
       startRecording()
@@ -292,7 +354,6 @@ function App(): React.JSX.Element {
       window.api.getSettings().then((settings) => {
         setApiKey(settings.apiKey || '')
         setTranslate(settings.translate || false)
-        setLanguage(settings.language || '')
         setShortcut(settings.shortcut || 'Command+Space')
         setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
       })
@@ -308,7 +369,6 @@ function App(): React.JSX.Element {
             saveSettings(
               val,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -326,26 +386,6 @@ function App(): React.JSX.Element {
           setTranslate={(val) =>
             saveSettings(
               apiKey,
-              val,
-              language,
-              sourceLanguage,
-              targetLanguage,
-              shortcut,
-              trayAnimations,
-              processNotifications,
-              soundAlert,
-              soundType,
-              autoStart,
-              showRecordingOverlay,
-              useLocalModel,
-              localModelType
-            )
-          }
-          language={language}
-          setLanguage={(val) =>
-            saveSettings(
-              apiKey,
-              translate,
               val,
               sourceLanguage,
               targetLanguage,
@@ -365,7 +405,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               val,
               targetLanguage,
               shortcut,
@@ -384,7 +423,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               val,
               shortcut,
@@ -403,7 +441,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               val,
@@ -422,7 +459,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -441,7 +477,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -460,7 +495,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -479,7 +513,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -498,7 +531,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -517,7 +549,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -536,7 +567,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -555,7 +585,6 @@ function App(): React.JSX.Element {
             saveSettings(
               apiKey,
               translate,
-              language,
               sourceLanguage,
               targetLanguage,
               shortcut,
@@ -573,7 +602,6 @@ function App(): React.JSX.Element {
             saveSettings(
               settings.apiKey,
               settings.translate,
-              settings.language,
               settings.sourceLanguage,
               settings.targetLanguage,
               settings.shortcut,
