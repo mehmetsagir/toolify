@@ -24,11 +24,6 @@ export function getAllHistory(): HistoryItem[] {
   return history.sort((a, b) => b.timestamp - a.timestamp) // Most recent first
 }
 
-export function getHistoryById(id: string): HistoryItem | null {
-  const history = getAllHistory()
-  return history.find((item) => item.id === id) || null
-}
-
 export function addHistoryItem(item: Omit<HistoryItem, 'id' | 'timestamp'>): HistoryItem {
   const history = getAllHistory()
   const newItem: HistoryItem = {
@@ -112,7 +107,4 @@ export function deleteHistoryItems(ids: string[]): number {
   store.set(HISTORY_KEY, filtered)
   return deletedCount
 }
-
-
-
 

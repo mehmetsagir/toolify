@@ -16,6 +16,3 @@ export interface HistorySettings {
   maxHistoryItems: number // 0 = unlimited
 }
 
-
-
-

@@ -28,8 +28,6 @@ import appIcon from '../assets/app-icon.png'
 interface SettingsProps {
   apiKey: string
   setApiKey: (key: string) => void
-  language: string
-  setLanguage: (lang: string) => void
   sourceLanguage: string
   setSourceLanguage: (lang: string) => void
   targetLanguage: string
@@ -56,7 +54,6 @@ interface SettingsProps {
   setLocalModelType: (val: 'base' | 'small' | 'medium' | 'large-v3') => void
   onSave?: (settings: {
     apiKey: string
-    language: string
     sourceLanguage: string
     targetLanguage: string
     shortcut: string
@@ -75,8 +72,6 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({
   apiKey: initialKey,
   setApiKey,
-  language: initialLanguage,
-  setLanguage,
   sourceLanguage: initialSourceLanguage,
   setSourceLanguage,
   targetLanguage: initialTargetLanguage,
@@ -104,7 +99,6 @@ export const Settings: React.FC<SettingsProps> = ({
   onSave
 }) => {
   const [localKey, setLocalKey] = useState(initialKey)
-  const [localLanguage, setLocalLanguage] = useState(initialLanguage)
   const [localSourceLanguage, setLocalSourceLanguage] = useState(initialSourceLanguage || 'en')
   const [localTargetLanguage, setLocalTargetLanguage] = useState(initialTargetLanguage || 'tr')
   const [localShortcut, setLocalShortcut] = useState(initialShortcut || 'Command+Space')
@@ -173,7 +167,6 @@ export const Settings: React.FC<SettingsProps> = ({
 
   useEffect(() => {
     setLocalKey(initialKey)
-    setLocalLanguage(initialLanguage)
     setLocalSourceLanguage(initialSourceLanguage || 'en')
     setLocalTargetLanguage(initialTargetLanguage || 'tr')
     setLocalShortcut(initialShortcut || 'Command+Space')
@@ -188,7 +181,6 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalLocalModelType(initialLocalModelType || 'base')
   }, [
     initialKey,
-    initialLanguage,
     initialSourceLanguage,
     initialTargetLanguage,
     initialShortcut,
@@ -196,8 +188,6 @@ export const Settings: React.FC<SettingsProps> = ({
     initialTrayAnimations,
     initialProcessNotifications,
     initialSoundAlert,
-    initialSoundType,
-    initialAutoStart,
     initialSoundType,
     initialAutoStart,
     initialShowRecordingOverlay,
@@ -298,7 +288,6 @@ export const Settings: React.FC<SettingsProps> = ({
     if (onSave) {
       onSave({
         apiKey: localKey,
-        language: localLanguage,
         sourceLanguage: localSourceLanguage,
         targetLanguage: localTargetLanguage,
         shortcut: localShortcut,
@@ -314,7 +303,6 @@ export const Settings: React.FC<SettingsProps> = ({
       })
     } else {
       setApiKey(localKey)
-      setLanguage(localLanguage)
       setSourceLanguage(localSourceLanguage)
       setTargetLanguage(localTargetLanguage)
       setShortcut(localShortcut)
@@ -716,7 +704,7 @@ export const Settings: React.FC<SettingsProps> = ({
                                 // Auto-save using all current local state values
                                 window.api.saveSettings({
                                   apiKey: localKey,
-                                  language: localLanguage,
+                                  language: '',
                                   sourceLanguage: localSourceLanguage,
                                   targetLanguage: localTargetLanguage,
                                   shortcut: localShortcut,
@@ -728,7 +716,7 @@ export const Settings: React.FC<SettingsProps> = ({
                                   autoStart: localAutoStart,
                                   showRecordingOverlay: localShowRecordingOverlay,
                                   useLocalModel: localUseLocalModel,
-                                  localModelType: newValue as any
+                                  localModelType: newValue
                                 })
 
                                 checkModelStatus(newValue)
