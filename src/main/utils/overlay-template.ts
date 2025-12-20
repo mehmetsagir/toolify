@@ -21,15 +21,30 @@ export function getOverlayHTML(): string {
       overflow: hidden;
     }
     .waveform-container {
-      width: 140px;
-      height: 50px;
-      padding: 8px 10px;
-      background: transparent;
+      width: 100px;
+      height: 40px;
+      padding: 8px 12px;
+      background: rgba(24, 24, 27, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
       animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .waveform-container:hover {
+      background: rgba(24, 24, 27, 0.98);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+    .waveform-container.processing {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2), 0 0 0 1px rgba(59, 130, 246, 0.1);
     }
     @keyframes fadeIn {
       0% {
@@ -59,28 +74,144 @@ export function getOverlayHTML(): string {
       height: 100%;
       opacity: 1;
       transition: opacity 0.3s ease-out;
+      display: block;
+    }
+    canvas.hidden {
+      display: none;
+    }
+    .loader {
+      display: none;
+      position: relative;
+      width: 20px;
+      height: 20px;
+    }
+    .loader.visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader-dots {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+    .loader-dot {
+      width: 4px;
+      height: 4px;
+      background: rgba(59, 130, 246, 1);
+      border-radius: 50%;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .loader-dot:nth-child(1) {
+      animation-delay: 0s;
+    }
+    .loader-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .loader-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+      50% {
+        transform: scale(1.3);
+        opacity: 1;
+      }
+    }
+    .checkmark {
+      display: none;
+      width: 24px;
+      height: 24px;
+    }
+    .checkmark.visible {
+      display: block;
+      animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .checkmark-circle {
+      stroke: rgba(34, 197, 94, 1);
+      stroke-width: 2;
+      fill: none;
+      stroke-dasharray: 75;
+      stroke-dashoffset: 75;
+      animation: drawCircle 0.4s ease-out forwards;
+    }
+    .checkmark-check {
+      stroke: rgba(34, 197, 94, 1);
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 20;
+      stroke-dashoffset: 20;
+      animation: drawCheck 0.3s ease-out 0.3s forwards;
+    }
+    @keyframes scaleIn {
+      from {
+        transform: scale(0);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    @keyframes drawCircle {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes drawCheck {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    .content-wrapper {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
   </style>
 </head>
 <body>
   <div class="waveform-container">
-    <canvas id="waveformCanvas" width="140" height="50"></canvas>
+    <div class="content-wrapper">
+      <canvas id="waveformCanvas" width="80" height="24"></canvas>
+      <div class="loader" id="loader">
+        <div class="loader-dots">
+          <div class="loader-dot"></div>
+          <div class="loader-dot"></div>
+          <div class="loader-dot"></div>
+        </div>
+      </div>
+      <svg class="checkmark" id="checkmark" viewBox="0 0 24 24">
+        <circle class="checkmark-circle" cx="12" cy="12" r="10"/>
+        <path class="checkmark-check" d="M7 12l3 3 7-7"/>
+      </svg>
+    </div>
   </div>
   <script>
     (function() {
       const canvas = document.getElementById('waveformCanvas');
       const container = document.querySelector('.waveform-container');
-      if (!canvas || !container) return;
+      const loader = document.getElementById('loader');
+      const checkmark = document.getElementById('checkmark');
+      if (!canvas || !container || !loader || !checkmark) return;
 
       const ctx = canvas.getContext('2d');
       const width = canvas.width;
       const height = canvas.height;
 
-      const barCount = 25;
-      const spacing = 2.5;
+      const barCount = 16;
+      const spacing = 2;
       const barWidth = (width - (spacing * (barCount - 1))) / barCount;
       const centerY = height / 2;
-      const maxBarHeight = height * 0.75;
+      const maxBarHeight = height * 0.7;
 
       let currentLevel = 0;
       let audioHistory = new Array(barCount).fill(0);
@@ -88,6 +219,7 @@ export function getOverlayHTML(): string {
       let isFadingOut = false;
       let containerOpacity = 0;
       let fadeInProgress = true;
+      let isProcessing = false;
 
       const fadeInInterval = setInterval(() => {
         if (containerOpacity < 1) {
@@ -100,11 +232,41 @@ export function getOverlayHTML(): string {
       }, 16);
 
       const { ipcRenderer } = require('electron');
+
       ipcRenderer.on('audio-level-update', (event, data) => {
         if (data && data.level !== undefined) {
           const rawLevel = data.level / 100;
-          targetLevel = Math.min(1, Math.max(0, rawLevel * 0.7));
+          targetLevel = Math.min(1, Math.max(0, rawLevel * 1.2));
         }
+      });
+
+      ipcRenderer.on('processing-state', (event, data) => {
+        if (data && data.processing !== undefined) {
+          isProcessing = data.processing;
+          if (isProcessing) {
+            // Don't add 'processing' class - keep normal colors
+            canvas.classList.add('hidden');
+            loader.classList.add('visible');
+            checkmark.classList.remove('visible');
+            targetLevel = 0;
+          } else {
+            // Don't need to remove 'processing' class since we don't add it
+            canvas.classList.remove('hidden');
+            loader.classList.remove('visible');
+          }
+        }
+      });
+
+      ipcRenderer.on('success-state', () => {
+        // Show checkmark animation
+        canvas.classList.add('hidden');
+        loader.classList.remove('visible');
+        checkmark.classList.add('visible');
+
+        // Change container to success theme
+        container.style.background = 'rgba(34, 197, 94, 0.15)';
+        container.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+        container.style.boxShadow = '0 4px 16px rgba(34, 197, 94, 0.2), 0 0 0 1px rgba(34, 197, 94, 0.1)';
       });
 
       ipcRenderer.on('fade-out', () => {
