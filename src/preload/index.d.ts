@@ -54,6 +54,14 @@ declare global {
       checkLocalModel: (modelType: string) => Promise<boolean>
       downloadLocalModel: (modelType: string) => Promise<void>
       deleteLocalModel: (modelType: string) => Promise<void>
+      onModelDownloadProgress: (
+        callback: (progress: {
+          modelType: string
+          percent: number
+          downloaded: number
+          total: number
+        }) => void
+      ) => () => void
     }
   }
 }

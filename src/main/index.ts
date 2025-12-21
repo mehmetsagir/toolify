@@ -668,7 +668,21 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('download-local-model', async (_, modelType: string) => {
-    return await downloadLocalModel(modelType)
+    // Get settings window to send progress updates (settings window is where download happens)
+    const windowToNotify = settingsWindow || mainWindow
+    
+    return await downloadLocalModel(modelType, (progress) => {
+      // Send progress update to renderer
+      if (windowToNotify && !windowToNotify.isDestroyed()) {
+        windowToNotify.webContents.send('model-download-progress', {
+          modelType,
+          percent: progress.percent,
+          downloaded: progress.downloaded,
+          total: progress.total
+        })
+        console.log('Progress update sent:', { modelType, ...progress })
+      }
+    })
   })
 
   ipcMain.handle('delete-local-model', async (_, modelType: string) => {
@@ -696,15 +710,9 @@ app.whenReady().then(() => {
       return
     }
 
-    // If using local model with translation, API key is required for translation
-    if (settings.useLocalModel && settings.translate && !settings.apiKey) {
-      showNotification('Toolify Error', 'API Key required for translation feature.')
-      updateTrayIcon('idle', settings.trayAnimations)
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('processing-complete')
-      }
-      return
-    }
+    // If using local model, API key is only required if translation is enabled
+    // Local model transcription works without API key
+    // We'll handle translation check inside transcribeLocal call
 
     updateTrayIcon('processing', settings.trayAnimations)
     if (settings.processNotifications) {
@@ -720,12 +728,16 @@ app.whenReady().then(() => {
       let text = ''
 
       if (settings.useLocalModel) {
+        // For local model: translation requires API key
+        // If translation is enabled but no API key, disable translation and continue with transcription only
+        const shouldTranslate = settings.translate && !!settings.apiKey
+        
         text = await transcribeLocal(Buffer.from(buffer), settings.localModelType || 'medium', {
-          translate: settings.translate ?? false,
+          translate: shouldTranslate,
           language: 'auto', // Force auto-detection for mixed language support
           sourceLanguage: 'auto', // Always auto-detect source language when translating
           targetLanguage: settings.targetLanguage ?? 'en',
-          apiKey: settings.apiKey // Required for translation
+          apiKey: settings.apiKey // Only used if translation is enabled
         })
       } else {
         if (!settings.apiKey) {
@@ -836,11 +848,31 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Transcription failed', error)
       updateTrayIcon('idle', settings.trayAnimations)
-      showNotification(
-        'Toolify Error',
-        'Transcription failed. Check your API Key or internet connection.',
-        true
-      )
+      
+      // Provide more specific error messages based on the error type and settings
+      let errorMessage = 'Transcription failed.'
+      
+      if (settings.useLocalModel) {
+        // Local model specific errors
+        const errorStr = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+        
+        if (errorStr.includes('not found') || errorStr.includes('model')) {
+          errorMessage = 'Local model not found. Please download the model in Settings.'
+        } else if (errorStr.includes('executable') || errorStr.includes('whisper')) {
+          errorMessage = 'Whisper executable not found. Please reinstall the application.'
+        } else {
+          errorMessage = `Local transcription failed: ${error instanceof Error ? error.message : String(error)}`
+        }
+      } else {
+        // Online model specific errors
+        if (!settings.apiKey) {
+          errorMessage = 'API Key missing for online transcription.'
+        } else {
+          errorMessage = 'Transcription failed. Check your API Key or internet connection.'
+        }
+      }
+      
+      showNotification('Toolify Error', errorMessage, true)
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('processing-complete')
       }

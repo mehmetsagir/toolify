@@ -141,7 +141,10 @@ export async function checkLocalModelExists(modelType: string): Promise<boolean>
   return fs.existsSync(modelPath)
 }
 
-export async function downloadLocalModel(modelType: string): Promise<void> {
+export async function downloadLocalModel(
+  modelType: string,
+  onProgress?: (progress: { percent: number; downloaded: number; total: number }) => void
+): Promise<void> {
   const modelsDir = getModelsDir()
   const modelPath = getModelPath(modelType)
   
@@ -151,7 +154,7 @@ export async function downloadLocalModel(modelType: string): Promise<void> {
   
   // Always use CDN download for both dev and production
   // This ensures consistent behavior and smaller bundle size
-  return downloadWithCurl(modelType, modelPath, modelsDir)
+  return downloadWithCurl(modelType, modelPath, modelsDir, onProgress)
 }
 
 // HuggingFace CDN URLs for Whisper models
@@ -163,14 +166,25 @@ const MODEL_URLS: Record<string, string> = {
   'large-v3': 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin',
 }
 
+// Expected model sizes in bytes (approximate, for progress calculation)
+const MODEL_SIZES: Record<string, number> = {
+  'tiny': 75 * 1024 * 1024,      // ~75 MB
+  'base': 142 * 1024 * 1024,     // ~142 MB
+  'small': 466 * 1024 * 1024,    // ~466 MB
+  'medium': 1500 * 1024 * 1024,  // ~1.5 GB
+  'large-v3': 2900 * 1024 * 1024 // ~2.9 GB
+}
+
 // Helper function to download model using curl from HuggingFace CDN
 // Works in both dev and production environments - always downloads from CDN
 function downloadWithCurl(
   modelType: string,
   modelPath: string,
-  modelsDir: string
+  modelsDir: string,
+  onProgress?: (progress: { percent: number; downloaded: number; total: number }) => void
 ): Promise<void> {
   const modelUrl = MODEL_URLS[modelType] || `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${modelType}.bin`
+  const expectedSize = MODEL_SIZES[modelType] || 0
   
   if (!MODEL_URLS[modelType]) {
     console.warn(`Unknown model type: ${modelType}, using default URL pattern`)
@@ -180,6 +194,7 @@ function downloadWithCurl(
     console.log(`Downloading model ${modelType} from HuggingFace CDN...`)
     console.log(`URL: ${modelUrl}`)
     console.log(`Saving to: ${modelPath}`)
+    console.log(`Expected size: ${(expectedSize / 1024 / 1024).toFixed(2)} MB`)
     
     // Ensure models directory exists
     if (!fs.existsSync(modelsDir)) {
@@ -189,15 +204,47 @@ function downloadWithCurl(
     
     // Use curl with progress indicator and retry logic
     // -L: Follow redirects
-    // --progress-bar: Show progress bar
+    // --silent: Don't show progress bar (we'll track it ourselves)
+    // --show-error: Show errors
     // --fail: Fail silently on HTTP errors
     // --retry 3: Retry up to 3 times
     // --retry-delay 2: Wait 2 seconds between retries
     // -o: Output file
-    const curlCommand = `curl -L --progress-bar --fail --retry 3 --retry-delay 2 -o "${modelPath}" "${modelUrl}"`
+    const curlCommand = `curl -L --silent --show-error --fail --retry 3 --retry-delay 2 -o "${modelPath}" "${modelUrl}"`
     
     console.log('Starting download...')
+    
+    // Start progress tracking if callback provided
+    let progressInterval: NodeJS.Timeout | null = null
+    if (onProgress && expectedSize > 0) {
+      // Send initial progress
+      onProgress({ percent: 0, downloaded: 0, total: expectedSize })
+      
+      progressInterval = setInterval(() => {
+        try {
+          if (fs.existsSync(modelPath)) {
+            const stats = fs.statSync(modelPath)
+            const downloaded = stats.size
+            const percent = Math.min(100, Math.round((downloaded / expectedSize) * 100))
+            console.log(`Download progress: ${percent}% (${(downloaded / 1024 / 1024).toFixed(2)} MB / ${(expectedSize / 1024 / 1024).toFixed(2)} MB)`)
+            onProgress({ percent, downloaded, total: expectedSize })
+          } else {
+            // File doesn't exist yet, send 0% progress
+            onProgress({ percent: 0, downloaded: 0, total: expectedSize })
+          }
+        } catch (e) {
+          // File might be locked, ignore
+          console.warn('Failed to check download progress:', e)
+        }
+      }, 300) // Check every 300ms for smoother updates
+    }
+    
     exec(curlCommand, { maxBuffer: 1024 * 1024 * 100 }, (error, _stdout, stderr) => {
+      // Clear progress interval
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+      
       if (error) {
         console.error('Model download failed:', stderr)
         // Clean up partial download
@@ -218,6 +265,12 @@ function downloadWithCurl(
             const sizeMB = (stats.size / 1024 / 1024).toFixed(2)
             console.log(`✓ Model download successful: ${sizeMB} MB`)
             console.log(`  Saved to: ${modelPath}`)
+            
+            // Send final progress update
+            if (onProgress) {
+              onProgress({ percent: 100, downloaded: stats.size, total: stats.size })
+            }
+            
             resolve()
           } else {
             reject(new Error('Downloaded file is empty'))
@@ -288,7 +341,7 @@ export async function transcribeLocal(
     console.log('Using local model path:', modelPath)
 
     if (!fs.existsSync(modelPath)) {
-        throw new Error(`Local model not found: ${modelType}. Please download it in Settings.`)
+        throw new Error('Local model not found. Please download the model in Settings.')
     }
     
     // Execute directly to bypass whisper-node's buggy parsing (it shifts/removes the first line!)
