@@ -1,8 +1,8 @@
 cask "toolify" do
-  version "0.0.5"
+  version "0.0.9"
   sha256 :no_check # İlk sürüm için, sonra gerçek SHA256 ekleyeceğiz
 
-  url "https://github.com/mehmetsagir/toolify/releases/download/v#{version}/toolify-#{version}-arm64.dmg"
+  url "https://github.com/mehmetsagir/toolify/releases/download/v#{version}/Toolify-#{version}-arm64.dmg"
   name "Toolify"
   desc "AI-powered voice transcription and translation tool"
   homepage "https://github.com/mehmetsagir/toolify"
