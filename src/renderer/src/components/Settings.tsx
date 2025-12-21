@@ -123,7 +123,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [latestVersion, setLatestVersion] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [downloadProgress, setDownloadProgress] = useState(0)
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0)
   const [historyAutoDeleteDays, setHistoryAutoDeleteDays] = useState(30)
   const [historyMaxItems, setHistoryMaxItems] = useState(0)
   const [activeTab, setActiveTab] = useState<'settings' | 'history'>('settings')
@@ -132,6 +132,11 @@ export const Settings: React.FC<SettingsProps> = ({
   const [modelDownloadStatus, setModelDownloadStatus] = useState<
     'idle' | 'checking' | 'downloading' | 'ready' | 'missing'
   >('idle')
+  const [downloadProgress, setDownloadProgress] = useState<{
+    percent: number
+    downloaded: number
+    total: number
+  } | null>(null)
 
   const checkModelStatus = async (modelType: string): Promise<void> => {
     if (!window.api?.checkLocalModel) return
@@ -148,15 +153,35 @@ export const Settings: React.FC<SettingsProps> = ({
   const handleDownloadModel = async (): Promise<void> => {
     if (!window.api?.downloadLocalModel) return
     setModelDownloadStatus('downloading')
+    setDownloadProgress({ percent: 0, downloaded: 0, total: 0 })
     try {
       await window.api.downloadLocalModel(localLocalModelType)
       setModelDownloadStatus('ready')
+      setDownloadProgress(null)
     } catch (error) {
       console.error('Failed to download model:', error)
       setModelDownloadStatus('missing')
+      setDownloadProgress(null)
       // You might want to show an error toast here
     }
   }
+
+  // Listen for download progress updates
+  useEffect(() => {
+    if (!window.api?.onModelDownloadProgress) return
+    
+    const removeListener = window.api.onModelDownloadProgress((progress) => {
+      console.log('Received progress update:', progress)
+      // Always update progress regardless of modelType (in case user switches during download)
+      setDownloadProgress({
+        percent: progress.percent,
+        downloaded: progress.downloaded,
+        total: progress.total
+      })
+    })
+    
+    return removeListener
+  }, []) // Empty dependency array - listener should be set once and stay active
 
   // Check model status when toggle is on or model type changes
   useEffect(() => {
@@ -255,7 +280,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
       const unsubscribe3 = window.api.onUpdateDownloadProgress((progress) => {
         setDownloading(true)
-        setDownloadProgress(Math.round(progress.percent))
+        setUpdateDownloadProgress(Math.round(progress.percent))
       })
 
       return () => {
@@ -336,7 +361,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const handleDownloadUpdate = async (): Promise<void> => {
     if (window.api?.downloadUpdate) {
       setDownloading(true)
-      setDownloadProgress(0)
+      setUpdateDownloadProgress(0)
       try {
         await window.api.downloadUpdate()
       } catch (error) {
@@ -467,12 +492,12 @@ export const Settings: React.FC<SettingsProps> = ({
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-xs text-blue-300">
                                 <span>Downloading...</span>
-                                <span>{downloadProgress}%</span>
+                                <span>{updateDownloadProgress}%</span>
                               </div>
                               <div className="w-full bg-blue-500/20 rounded-full h-2 overflow-hidden">
                                 <div
                                   className="bg-blue-500 h-full transition-all duration-300"
-                                  style={{ width: `${downloadProgress}%` }}
+                                  style={{ width: `${updateDownloadProgress}%` }}
                                 />
                               </div>
                             </div>
@@ -758,7 +783,29 @@ export const Settings: React.FC<SettingsProps> = ({
                                   <span className="text-zinc-500">Model not found</span>
                                 )}
                                 {modelDownloadStatus === 'downloading' && (
-                                  <span className="text-blue-400">Downloading...</span>
+                                  <div className="flex flex-col gap-1.5 w-full">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-blue-400">Downloading...</span>
+                                      {downloadProgress && downloadProgress.total > 0 && (
+                                        <span className="text-blue-300 font-medium">
+                                          {downloadProgress.percent}%
+                                        </span>
+                                      )}
+                                    </div>
+                                    {downloadProgress && downloadProgress.total > 0 && (
+                                      <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                                          style={{ width: `${downloadProgress.percent}%` }}
+                                        />
+                                      </div>
+                                    )}
+                                    {downloadProgress && downloadProgress.total > 0 && (
+                                      <span className="text-zinc-500 text-[10px]">
+                                        {((downloadProgress.downloaded / 1024 / 1024).toFixed(1))} MB / {((downloadProgress.total / 1024 / 1024).toFixed(1))} MB
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
 
