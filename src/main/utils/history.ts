@@ -107,4 +107,3 @@ export function deleteHistoryItems(ids: string[]): number {
   store.set(HISTORY_KEY, filtered)
   return deletedCount
 }
-
