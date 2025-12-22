@@ -169,7 +169,7 @@ export const Settings: React.FC<SettingsProps> = ({
   // Listen for download progress updates
   useEffect(() => {
     if (!window.api?.onModelDownloadProgress) return
-    
+
     const removeListener = window.api.onModelDownloadProgress((progress) => {
       console.log('Received progress update:', progress)
       // Always update progress regardless of modelType (in case user switches during download)
@@ -179,7 +179,7 @@ export const Settings: React.FC<SettingsProps> = ({
         total: progress.total
       })
     })
-    
+
     return removeListener
   }, []) // Empty dependency array - listener should be set once and stay active
 
@@ -387,39 +387,51 @@ export const Settings: React.FC<SettingsProps> = ({
   }
 
   const sidebarSections = [
-    { id: 'general', label: 'Settings', icon: SettingsIcon },
-    { id: 'dictation', label: 'Dictation', icon: Mic },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'history', label: 'History', icon: HistoryIcon }
+    {
+      id: 'general',
+      label: 'General',
+      icon: SettingsIcon,
+      category: 'main'
+    },
+    {
+      id: 'dictation',
+      label: 'Dictation',
+      icon: Mic,
+      category: 'main'
+    },
+    {
+      id: 'audio',
+      label: 'Audio & Notifications',
+      icon: Bell,
+      category: 'main'
+    },
+    {
+      id: 'history',
+      label: 'History',
+      icon: HistoryIcon,
+      category: 'main'
+    }
   ]
 
   return (
     <div className="h-full w-full bg-zinc-950 flex">
       {/* Sidebar */}
-      <div className="w-64 bg-zinc-900/50 border-r border-white/5 flex flex-col">
+      <div className="w-56 bg-[#1e1e1e] border-r border-white/5 flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-white/5">
+        <div className="p-5 border-b border-white/5">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-xl bg-zinc-800/50 border border-white/10 overflow-hidden">
-              <img src={appIcon} alt="Toolify" className="w-8 h-8" />
+            <div className="p-1.5 rounded-lg bg-zinc-800/50 overflow-hidden">
+              <img src={appIcon} alt="Toolify" className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-white">Toolify</h1>
-              <p className="text-xs text-zinc-500">Dictation Tool</p>
+              <h1 className="text-base font-semibold text-white tracking-tight">Toolify</h1>
+              <p className="text-[10px] text-zinc-500 mt-0.5">Preferences</p>
             </div>
           </div>
         </div>
 
         {/* Sidebar Navigation */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-          {/* Dictation Section Header */}
-          <div className="px-3 py-2 mb-2">
-            <div className="flex items-center gap-2 text-zinc-500 text-xs font-semibold uppercase tracking-wider">
-              <Mic size={12} />
-              <span>Dictation</span>
-            </div>
-          </div>
-
+        <div className="flex-1 overflow-y-auto custom-scrollbar py-3 px-2">
           {sidebarSections.map((section) => {
             const Icon = section.icon
             const isActive =
@@ -436,13 +448,13 @@ export const Settings: React.FC<SettingsProps> = ({
                     setActiveSection(section.id)
                   }
                 }}
-                className={`no-drag w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-1 ml-2 border ${
+                className={`no-drag w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-normal transition-colors duration-150 ${
                   isActive
-                    ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border-transparent'
+                    ? 'bg-white/10 text-white'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
                 }`}
               >
-                <Icon size={18} />
+                <Icon size={16} className={isActive ? 'text-white' : 'text-zinc-500'} />
                 <span>{section.label}</span>
               </button>
             )
@@ -451,7 +463,7 @@ export const Settings: React.FC<SettingsProps> = ({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-[#1a1a1a]">
         {activeTab === 'history' ? (
           <div className="flex-1 overflow-hidden">
             <History
@@ -464,7 +476,7 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <div className="p-8 space-y-8">
+            <div className="max-w-4xl mx-auto p-8 space-y-10">
               {/* Update Banners - Show on all sections */}
               {(updateAvailable ||
                 updateDownloaded ||
@@ -601,26 +613,24 @@ export const Settings: React.FC<SettingsProps> = ({
 
               {/* General Settings Section */}
               {activeSection === 'general' && (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   <div>
-                    <h2 className="text-xl font-semibold text-white mb-2">General Settings</h2>
-                    <p className="text-sm text-zinc-400">Configure basic application settings</p>
+                    <h2 className="text-2xl font-semibold text-white mb-1.5 tracking-tight">
+                      General
+                    </h2>
+                    <p className="text-sm text-zinc-500">Basic application preferences</p>
                   </div>
                   <div className="space-y-4">
                     {/* Auto Start */}
-                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5">
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg transition-colors ${localAutoStart ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-800 text-zinc-500'}`}
-                          >
-                            <Power size={18} />
-                          </div>
+                          <Power size={18} className="text-zinc-400" />
                           <div className="flex flex-col">
-                            <span className="text-zinc-200 text-sm font-medium">
+                            <span className="text-white text-sm font-medium">
                               Launch at Startup
                             </span>
-                            <span className="text-zinc-500 text-xs">
+                            <span className="text-zinc-500 text-xs mt-0.5">
                               {localAutoStart
                                 ? 'Toolify will start automatically when you log in'
                                 : 'You need to start Toolify manually'}
@@ -630,21 +640,15 @@ export const Settings: React.FC<SettingsProps> = ({
 
                         <button
                           onClick={() => setLocalAutoStart(!localAutoStart)}
-                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-blue-500/50 ${
-                            localAutoStart ? 'bg-blue-600' : 'bg-zinc-800'
+                          className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                            localAutoStart ? 'bg-blue-600' : 'bg-white/10'
                           }`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                               localAutoStart ? 'translate-x-5' : 'translate-x-0'
                             }`}
-                          >
-                            {localAutoStart && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check size={10} className="text-blue-600" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          />
                         </button>
                       </div>
                     </div>
@@ -654,28 +658,24 @@ export const Settings: React.FC<SettingsProps> = ({
 
               {/* Dictation Settings Section */}
               {activeSection === 'dictation' && (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   <div>
-                    <h2 className="text-xl font-semibold text-white mb-2">Dictation Settings</h2>
-                    <p className="text-sm text-zinc-400">
-                      Configure voice recording and transcription options
+                    <h2 className="text-2xl font-semibold text-white mb-1.5 tracking-tight">
+                      Dictation
+                    </h2>
+                    <p className="text-sm text-zinc-500">
+                      Voice recording and transcription configuration
                     </p>
                   </div>
                   <div className="space-y-4">
                     {/* Local Model Toggle */}
-                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5 space-y-4">
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg transition-colors ${localUseLocalModel ? 'bg-green-500/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}
-                          >
-                            <Zap size={18} />
-                          </div>
+                          <Zap size={18} className="text-zinc-400" />
                           <div className="flex flex-col">
-                            <span className="text-zinc-200 text-sm font-medium">
-                              Use Local Model
-                            </span>
-                            <span className="text-zinc-500 text-xs">
+                            <span className="text-white text-sm font-medium">Use Local Model</span>
+                            <span className="text-zinc-500 text-xs mt-0.5">
                               {localUseLocalModel
                                 ? 'Processing on your device (Offline)'
                                 : 'Using OpenAI Cloud (Requires API Key)'}
@@ -685,35 +685,31 @@ export const Settings: React.FC<SettingsProps> = ({
 
                         <button
                           onClick={() => setLocalUseLocalModel(!localUseLocalModel)}
-                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-green-500/50 ${
-                            localUseLocalModel ? 'bg-green-600' : 'bg-zinc-800'
+                          className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                            localUseLocalModel ? 'bg-blue-600' : 'bg-white/10'
                           }`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                               localUseLocalModel ? 'translate-x-5' : 'translate-x-0'
                             }`}
-                          >
-                            {localUseLocalModel && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check size={10} className="text-green-600" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          />
                         </button>
                       </div>
 
                       {localUseLocalModel && (
-                        <div className="pt-2 border-t border-white/5 space-y-3">
+                        <div className="pt-4 mt-4 border-t border-white/5 space-y-4">
+                          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <p className="text-blue-300 text-xs font-medium mb-1">
+                              First Time Setup
+                            </p>
+                            <p className="text-blue-200/80 text-xs leading-relaxed">
+                              Using a local model requires downloading the model file (~140MB - 3GB
+                              depending on model). Please download it before collecting audio.
+                            </p>
+                          </div>
                           <div className="space-y-2">
-                            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs">
-                              <p className="text-blue-300 font-medium mb-1">First Time Setup</p>
-                              <p className="text-blue-200/80">
-                                Using a local model requires downloading the model file (~140MB -
-                                3GB depending on model). Please download it before collecting audio.
-                              </p>
-                            </div>
-                            <label className="text-zinc-400 text-xs font-medium block">
+                            <label className="text-xs text-zinc-400 font-medium block">
                               Model Size
                             </label>
                             <select
@@ -746,7 +742,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
                                 checkModelStatus(newValue)
                               }}
-                              className="w-full bg-zinc-900/50 text-white rounded-lg p-2.5 text-sm border border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 focus:outline-none transition-all cursor-pointer"
+                              className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
                             >
                               <option value="base">Whisper Base (Fastest) (~140MB)</option>
                               <option value="small">Whisper Small (Balanced) (~460MB)</option>
@@ -802,7 +798,8 @@ export const Settings: React.FC<SettingsProps> = ({
                                     )}
                                     {downloadProgress && downloadProgress.total > 0 && (
                                       <span className="text-zinc-500 text-[10px]">
-                                        {((downloadProgress.downloaded / 1024 / 1024).toFixed(1))} MB / {((downloadProgress.total / 1024 / 1024).toFixed(1))} MB
+                                        {(downloadProgress.downloaded / 1024 / 1024).toFixed(1)} MB
+                                        / {(downloadProgress.total / 1024 / 1024).toFixed(1)} MB
                                       </span>
                                     )}
                                   </div>
@@ -845,7 +842,7 @@ export const Settings: React.FC<SettingsProps> = ({
                             value={localKey}
                             onChange={(e) => setLocalKey(e.target.value)}
                             placeholder="sk-..."
-                            className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all placeholder:text-zinc-700"
+                            className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all placeholder:text-zinc-600"
                           />
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
                             <svg
@@ -881,7 +878,7 @@ export const Settings: React.FC<SettingsProps> = ({
                         <select
                           value={localShortcut}
                           onChange={(e) => setLocalShortcut(e.target.value)}
-                          className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-all cursor-pointer appearance-none pr-10"
+                          className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
                         >
                           <optgroup label="Command Combinations">
                             <option value="Command+Space">⌘ Space</option>
@@ -943,7 +940,7 @@ export const Settings: React.FC<SettingsProps> = ({
                           <select
                             value={localSourceLanguage}
                             onChange={(e) => setLocalSourceLanguage(e.target.value)}
-                            className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
+                            className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
                           >
                             <option value="auto">Auto Detect</option>
                             <option value="en">English</option>
@@ -984,19 +981,13 @@ export const Settings: React.FC<SettingsProps> = ({
                     )}
 
                     {/* Translation */}
-                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5 space-y-4">
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg transition-colors ${localTranslate ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-800 text-zinc-500'}`}
-                          >
-                            <Globe size={18} />
-                          </div>
+                          <Globe size={18} className="text-zinc-400" />
                           <div className="flex flex-col">
-                            <span className="text-zinc-200 text-sm font-medium">
-                              Translation Mode
-                            </span>
-                            <span className="text-zinc-500 text-xs">
+                            <span className="text-white text-sm font-medium">Translation Mode</span>
+                            <span className="text-zinc-500 text-xs mt-0.5">
                               {localTranslate
                                 ? 'Translate speech between languages'
                                 : 'Transcribe in original language'}
@@ -1006,21 +997,15 @@ export const Settings: React.FC<SettingsProps> = ({
 
                         <button
                           onClick={() => setLocalTranslate(!localTranslate)}
-                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-blue-500/50 ${
-                            localTranslate ? 'bg-blue-600' : 'bg-zinc-800'
+                          className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                            localTranslate ? 'bg-blue-600' : 'bg-white/10'
                           }`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                               localTranslate ? 'translate-x-5' : 'translate-x-0'
                             }`}
-                          >
-                            {localTranslate && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check size={10} className="text-blue-600" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          />
                         </button>
                       </div>
 
@@ -1034,7 +1019,7 @@ export const Settings: React.FC<SettingsProps> = ({
                             <select
                               value={localTargetLanguage}
                               onChange={(e) => setLocalTargetLanguage(e.target.value)}
-                              className="w-full bg-zinc-900/50 text-white rounded-lg p-2.5 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer"
+                              className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
                             >
                               <option value="en">English</option>
                               <option value="tr">Turkish</option>
@@ -1058,19 +1043,15 @@ export const Settings: React.FC<SettingsProps> = ({
                     </div>
 
                     {/* Recording Overlay */}
-                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5">
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg transition-colors ${localShowRecordingOverlay ? 'bg-red-500/20 text-red-400' : 'bg-zinc-800 text-zinc-500'}`}
-                          >
-                            <Radio size={18} />
-                          </div>
+                          <Radio size={18} className="text-zinc-400" />
                           <div className="flex flex-col">
-                            <span className="text-zinc-200 text-sm font-medium">
+                            <span className="text-white text-sm font-medium">
                               Recording Overlay
                             </span>
-                            <span className="text-zinc-500 text-xs">
+                            <span className="text-zinc-500 text-xs mt-0.5">
                               {localShowRecordingOverlay
                                 ? 'Show waveform visualization'
                                 : 'No visual indicator'}
@@ -1080,21 +1061,15 @@ export const Settings: React.FC<SettingsProps> = ({
 
                         <button
                           onClick={() => setLocalShowRecordingOverlay(!localShowRecordingOverlay)}
-                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-red-500/50 ${
-                            localShowRecordingOverlay ? 'bg-red-600' : 'bg-zinc-800'
+                          className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                            localShowRecordingOverlay ? 'bg-blue-600' : 'bg-white/10'
                           }`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                               localShowRecordingOverlay ? 'translate-x-5' : 'translate-x-0'
                             }`}
-                          >
-                            {localShowRecordingOverlay && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check size={10} className="text-red-600" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          />
                         </button>
                       </div>
                     </div>
@@ -1102,30 +1077,28 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
               )}
 
-              {/* Notifications Settings Section */}
-              {activeSection === 'notifications' && (
-                <div className="space-y-6">
+              {/* Audio & Notifications Settings Section */}
+              {activeSection === 'audio' && (
+                <div className="space-y-8">
                   <div>
-                    <h2 className="text-xl font-semibold text-white mb-2">Notifications</h2>
-                    <p className="text-sm text-zinc-400">
-                      Configure alerts and notification preferences
+                    <h2 className="text-2xl font-semibold text-white mb-1.5 tracking-tight">
+                      Audio & Notifications
+                    </h2>
+                    <p className="text-sm text-zinc-500">
+                      Sound alerts and notification preferences
                     </p>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {/* Process Notifications */}
-                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5">
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg transition-colors ${localProcessNotifications ? 'bg-green-500/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}
-                          >
-                            <Bell size={18} />
-                          </div>
+                          <Bell size={18} className="text-zinc-400" />
                           <div className="flex flex-col">
-                            <span className="text-zinc-200 text-sm font-medium">
+                            <span className="text-white text-sm font-medium">
                               Process Notifications
                             </span>
-                            <span className="text-zinc-500 text-xs">
+                            <span className="text-zinc-500 text-xs mt-0.5">
                               {localProcessNotifications
                                 ? 'Show start/stop notifications'
                                 : 'Only show errors'}
@@ -1135,37 +1108,27 @@ export const Settings: React.FC<SettingsProps> = ({
 
                         <button
                           onClick={() => setLocalProcessNotifications(!localProcessNotifications)}
-                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-green-500/50 ${
-                            localProcessNotifications ? 'bg-green-600' : 'bg-zinc-800'
+                          className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                            localProcessNotifications ? 'bg-blue-600' : 'bg-white/10'
                           }`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                               localProcessNotifications ? 'translate-x-5' : 'translate-x-0'
                             }`}
-                          >
-                            {localProcessNotifications && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check size={10} className="text-green-600" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          />
                         </button>
                       </div>
                     </div>
 
                     {/* Sound Alert */}
-                    <div className="bg-zinc-900/30 rounded-xl p-4 border border-white/5">
-                      <div className="flex items-center justify-between mb-4">
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg transition-colors ${localSoundAlert ? 'bg-orange-500/20 text-orange-400' : 'bg-zinc-800 text-zinc-500'}`}
-                          >
-                            <Volume2 size={18} />
-                          </div>
+                          <Volume2 size={18} className="text-zinc-400" />
                           <div className="flex flex-col">
-                            <span className="text-zinc-200 text-sm font-medium">Sound Alert</span>
-                            <span className="text-zinc-500 text-xs">
+                            <span className="text-white text-sm font-medium">Sound Alert</span>
+                            <span className="text-zinc-500 text-xs mt-0.5">
                               {localSoundAlert ? 'Play sound on completion' : 'Silent mode'}
                             </span>
                           </div>
@@ -1173,26 +1136,23 @@ export const Settings: React.FC<SettingsProps> = ({
 
                         <button
                           onClick={() => setLocalSoundAlert(!localSoundAlert)}
-                          className={`w-12 h-7 rounded-full relative transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 focus:ring-orange-500/50 ${
-                            localSoundAlert ? 'bg-orange-600' : 'bg-zinc-800'
+                          className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                            localSoundAlert ? 'bg-blue-600' : 'bg-white/10'
                           }`}
                         >
                           <div
-                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                               localSoundAlert ? 'translate-x-5' : 'translate-x-0'
                             }`}
-                          >
-                            {localSoundAlert && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check size={10} className="text-orange-600" strokeWidth={3} />
-                              </div>
-                            )}
-                          </div>
+                          />
                         </button>
                       </div>
 
                       {localSoundAlert && (
-                        <div className="space-y-2 mt-4">
+                        <div className="space-y-2 mt-4 pt-4 border-t border-white/5">
+                          <label className="text-xs text-zinc-400 font-medium block mb-2">
+                            Sound Type
+                          </label>
                           <select
                             value={localSoundType}
                             onChange={(e) => {
@@ -1202,7 +1162,7 @@ export const Settings: React.FC<SettingsProps> = ({
                                 window.api.previewSound(newSoundType)
                               }
                             }}
-                            className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/20 focus:outline-none transition-all cursor-pointer appearance-none pr-10"
+                            className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
                           >
                             <option value="Glass">Glass</option>
                             <option value="Hero">Hero</option>
@@ -1224,10 +1184,12 @@ export const Settings: React.FC<SettingsProps> = ({
 
               {/* History Settings Section - Show in General */}
               {activeSection === 'general' && (
-                <div className="space-y-6 pt-6 border-t border-white/5">
+                <div className="space-y-6 pt-8 border-t border-white/5">
                   <div>
-                    <h2 className="text-xl font-semibold text-white mb-2">History Settings</h2>
-                    <p className="text-sm text-zinc-400">
+                    <h3 className="text-lg font-semibold text-white mb-1.5 tracking-tight">
+                      History
+                    </h3>
+                    <p className="text-sm text-zinc-500">
                       Manage transcription history storage and cleanup
                     </p>
                   </div>
@@ -1245,7 +1207,7 @@ export const Settings: React.FC<SettingsProps> = ({
                           onChange={(e) => setHistoryAutoDeleteDays(parseInt(e.target.value) || 0)}
                           min="0"
                           placeholder="0 = Never delete"
-                          className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-all placeholder:text-zinc-700"
+                          className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all placeholder:text-zinc-600"
                         />
                         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
                       </div>
@@ -1269,7 +1231,7 @@ export const Settings: React.FC<SettingsProps> = ({
                           onChange={(e) => setHistoryMaxItems(parseInt(e.target.value) || 0)}
                           min="0"
                           placeholder="0 = Unlimited"
-                          className="w-full bg-zinc-900/50 text-white rounded-xl p-3 pl-4 text-sm border border-white/10 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-all placeholder:text-zinc-700"
+                          className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all placeholder:text-zinc-600"
                         />
                         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
                       </div>
@@ -1313,35 +1275,30 @@ export const Settings: React.FC<SettingsProps> = ({
 
         {/* Save Button - Only show on Settings tab */}
         {activeTab === 'settings' && (
-          <div className="px-8 py-4 bg-zinc-950 border-t border-white/5">
-            <button
-              onClick={handleSave}
-              disabled={saved}
-              className={`w-full py-3 rounded-xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                saved
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/20'
-                  : 'bg-white text-black hover:bg-zinc-200'
-              }`}
-            >
-              {saved ? (
-                <>
-                  <Check size={16} />
-                  <span>Saved</span>
-                </>
-              ) : (
-                <>
-                  <Save size={16} />
-                  <span>Save Changes</span>
-                </>
-              )}
-            </button>
-
-            {/* Footer */}
-            <div className="mt-4 flex flex-col items-center gap-2">
-              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-              <p className="text-zinc-600 text-[10px] font-medium tracking-widest uppercase pt-2">
-                Toolify v0.0.5
-              </p>
+          <div className="px-8 py-5 bg-[#1a1a1a] border-t border-white/5">
+            <div className="max-w-4xl mx-auto flex items-center justify-between">
+              <div className="text-xs text-zinc-500">Toolify v0.0.9</div>
+              <button
+                onClick={handleSave}
+                disabled={saved}
+                className={`px-6 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                  saved
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-600'
+                }`}
+              >
+                {saved ? (
+                  <>
+                    <Check size={16} />
+                    <span>Saved</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}

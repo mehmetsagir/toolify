@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import {
-  Search,
-  Trash2,
-  Copy,
-  Clock,
-  Calendar,
-  Mic,
-  CheckCircle2
-} from 'lucide-react'
+import { Search, Trash2, Copy, Clock, Calendar, Mic, CheckCircle2 } from 'lucide-react'
 import type { HistoryItem } from '../../../shared/types'
 
 interface HistoryProps {
@@ -184,10 +176,7 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
       <div className="w-80 flex-shrink-0 bg-[#1C1C1E] border-r border-white/5 flex flex-col">
         <div className="p-4 border-b border-white/5">
           <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-            />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
               value={searchQuery}
@@ -207,7 +196,9 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
               }`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className={`text-xs font-medium ${selectedItemId === item.id ? 'text-blue-400' : 'text-zinc-400'}`}>
+                <span
+                  className={`text-xs font-medium ${selectedItemId === item.id ? 'text-blue-400' : 'text-zinc-400'}`}
+                >
                   {formatDate(item.timestamp)}
                 </span>
                 <span className="text-xs text-zinc-600">{formatDuration(item.duration)}</span>
@@ -229,7 +220,9 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
           <>
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               <div className="mb-8">
-                <h3 className="text-xs font-medium text-zinc-500 mb-2 uppercase tracking-wider">Transcription</h3>
+                <h3 className="text-xs font-medium text-zinc-500 mb-2 uppercase tracking-wider">
+                  Transcription
+                </h3>
                 <p className="text-lg text-zinc-200 leading-relaxed whitespace-pre-wrap">
                   {selectedItem.text}
                 </p>
@@ -264,7 +257,7 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
                   </>
                 )}
               </button>
-              
+
               <button
                 onClick={() => handleDelete(selectedItem.id)}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-colors"
@@ -302,7 +295,9 @@ const SidebarItem = ({ icon, label, count, active, color, onClick }: SidebarItem
   >
     <div className="flex items-center gap-3">
       <div className={`p-1.5 rounded-md ${active ? color : 'bg-zinc-800'} text-white`}>
-        {React.isValidElement(icon) ? React.cloneElement(icon, { size: 14 } as React.HTMLAttributes<SVGElement>) : icon}
+        {React.isValidElement(icon)
+          ? React.cloneElement(icon, { size: 14 } as React.HTMLAttributes<SVGElement>)
+          : icon}
       </div>
       <span className="text-sm font-medium">{label}</span>
     </div>
