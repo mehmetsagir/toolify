@@ -1,11 +1,13 @@
 import { autoUpdater } from 'electron-updater'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, app } from 'electron'
+import { join } from 'path'
 import { showNotification } from './utils/system'
 import type { UpdateStatus } from '../shared/types'
 
 let updateDownloaded = false
 let latestVersion: string | null = null
 let allWindows: BrowserWindow[] = []
+let isQuittingForUpdate = false
 
 export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   if (mainWindow) {
@@ -13,9 +15,21 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   }
 
   autoUpdater.autoDownload = false
+  // Enable auto install on quit - this helps with macOS unsigned apps
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.allowDowngrade = false
   autoUpdater.allowPrerelease = false
+
+  // For macOS unsigned apps, ensure proper update handling
+  if (process.platform === 'darwin') {
+    // Set update cache dir to user's cache directory for better reliability
+    try {
+      // @ts-ignore - updateConfigPath might not be in types but exists in electron-updater
+      autoUpdater.updateConfigPath = join(app.getPath('userData'), 'update-config.json')
+    } catch (error) {
+      console.warn('Could not set updateConfigPath:', error)
+    }
+  }
 
   autoUpdater.setFeedURL({
     provider: 'github',
@@ -80,6 +94,9 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
     updateDownloaded = true
     latestVersion = info.version
 
+    console.log('Update downloaded:', info.version)
+    console.log('Update file path:', info.path || 'N/A')
+
     allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('update-downloaded', {
@@ -115,17 +132,83 @@ export function downloadUpdate(): void {
 }
 
 export function quitAndInstall(): void {
-  if (updateDownloaded) {
-    allWindows.forEach((window) => {
-      if (window && !window.isDestroyed()) {
-        window.close()
-      }
-    })
-
-    setTimeout(() => {
-      autoUpdater.quitAndInstall(true, true)
-    }, 100)
+  if (!updateDownloaded) {
+    console.warn('quitAndInstall called but no update is downloaded')
+    return
   }
+
+  console.log('Preparing to quit and install update...')
+  isQuittingForUpdate = true
+
+  // Close all windows gracefully and prevent them from blocking quit
+  allWindows.forEach((window) => {
+    if (window && !window.isDestroyed()) {
+      // Remove close event listeners that might prevent quit
+      window.removeAllListeners('close')
+      // Set to not prevent close
+      window.setClosable(true)
+      window.close()
+    }
+  })
+
+  // In development mode or when app is not packaged, autoUpdater.quitAndInstall won't work
+  // So we just quit the app normally
+  if (!app.isPackaged) {
+    console.log('Development mode: Quitting app normally (no real update to install)...')
+    setTimeout(() => {
+      app.quit()
+    }, 500)
+    return
+  }
+
+  // For macOS unsigned apps, we need special handling
+  if (process.platform === 'darwin') {
+    // Give windows time to close (increased timeout for reliability)
+    setTimeout(() => {
+      // For unsigned macOS apps, quitAndInstall often doesn't work
+      // So we use a combination approach:
+      // 1. Try quitAndInstall first
+      // 2. Use app.relaunch() as immediate fallback to ensure restart
+      console.log('Calling quitAndInstall for macOS...')
+
+      // Set relaunch before calling quitAndInstall
+      // This ensures app restarts even if quitAndInstall fails
+      app.relaunch({ args: process.argv.slice(1).concat(['--updated']) })
+
+      try {
+        // For macOS unsigned apps:
+        // - isSilent: false (show installer UI if needed)
+        // - isForceRunAfter: true (restart app after install)
+        autoUpdater.quitAndInstall(false, true)
+
+        // If quitAndInstall doesn't work, relaunch is already set
+        // So app will restart anyway
+        setTimeout(() => {
+          console.log('quitAndInstall completed or timed out, quitting...')
+          app.exit(0)
+        }, 1000)
+      } catch (error) {
+        console.error('Error calling quitAndInstall:', error)
+        // Relaunch is already set, just quit
+        console.log('quitAndInstall failed, using relaunch fallback...')
+        app.exit(0)
+      }
+    }, 1000) // Increased timeout for macOS
+  } else {
+    // For other platforms (Windows, Linux)
+    setTimeout(() => {
+      try {
+        autoUpdater.quitAndInstall(true, true)
+      } catch (error) {
+        console.error('Error calling quitAndInstall:', error)
+        app.quit()
+      }
+    }, 500)
+  }
+}
+
+export function getIsQuittingForUpdate(): boolean {
+  return isQuittingForUpdate
 }
 
 export function getUpdateStatus(): UpdateStatus {

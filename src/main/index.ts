@@ -13,6 +13,7 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
+import { existsSync } from 'fs'
 import { exec } from 'child_process'
 import { electronApp } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -32,12 +33,8 @@ import {
   getAllHistory,
   addHistoryItem,
   deleteHistoryItem,
-  toggleFavorite,
-  searchHistory,
-  getFavorites,
   clearHistory,
   clearOldHistory,
-  deleteHistoryItems,
   getHistorySettings,
   saveHistorySettings
 } from './utils/history'
@@ -48,7 +45,8 @@ import {
   quitAndInstall,
   getUpdateStatus,
   registerWindow,
-  unregisterWindow
+  unregisterWindow,
+  getIsQuittingForUpdate
 } from './auto-updater'
 
 let tray: Tray | null = null
@@ -350,6 +348,47 @@ app.whenReady().then(() => {
 
   if (process.platform === 'darwin') {
     app.setName('Toolify')
+
+    // Set the app icon explicitly to ensure Toolify icon is used everywhere
+    let appIcon: Electron.NativeImage
+    let iconPathForAbout: string | undefined
+
+    if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+      // In development, use the icon from resources
+      appIcon = nativeImage.createFromPath(icon)
+      iconPathForAbout = icon
+    } else {
+      // In production, try .icns first, then fallback to .png
+      const icnsPath = join(process.resourcesPath, 'icon.icns')
+      const pngPath = join(process.resourcesPath, 'icon.png')
+
+      if (existsSync(icnsPath)) {
+        appIcon = nativeImage.createFromPath(icnsPath)
+        iconPathForAbout = icnsPath
+      } else if (existsSync(pngPath)) {
+        appIcon = nativeImage.createFromPath(pngPath)
+        iconPathForAbout = pngPath
+      } else {
+        // Fallback to development icon
+        appIcon = nativeImage.createFromPath(icon)
+        iconPathForAbout = icon
+      }
+    }
+
+    if (!appIcon.isEmpty()) {
+      app.dock?.setIcon(appIcon)
+    }
+
+    // Set About Panel options for macOS
+    // macOS About panel uses iconPath as a file path string
+    app.setAboutPanelOptions({
+      applicationName: 'Toolify',
+      applicationVersion: app.getVersion(),
+      version: app.getVersion(),
+      credits: 'AI-powered voice transcription and translation tool for macOS',
+      website: 'https://github.com/mehmetsagir/toolify',
+      iconPath: iconPathForAbout
+    })
   }
 
   const settings = getSettings()
@@ -537,11 +576,26 @@ app.whenReady().then(() => {
     // Open settings window and show history tab
     if (!settingsWindow || settingsWindow.isDestroyed()) {
       createSettingsWindowInstance()
-    }
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.show()
-      settingsWindow.focus()
-      settingsWindow.webContents.send('show-history')
+      // Wait for window to be ready before sending show-history event
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.once('did-finish-load', () => {
+          if (settingsWindow && !settingsWindow.isDestroyed()) {
+            settingsWindow.webContents.send('show-history')
+          }
+        })
+      }
+    } else {
+      // Window already exists, send event immediately
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.show()
+        settingsWindow.focus()
+        // Use setTimeout to ensure event is sent after window is focused
+        setTimeout(() => {
+          if (settingsWindow && !settingsWindow.isDestroyed()) {
+            settingsWindow.webContents.send('show-history')
+          }
+        }, 100)
+      }
     }
   })
 
@@ -629,25 +683,9 @@ app.whenReady().then(() => {
     return deleteHistoryItem(id)
   })
 
-  ipcMain.handle('toggle-favorite', async (_, id: string) => {
-    return toggleFavorite(id)
-  })
-
-  ipcMain.handle('search-history', async (_, query: string) => {
-    return searchHistory(query)
-  })
-
-  ipcMain.handle('get-favorites', async () => {
-    return getFavorites()
-  })
-
   ipcMain.handle('clear-history', async () => {
     clearHistory()
     return true
-  })
-
-  ipcMain.handle('delete-history-items', async (_, ids: string[]) => {
-    return deleteHistoryItems(ids)
   })
 
   ipcMain.handle('get-history-settings', async () => {
@@ -670,7 +708,7 @@ app.whenReady().then(() => {
   ipcMain.handle('download-local-model', async (_, modelType: string) => {
     // Get settings window to send progress updates (settings window is where download happens)
     const windowToNotify = settingsWindow || mainWindow
-    
+
     return await downloadLocalModel(modelType, (progress) => {
       // Send progress update to renderer
       if (windowToNotify && !windowToNotify.isDestroyed()) {
@@ -731,7 +769,7 @@ app.whenReady().then(() => {
         // For local model: translation requires API key
         // If translation is enabled but no API key, disable translation and continue with transcription only
         const shouldTranslate = settings.translate && !!settings.apiKey
-        
+
         text = await transcribeLocal(Buffer.from(buffer), settings.localModelType || 'medium', {
           translate: shouldTranslate,
           language: 'auto', // Force auto-detection for mixed language support
@@ -848,14 +886,15 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Transcription failed', error)
       updateTrayIcon('idle', settings.trayAnimations)
-      
+
       // Provide more specific error messages based on the error type and settings
       let errorMessage = 'Transcription failed.'
-      
+
       if (settings.useLocalModel) {
         // Local model specific errors
-        const errorStr = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
-        
+        const errorStr =
+          error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+
         if (errorStr.includes('not found') || errorStr.includes('model')) {
           errorMessage = 'Local model not found. Please download the model in Settings.'
         } else if (errorStr.includes('executable') || errorStr.includes('whisper')) {
@@ -871,7 +910,7 @@ app.whenReady().then(() => {
           errorMessage = 'Transcription failed. Check your API Key or internet connection.'
         }
       }
-      
+
       showNotification('Toolify Error', errorMessage, true)
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('processing-complete')
@@ -884,11 +923,59 @@ app.whenReady().then(() => {
   tray.setToolTip('Toolify')
 
   const updateContextMenu = (): void => {
+    const settings = getSettings()
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Settings',
+        label: 'Start Recording',
+        type: 'normal',
+        accelerator: settings.shortcut || 'Command+Space',
+        click: () => handleRecordingToggle()
+      },
+      { type: 'separator' },
+      {
+        label: 'History',
+        type: 'normal',
+        click: () => {
+          if (!settingsWindow || settingsWindow.isDestroyed()) {
+            createSettingsWindowInstance()
+            // Wait for window to be ready before sending show-history event
+            if (settingsWindow && !settingsWindow.isDestroyed()) {
+              settingsWindow.webContents.once('did-finish-load', () => {
+                if (settingsWindow && !settingsWindow.isDestroyed()) {
+                  settingsWindow.webContents.send('show-history')
+                }
+              })
+            }
+          } else {
+            // Window already exists, send event immediately
+            if (settingsWindow && !settingsWindow.isDestroyed()) {
+              settingsWindow.show()
+              settingsWindow.focus()
+              // Use setTimeout to ensure event is sent after window is focused
+              setTimeout(() => {
+                if (settingsWindow && !settingsWindow.isDestroyed()) {
+                  settingsWindow.webContents.send('show-history')
+                }
+              }, 100)
+            }
+          }
+        }
+      },
+      {
+        label: 'Preferences...',
         type: 'normal',
         click: () => createSettingsWindowInstance()
+      },
+      { type: 'separator' },
+      {
+        label: 'About Toolify',
+        type: 'normal',
+        click: () => {
+          // Show about dialog
+          if (process.platform === 'darwin') {
+            app.showAboutPanel()
+          }
+        }
       },
       { type: 'separator' },
       {
@@ -914,6 +1001,18 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
+  // If quitting for update, don't prevent default behavior
+  if (getIsQuittingForUpdate()) {
+    console.log('Quitting for update, allowing default quit behavior')
+    // Still clean up resources but don't prevent quit
+    closeRecordingOverlay()
+    globalShortcut.unregisterAll()
+    // Don't destroy tray here - let it be destroyed naturally
+    // Don't prevent default - allow quit to proceed
+    return
+  }
+
+  // Normal quit - clean up everything
   closeRecordingOverlay()
 
   if (tray) {
@@ -925,6 +1024,11 @@ app.on('before-quit', () => {
 })
 
 app.on('window-all-closed', () => {
+  // Don't quit on macOS if we're updating - let the updater handle it
+  if (getIsQuittingForUpdate()) {
+    return
+  }
+
   if (process.platform !== 'darwin') {
     app.quit()
   }
