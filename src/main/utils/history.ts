@@ -51,33 +51,6 @@ export function deleteHistoryItem(id: string): boolean {
   return filtered.length !== history.length
 }
 
-export function toggleFavorite(id: string): boolean {
-  const history = getAllHistory()
-  const item = history.find((item) => item.id === id)
-  if (item) {
-    item.isFavorite = !item.isFavorite
-    store.set(HISTORY_KEY, history)
-    return item.isFavorite
-  }
-  return false
-}
-
-export function searchHistory(query: string): HistoryItem[] {
-  const history = getAllHistory()
-  const lowerQuery = query.toLowerCase()
-  return history.filter(
-    (item) =>
-      item.text.toLowerCase().includes(lowerQuery) ||
-      (item.sourceLanguage && item.sourceLanguage.toLowerCase().includes(lowerQuery)) ||
-      (item.targetLanguage && item.targetLanguage.toLowerCase().includes(lowerQuery))
-  )
-}
-
-export function getFavorites(): HistoryItem[] {
-  const history = getAllHistory()
-  return history.filter((item) => item.isFavorite)
-}
-
 export function clearHistory(): void {
   store.set(HISTORY_KEY, [])
 }
@@ -97,13 +70,5 @@ export function clearOldHistory(): number {
     store.set(HISTORY_KEY, filtered)
   }
 
-  return deletedCount
-}
-
-export function deleteHistoryItems(ids: string[]): number {
-  const history = getAllHistory()
-  const filtered = history.filter((item) => !ids.includes(item.id))
-  const deletedCount = history.length - filtered.length
-  store.set(HISTORY_KEY, filtered)
   return deletedCount
 }

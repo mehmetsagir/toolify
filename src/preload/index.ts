@@ -45,7 +45,8 @@ const api = {
       ipcRenderer.removeListener('show-history', handler)
     }
   },
-  processAudio: (buffer: ArrayBuffer, duration: number) => ipcRenderer.send('process-audio', buffer, duration),
+  processAudio: (buffer: ArrayBuffer, duration: number) =>
+    ipcRenderer.send('process-audio', buffer, duration),
   saveSettings: (settings: Settings) => ipcRenderer.send('save-settings', settings),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   hideWindow: () => ipcRenderer.send('hide-window'),
@@ -84,27 +85,39 @@ const api = {
   },
   // History API
   getAllHistory: () => ipcRenderer.invoke('get-all-history') as Promise<HistoryItem[]>,
-  getHistoryItem: (id: string) => ipcRenderer.invoke('get-history-item', id) as Promise<HistoryItem | null>,
-  deleteHistoryItem: (id: string) => ipcRenderer.invoke('delete-history-item', id) as Promise<boolean>,
-  toggleFavorite: (id: string) => ipcRenderer.invoke('toggle-favorite', id) as Promise<boolean>,
-  searchHistory: (query: string) => ipcRenderer.invoke('search-history', query) as Promise<HistoryItem[]>,
-  getFavorites: () => ipcRenderer.invoke('get-favorites') as Promise<HistoryItem[]>,
+  getHistoryItem: (id: string) =>
+    ipcRenderer.invoke('get-history-item', id) as Promise<HistoryItem | null>,
+  deleteHistoryItem: (id: string) =>
+    ipcRenderer.invoke('delete-history-item', id) as Promise<boolean>,
   clearHistory: () => ipcRenderer.invoke('clear-history') as Promise<boolean>,
-  deleteHistoryItems: (ids: string[]) => ipcRenderer.invoke('delete-history-items', ids) as Promise<number>,
   getHistorySettings: () => ipcRenderer.invoke('get-history-settings') as Promise<HistorySettings>,
-  saveHistorySettings: (settings: HistorySettings) => ipcRenderer.invoke('save-history-settings', settings) as Promise<boolean>,
+  saveHistorySettings: (settings: HistorySettings) =>
+    ipcRenderer.invoke('save-history-settings', settings) as Promise<boolean>,
   clearOldHistory: () => ipcRenderer.invoke('clear-old-history') as Promise<number>,
-      // Local Model
-      checkLocalModel: (modelType: string) => ipcRenderer.invoke('check-local-model', modelType) as Promise<boolean>,
-      downloadLocalModel: (modelType: string) => ipcRenderer.invoke('download-local-model', modelType) as Promise<void>,
-      deleteLocalModel: (modelType: string) => ipcRenderer.invoke('delete-local-model', modelType) as Promise<void>,
-      onModelDownloadProgress: (callback: (progress: { modelType: string; percent: number; downloaded: number; total: number }) => void) => {
-        const handler = (_: unknown, progress: { modelType: string; percent: number; downloaded: number; total: number }) => callback(progress)
-        ipcRenderer.on('model-download-progress', handler)
-        return () => {
-          ipcRenderer.removeListener('model-download-progress', handler)
-        }
-      }
+  // Local Model
+  checkLocalModel: (modelType: string) =>
+    ipcRenderer.invoke('check-local-model', modelType) as Promise<boolean>,
+  downloadLocalModel: (modelType: string) =>
+    ipcRenderer.invoke('download-local-model', modelType) as Promise<void>,
+  deleteLocalModel: (modelType: string) =>
+    ipcRenderer.invoke('delete-local-model', modelType) as Promise<void>,
+  onModelDownloadProgress: (
+    callback: (progress: {
+      modelType: string
+      percent: number
+      downloaded: number
+      total: number
+    }) => void
+  ) => {
+    const handler = (
+      _: unknown,
+      progress: { modelType: string; percent: number; downloaded: number; total: number }
+    ) => callback(progress)
+    ipcRenderer.on('model-download-progress', handler)
+    return () => {
+      ipcRenderer.removeListener('model-download-progress', handler)
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -43,11 +43,7 @@ declare global {
       getAllHistory: () => Promise<HistoryItem[]>
       getHistoryItem: (id: string) => Promise<HistoryItem | null>
       deleteHistoryItem: (id: string) => Promise<boolean>
-      toggleFavorite: (id: string) => Promise<boolean>
-      searchHistory: (query: string) => Promise<HistoryItem[]>
-      getFavorites: () => Promise<HistoryItem[]>
       clearHistory: () => Promise<boolean>
-      deleteHistoryItems: (ids: string[]) => Promise<number>
       getHistorySettings: () => Promise<HistorySettings>
       saveHistorySettings: (settings: HistorySettings) => Promise<boolean>
       clearOldHistory: () => Promise<number>
