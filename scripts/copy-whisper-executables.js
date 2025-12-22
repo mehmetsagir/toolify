@@ -19,19 +19,12 @@ if (!fs.existsSync(targetDistDir)) {
 
 // Copy executables
 console.log('Copying whisper.cpp executables...')
-const executables = [
-  'main',
-  'main-avx',
-  'main-avx2',
-  'main-f16c',
-  'main-fma',
-  'main-sse3'
-]
+const executables = ['main', 'main-avx', 'main-avx2', 'main-f16c', 'main-fma', 'main-sse3']
 
-executables.forEach(exec => {
+executables.forEach((exec) => {
   const sourcePath = path.join(sourceExecDir, exec)
   const targetPath = path.join(targetExecDir, exec)
-  
+
   if (fs.existsSync(sourcePath)) {
     fs.copyFileSync(sourcePath, targetPath)
     fs.chmodSync(targetPath, 0o755) // Make executable
@@ -48,13 +41,13 @@ function copyRecursive(src, dest) {
     console.warn(`  ⚠ Source directory not found: ${src}`)
     return
   }
-  
+
   const entries = fs.readdirSync(src, { withFileTypes: true })
-  
+
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name)
     const destPath = path.join(dest, entry.name)
-    
+
     if (entry.isDirectory()) {
       if (!fs.existsSync(destPath)) {
         fs.mkdirSync(destPath, { recursive: true })
@@ -68,4 +61,3 @@ function copyRecursive(src, dest) {
 
 copyRecursive(sourceDistDir, targetDistDir)
 console.log('Done copying files')
-

@@ -30,7 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: false
-        run: npm run build:mac
+        run: npm run build:mac:publish
 
       - name: Get version from package.json
         id: version
