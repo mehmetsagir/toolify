@@ -156,13 +156,13 @@ export const Settings: React.FC<SettingsProps> = ({
     setDownloadProgress({ percent: 0, downloaded: 0, total: 0 })
     try {
       await window.api.downloadLocalModel(localLocalModelType)
-      
+
       // Verify model exists after download before updating UI
       const modelExists = await window.api.checkLocalModel(localLocalModelType)
       if (!modelExists) {
         throw new Error(`Model ${localLocalModelType} was downloaded but cannot be found`)
       }
-      
+
       setModelDownloadStatus('ready')
       setDownloadProgress(null)
 
@@ -183,8 +183,10 @@ export const Settings: React.FC<SettingsProps> = ({
         useLocalModel: localUseLocalModel,
         localModelType: localLocalModelType
       })
-      
-      console.log(`Settings saved with localModelType: ${localLocalModelType}, useLocalModel: ${localUseLocalModel}`)
+
+      console.log(
+        `Settings saved with localModelType: ${localLocalModelType}, useLocalModel: ${localUseLocalModel}`
+      )
     } catch (error) {
       console.error('Failed to download model:', error)
       setModelDownloadStatus('missing')
