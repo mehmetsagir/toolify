@@ -12,8 +12,9 @@ import {
   screen
 } from 'electron'
 import { join } from 'path'
+import path from 'path'
 import { writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
 import { exec } from 'child_process'
 import { electronApp } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -772,9 +773,20 @@ app.whenReady().then(() => {
 
         // Verify model exists before attempting transcription
         const modelType = settings.localModelType || 'medium'
+        console.log(`Checking for local model before transcription: ${modelType}`)
+        console.log(`Current settings - useLocalModel: ${settings.useLocalModel}, localModelType: ${settings.localModelType}`)
+        
         const modelExists = await checkLocalModelExists(modelType)
-
+        
         if (!modelExists) {
+          const modelsDir = path.join(app.getPath('userData'), 'models')
+          console.error(`Model not found. Expected path: ${path.join(modelsDir, `ggml-${modelType}.bin`)}`)
+          console.error(`Models directory exists: ${existsSync(modelsDir)}`)
+          if (existsSync(modelsDir)) {
+            const files = readdirSync(modelsDir)
+            console.error(`Files in models directory: ${files.join(', ')}`)
+          }
+          
           const errorMsg = `Local model (${modelType}) not found. Please download the model in Settings.`
           console.error(errorMsg)
           showNotification('Toolify Error', errorMsg, true)
@@ -784,6 +796,8 @@ app.whenReady().then(() => {
           }
           return
         }
+        
+        console.log(`✓ Model ${modelType} found, proceeding with transcription`)
 
         text = await transcribeLocal(Buffer.from(buffer), modelType, {
           translate: shouldTranslate,

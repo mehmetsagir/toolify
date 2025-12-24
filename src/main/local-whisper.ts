@@ -147,7 +147,13 @@ const getModelPath = (modelType: string): string => {
 
 export async function checkLocalModelExists(modelType: string): Promise<boolean> {
   const modelPath = getModelPath(modelType)
-  return fs.existsSync(modelPath)
+  const exists = fs.existsSync(modelPath)
+  console.log(`Checking model existence: ${modelType} at ${modelPath} - ${exists ? 'EXISTS' : 'NOT FOUND'}`)
+  if (exists) {
+    const stats = fs.statSync(modelPath)
+    console.log(`Model file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
+  }
+  return exists
 }
 
 export async function downloadLocalModel(
@@ -287,7 +293,17 @@ function downloadWithCurl(
             if (onProgress) {
               onProgress({ percent: 100, downloaded: stats.size, total: stats.size })
             }
-
+            
+            // Verify the file is actually readable before resolving
+            try {
+              fs.accessSync(modelPath, fs.constants.R_OK)
+              console.log(`✓ Model file verified and readable: ${modelPath}`)
+            } catch (accessError) {
+              console.error(`✗ Model file exists but is not readable: ${accessError}`)
+              reject(new Error(`Model file downloaded but is not accessible: ${accessError}`))
+              return
+            }
+            
             resolve()
           } else {
             reject(new Error('Downloaded file is empty'))
