@@ -770,7 +770,22 @@ app.whenReady().then(() => {
         // If translation is enabled but no API key, disable translation and continue with transcription only
         const shouldTranslate = settings.translate && !!settings.apiKey
 
-        text = await transcribeLocal(Buffer.from(buffer), settings.localModelType || 'medium', {
+        // Verify model exists before attempting transcription
+        const modelType = settings.localModelType || 'medium'
+        const modelExists = await checkLocalModelExists(modelType)
+
+        if (!modelExists) {
+          const errorMsg = `Local model (${modelType}) not found. Please download the model in Settings.`
+          console.error(errorMsg)
+          showNotification('Toolify Error', errorMsg, true)
+          updateTrayIcon('idle', settings.trayAnimations)
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('processing-complete')
+          }
+          return
+        }
+
+        text = await transcribeLocal(Buffer.from(buffer), modelType, {
           translate: shouldTranslate,
           language: 'auto', // Force auto-detection for mixed language support
           sourceLanguage: 'auto', // Always auto-detect source language when translating

@@ -158,6 +158,24 @@ export const Settings: React.FC<SettingsProps> = ({
       await window.api.downloadLocalModel(localLocalModelType)
       setModelDownloadStatus('ready')
       setDownloadProgress(null)
+
+      // Ensure settings are saved with the current model type after successful download
+      await window.api.saveSettings({
+        apiKey: localKey,
+        language: '',
+        sourceLanguage: localSourceLanguage,
+        targetLanguage: localTargetLanguage,
+        shortcut: localShortcut,
+        translate: localTranslate,
+        trayAnimations: localTrayAnimations,
+        processNotifications: localProcessNotifications,
+        soundAlert: localSoundAlert,
+        soundType: localSoundType,
+        autoStart: localAutoStart,
+        showRecordingOverlay: localShowRecordingOverlay,
+        useLocalModel: localUseLocalModel,
+        localModelType: localLocalModelType
+      })
     } catch (error) {
       console.error('Failed to download model:', error)
       setModelDownloadStatus('missing')
