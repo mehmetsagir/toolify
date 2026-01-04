@@ -46,10 +46,10 @@
     "electron-updater": "^6.6.2",
     "lucide-react": "^0.554.0",
     "openai": "^6.9.1",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "uiohook-napi": "^1.5.4"
   },
   "devDependencies": {
-    "whisper-node": "^1.1.1",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
@@ -71,6 +71,7 @@
     "react-dom": "^19.1.1",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.2",
-    "vite": "^7.1.6"
+    "vite": "^7.1.6",
+    "whisper-node": "^1.1.1"
   }
 }
