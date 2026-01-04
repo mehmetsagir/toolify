@@ -4,6 +4,7 @@
   "build": {
     "appId": "com.toolify.app",
     "productName": "Toolify",
+    "icon": "resources/icon.png",
     "mac": {
       "category": "public.app-category.utilities"
     }
