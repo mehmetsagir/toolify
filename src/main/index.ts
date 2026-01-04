@@ -49,6 +49,7 @@ import {
   unregisterWindow,
   getIsQuittingForUpdate
 } from './auto-updater'
+import { uIOhook, UiohookKey } from 'uiohook-napi'
 
 let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
@@ -56,6 +57,7 @@ let settingsWindow: BrowserWindow | null = null
 let recordingOverlay: BrowserWindow | null = null
 let overlayCloseTimeout: NodeJS.Timeout | null = null
 let isRecording = false
+let keyboardHookEnabled = false
 
 function updateTrayIcon(
   state: 'idle' | 'recording' | 'processing' | 'copied',
@@ -488,11 +490,43 @@ app.whenReady().then(() => {
   const registerShortcut = (shortcut: string): void => {
     globalShortcut.unregisterAll()
 
+    // Stop keyboard hook if running
+    if (keyboardHookEnabled) {
+      uIOhook.stop()
+      keyboardHookEnabled = false
+    }
+
     // DO NOT register ESC globally - it will be handled in renderer only during recording
+
+    // Special handling for RightCommand using uiohook
+    if (shortcut === 'RightCommand') {
+      if (process.platform !== 'darwin') {
+        showNotification('Toolify', 'Right Command key is only supported on macOS. Using Command+Space.')
+        shortcut = 'Command+Space'
+        // Fall through to normal registration
+      } else {
+        // Use uiohook for RightCommand on macOS
+        try {
+          uIOhook.on('keydown', (event) => {
+            // Right Command key code is 3676 in uiohook on macOS
+            if (event.keycode === 3676) {
+              handleRecordingToggle()
+            }
+          })
+          uIOhook.start()
+          keyboardHookEnabled = true
+          return
+        } catch (error) {
+          console.error('Failed to register Right Command via uiohook:', error)
+          showNotification('Toolify Error', 'Failed to register Right Command. Using Command+Space.')
+          shortcut = 'Command+Space'
+          // Fall through to normal registration
+        }
+      }
+    }
 
     const unsafeShortcuts = [
       'LeftCommand',
-      'RightCommand',
       'LeftControl',
       'RightControl',
       'LeftOption',
@@ -1040,6 +1074,11 @@ app.on('before-quit', () => {
     // Still clean up resources but don't prevent quit
     closeRecordingOverlay()
     globalShortcut.unregisterAll()
+    // Stop keyboard hook if running
+    if (keyboardHookEnabled) {
+      uIOhook.stop()
+      keyboardHookEnabled = false
+    }
     // Don't destroy tray here - let it be destroyed naturally
     // Don't prevent default - allow quit to proceed
     return
@@ -1054,6 +1093,12 @@ app.on('before-quit', () => {
   }
 
   globalShortcut.unregisterAll()
+
+  // Stop keyboard hook if running
+  if (keyboardHookEnabled) {
+    uIOhook.stop()
+    keyboardHookEnabled = false
+  }
 })
 
 app.on('window-all-closed', () => {

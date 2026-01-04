@@ -909,6 +909,9 @@ export const Settings: React.FC<SettingsProps> = ({
                           onChange={(e) => setLocalShortcut(e.target.value)}
                           className="w-full bg-white/5 text-white rounded-lg p-2.5 pl-3 text-sm border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all cursor-pointer appearance-none"
                         >
+                          <optgroup label="Single Keys">
+                            <option value="RightCommand">Right ⌘</option>
+                          </optgroup>
                           <optgroup label="Command Combinations">
                             <option value="Command+Space">⌘ Space</option>
                             <option value="Command+K">⌘ K</option>
