@@ -1309,7 +1309,7 @@ export const Settings: React.FC<SettingsProps> = ({
         {activeTab === 'settings' && (
           <div className="px-8 py-5 bg-[#1a1a1a] border-t border-white/5">
             <div className="max-w-4xl mx-auto flex items-center justify-between">
-              <div className="text-xs text-zinc-500">Toolify v0.0.9</div>
+              <div className="text-xs text-zinc-500">Toolify v0.0.12</div>
               <button
                 onClick={handleSave}
                 disabled={saved}
