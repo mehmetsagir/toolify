@@ -1,6 +1,6 @@
 cask "toolify" do
   version "0.0.12"
-  sha256 "90d7c8277b71e97b21483c5badbfda80afd5272f64b6cb7692155c957c4f30cd"
+  sha256 "6b6a90260ffab443200f88bffd01910e96a260857bbc86dde58932831e81516d"
 
   url "https://github.com/mehmetsagir/toolify/releases/download/v#{version}/Toolify-#{version}-arm64.dmg"
   name "Toolify"
