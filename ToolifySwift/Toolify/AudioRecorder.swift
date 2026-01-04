@@ -40,6 +40,7 @@ class AudioRecorder: NSObject, ObservableObject {
             audioRecorder?.record()
             
             isRecording = true
+            NotificationCenter.default.post(name: NSNotification.Name("RecordingStateChanged"), object: nil)
             print("🎤 Recording started")
         } catch {
             print("❌ Failed to start recording: \(error)")
@@ -50,6 +51,7 @@ class AudioRecorder: NSObject, ObservableObject {
         audioRecorder?.stop()
         isRecording = false
         isProcessing = true
+        NotificationCenter.default.post(name: NSNotification.Name("RecordingStateChanged"), object: nil)
         print("⏹️ Recording stopped")
     }
     
@@ -59,6 +61,7 @@ class AudioRecorder: NSObject, ObservableObject {
               !apiKey.isEmpty else {
             print("❌ No API key configured")
             isProcessing = false
+            NotificationCenter.default.post(name: NSNotification.Name("RecordingStateChanged"), object: nil)
             return
         }
         
@@ -75,6 +78,7 @@ class AudioRecorder: NSObject, ObservableObject {
                 await MainActor.run {
                     pasteText(text)
                     isProcessing = false
+                    NotificationCenter.default.post(name: NSNotification.Name("RecordingStateChanged"), object: nil)
                 }
                 
                 // Cleanup
@@ -83,6 +87,7 @@ class AudioRecorder: NSObject, ObservableObject {
                 print("❌ Transcription failed: \(error)")
                 await MainActor.run {
                     isProcessing = false
+                    NotificationCenter.default.post(name: NSNotification.Name("RecordingStateChanged"), object: nil)
                 }
             }
         }
