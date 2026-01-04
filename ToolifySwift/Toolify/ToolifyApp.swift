@@ -65,14 +65,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             callback: { (proxy, type, event, refcon) in
                 let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
                 let flags = event.flags
-                
+
                 // Check for Option key (58) or Command key (55)
                 if keyCode == 58 && flags.contains(.maskAlternate) {
                     // Option key pressed
                     NotificationCenter.default.post(name: NSNotification.Name("ToggleRecording"), object: nil)
                     return nil // Suppress the event
                 }
-                
+
                 return Unmanaged.passRetained(event)
             },
             userInfo: nil
