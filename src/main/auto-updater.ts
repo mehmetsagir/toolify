@@ -38,7 +38,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
   })
 
   autoUpdater.on('checking-for-update', () => {
-    // Checking for updates
+    showNotification('Toolify', 'Checking for updates...')
   })
 
   autoUpdater.on('update-available', (info) => {
@@ -68,6 +68,8 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
         window.webContents.send('update-not-available')
       }
     })
+
+    showNotification('Toolify', 'You\'re on the latest version')
   })
 
   autoUpdater.on('error', (err) => {
@@ -76,6 +78,8 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
         window.webContents.send('update-error', err.message)
       }
     })
+
+    showNotification('Update Error', `Failed to check for updates: ${err.message}`)
   })
 
   autoUpdater.on('download-progress', (progressObj) => {
