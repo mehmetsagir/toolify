@@ -35,6 +35,10 @@ export function getOverlayHTML(): string {
       opacity: 0;
       animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      /* Enable dragging */
+      -webkit-app-region: drag;
+      cursor: grab;
+      user-select: none;
     }
     .waveform-container:hover {
       background: rgba(24, 24, 27, 0.98);
