@@ -1,4 +1,5 @@
-export function getOverlayHTML(): string {
+// Compact overlay - original small design
+export function getCompactOverlayHTML(): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -35,7 +36,6 @@ export function getOverlayHTML(): string {
       opacity: 0;
       animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      /* Enable dragging */
       -webkit-app-region: drag;
       cursor: grab;
       user-select: none;
@@ -248,13 +248,11 @@ export function getOverlayHTML(): string {
         if (data && data.processing !== undefined) {
           isProcessing = data.processing;
           if (isProcessing) {
-            // Don't add 'processing' class - keep normal colors
             canvas.classList.add('hidden');
             loader.classList.add('visible');
             checkmark.classList.remove('visible');
             targetLevel = 0;
           } else {
-            // Don't need to remove 'processing' class since we don't add it
             canvas.classList.remove('hidden');
             loader.classList.remove('visible');
           }
@@ -262,12 +260,10 @@ export function getOverlayHTML(): string {
       });
 
       ipcRenderer.on('success-state', () => {
-        // Show checkmark animation
         canvas.classList.add('hidden');
         loader.classList.remove('visible');
         checkmark.classList.add('visible');
 
-        // Change container to success theme
         container.style.background = 'rgba(34, 197, 94, 0.15)';
         container.style.borderColor = 'rgba(34, 197, 94, 0.4)';
         container.style.boxShadow = '0 4px 16px rgba(34, 197, 94, 0.2), 0 0 0 1px rgba(34, 197, 94, 0.1)';
@@ -357,6 +353,352 @@ export function getOverlayHTML(): string {
         } else {
           if (targetLevel < 0.01) {
             audioHistory = audioHistory.map(level => Math.max(0, level * 0.92));
+          }
+        }
+        updateWaveform();
+        requestAnimationFrame(animate);
+      }
+
+      ctx.globalAlpha = 1;
+      animate();
+    })();
+  </script>
+</body>
+</html>
+`
+}
+
+// Large overlay - simple horizontal waveform with bottom info bar
+export function getLargeOverlayHTML(): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      background: transparent;
+      overflow: hidden;
+    }
+    .overlay-container {
+      width: 400px;
+      background: rgba(30, 30, 30, 0.95);
+      backdrop-filter: blur(20px);
+      border: 2px solid rgba(0, 0, 0, 0.6);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      animation: slideUp 0.3s ease-out forwards;
+      -webkit-app-region: drag;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    @keyframes slideUp {
+      0% {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @keyframes fadeOut {
+      to {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
+    .overlay-container.fade-out {
+      animation: fadeOut 0.3s ease-out forwards;
+    }
+
+    /* Waveform Section */
+    .waveform-section {
+      padding: 14px 20px;
+      position: relative;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 15, 15, 1);
+    }
+    #waveformCanvas {
+      display: block;
+    }
+    #waveformCanvas.hidden {
+      display: none;
+    }
+
+    /* Bottom Info Bar */
+    .info-bar {
+      padding: 14px 16px;
+      height: 42px;
+      background: rgba(20, 20, 20, 0.6);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+      opacity: 0.5;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .status-dot.processing {
+      background: #3b82f6;
+    }
+    .status-dot.success {
+      background: #22c55e;
+      animation: none;
+    }
+    .status-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .shortcuts {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .shortcut {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);
+    }
+    .shortcut-key {
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Loading State */
+    .loader {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .loader.visible {
+      display: block;
+    }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid rgba(59, 130, 246, 0.3);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Success State */
+    .success {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .success.visible {
+      display: block;
+    }
+    .success-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(34, 197, 94, 0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .success-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-container" id="overlayContainer">
+    <div class="waveform-section">
+      <canvas id="waveformCanvas" width="368" height="30"></canvas>
+      <div class="loader" id="loader">
+        <div class="spinner"></div>
+      </div>
+      <div class="success" id="success">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 12L10 15L17 8" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-bar">
+      <div class="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">Recording</span>
+      </div>
+      <div class="shortcuts">
+        <div class="shortcut">
+          <span class="shortcut-key">Esc</span>
+          <span>to cancel</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const canvas = document.getElementById('waveformCanvas');
+      const container = document.getElementById('overlayContainer');
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const loader = document.getElementById('loader');
+      const success = document.getElementById('success');
+      if (!canvas || !container || !statusDot || !statusText || !loader || !success) return;
+
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+
+      const barCount = 60;
+      const spacing = 3;
+      const barWidth = (width - (spacing * (barCount - 1))) / barCount;
+      const centerY = height / 2;
+      const maxBarHeight = height * 0.75;
+
+      let currentLevel = 0;
+      let audioHistory = new Array(barCount).fill(0);
+      let targetLevel = 0;
+      let isFadingOut = false;
+      let isProcessing = false;
+
+      const { ipcRenderer } = require('electron');
+
+      ipcRenderer.on('audio-level-update', (event, data) => {
+        if (data && data.level !== undefined) {
+          const rawLevel = data.level / 100;
+          targetLevel = Math.min(1, Math.max(0, rawLevel * 1.6));
+        }
+      });
+
+      ipcRenderer.on('processing-state', (event, data) => {
+        if (data && data.processing !== undefined) {
+          isProcessing = data.processing;
+          if (isProcessing) {
+            statusDot.classList.add('processing');
+            statusText.textContent = 'Processing';
+            canvas.classList.add('hidden');
+            loader.classList.add('visible');
+            success.classList.remove('visible');
+            targetLevel = 0;
+          } else {
+            statusDot.classList.remove('processing');
+            statusText.textContent = 'Recording';
+            canvas.classList.remove('hidden');
+            loader.classList.remove('visible');
+          }
+        }
+      });
+
+      ipcRenderer.on('success-state', () => {
+        statusDot.classList.remove('processing');
+        statusDot.classList.add('success');
+        statusText.textContent = 'Complete';
+        canvas.classList.add('hidden');
+        loader.classList.remove('visible');
+        success.classList.add('visible');
+      });
+
+      ipcRenderer.on('fade-out', () => {
+        if (!isFadingOut) {
+          isFadingOut = true;
+          container.classList.add('fade-out');
+        }
+      });
+
+      function updateWaveform() {
+        currentLevel += (targetLevel - currentLevel) * 0.4;
+        audioHistory.shift();
+        audioHistory.push(currentLevel);
+        ctx.clearRect(0, 0, width, height);
+
+        const fadeZoneWidth = width * 0.08;
+
+        audioHistory.forEach((level, index) => {
+          const x = index * (barWidth + spacing);
+          const barX = x;
+
+          let edgeOpacity = 1;
+          if (barX < fadeZoneWidth) {
+            edgeOpacity = barX / fadeZoneWidth;
+          } else if (barX > width - fadeZoneWidth) {
+            edgeOpacity = (width - barX) / fadeZoneWidth;
+          }
+
+          const clampedLevel = level;
+          const barHeight = clampedLevel * maxBarHeight;
+
+          if (edgeOpacity < 0.01) return;
+
+          ctx.globalAlpha = edgeOpacity;
+
+          const brightness = Math.floor(120 + clampedLevel * 100);
+          ctx.fillStyle = \`rgb(\${brightness}, \${brightness}, \${brightness})\`;
+
+          const barY = centerY - barHeight / 2;
+          const radius = barWidth / 2;
+
+          ctx.beginPath();
+          ctx.roundRect(barX, barY, barWidth, barHeight, radius);
+          ctx.fill();
+        });
+      }
+
+      function animate() {
+        if (isFadingOut || isProcessing) {
+          audioHistory = audioHistory.map(level => Math.max(0, level * 0.9));
+        } else {
+          if (targetLevel < 0.01) {
+            audioHistory = audioHistory.map(level => Math.max(0, level * 0.94));
           }
         }
         updateWaveform();

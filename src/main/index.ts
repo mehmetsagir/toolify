@@ -28,7 +28,7 @@ import {
 import { Settings } from './types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
 import { createMainWindow, createSettingsWindow } from './utils/windows'
-import { getOverlayHTML } from './utils/overlay-template'
+import { getCompactOverlayHTML, getLargeOverlayHTML } from './utils/overlay-template'
 import { getSettings, saveSettings as saveSettingsUtil } from './utils/settings'
 import {
   getAllHistory,
@@ -237,6 +237,15 @@ function createRecordingOverlay(): void {
 
   recordingOverlay = null
 
+  // Get overlay style setting
+  const settings = getSettings()
+  const overlayStyle = settings.overlayStyle || 'compact'
+
+  // Determine overlay dimensions based on style
+  const isLarge = overlayStyle === 'large'
+  const overlayWidth = isLarge ? 400 : 100
+  const overlayHeight = isLarge ? 96 : 40
+
   // Get the display where the focused window is, or primary display
   let activeDisplay = screen.getPrimaryDisplay()
   const focusedWindow = BrowserWindow.getFocusedWindow()
@@ -261,16 +270,18 @@ function createRecordingOverlay(): void {
   const { width: screenWidth } = activeDisplay.workAreaSize
   const { x: displayX, y: displayY } = activeDisplay.workArea
 
-  const overlayWidth = 100
-  const overlayHeight = 40
   const rightPadding = 5
   const topPadding = 30
 
-  // Check if user has saved a custom overlay position
-  const settings = getSettings()
   let x = displayX + screenWidth - overlayWidth - rightPadding
   let y = displayY + topPadding
 
+  // For large overlay, center it at top instead of right-aligned
+  if (isLarge) {
+    x = displayX + (screenWidth - overlayWidth) / 2
+  }
+
+  // Check if user has saved a custom overlay position
   if (settings.overlayPosition) {
     // Validate saved position is within current display bounds
     const savedX = settings.overlayPosition.x
@@ -310,7 +321,8 @@ function createRecordingOverlay(): void {
     }
   })
 
-  const htmlContent = getOverlayHTML()
+  // Get the appropriate HTML based on style
+  const htmlContent = isLarge ? getLargeOverlayHTML() : getCompactOverlayHTML()
   recordingOverlay.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
 
   // Save overlay position when user moves it (debounced to avoid excessive saves)
@@ -849,6 +861,28 @@ app.whenReady().then(() => {
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       const currentSize = settingsWindow.getSize()
       settingsWindow.setSize(currentSize[0], height, true)
+    }
+  })
+
+  // IPC handlers for overlay button clicks
+  ipcMain.on('overlay-stop-recording', () => {
+    if (isRecording && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('stop-recording')
+    }
+  })
+
+  ipcMain.on('overlay-cancel-recording', () => {
+    if (isRecording) {
+      handleCancelRecording()
+    }
+  })
+
+  // Send shortcut to overlay
+  ipcMain.on('get-shortcut', () => {
+    const settings = getSettings()
+    const shortcut = settings.shortcut || '⌘⇧.'
+    if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+      recordingOverlay.webContents.send('init-shortcut', shortcut)
     }
   })
 
