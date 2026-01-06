@@ -14,7 +14,7 @@ import {
 import { join } from 'path'
 import path from 'path'
 import { writeFile, mkdir } from 'fs/promises'
-import { existsSync, readdirSync } from 'fs'
+import { existsSync } from 'fs'
 import { exec } from 'child_process'
 import { electronApp } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -49,7 +49,7 @@ import {
   unregisterWindow,
   getIsQuittingForUpdate
 } from './auto-updater'
-import { uIOhook, UiohookKey } from 'uiohook-napi'
+import { uIOhook } from 'uiohook-napi'
 
 let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
@@ -236,10 +236,10 @@ function createRecordingOverlay(): void {
     focusable: false,
     hasShadow: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      webSecurity: false
     }
   })
 
@@ -501,7 +501,10 @@ app.whenReady().then(() => {
     // Special handling for RightCommand using uiohook
     if (shortcut === 'RightCommand') {
       if (process.platform !== 'darwin') {
-        showNotification('Toolify', 'Right Command key is only supported on macOS. Using Command+Space.')
+        showNotification(
+          'Toolify',
+          'Right Command key is only supported on macOS. Using Command+Space.'
+        )
         shortcut = 'Command+Space'
         // Fall through to normal registration
       } else {
@@ -518,7 +521,10 @@ app.whenReady().then(() => {
           return
         } catch (error) {
           console.error('Failed to register Right Command via uiohook:', error)
-          showNotification('Toolify Error', 'Failed to register Right Command. Using Command+Space.')
+          showNotification(
+            'Toolify Error',
+            'Failed to register Right Command. Using Command+Space.'
+          )
           shortcut = 'Command+Space'
           // Fall through to normal registration
         }
@@ -819,11 +825,6 @@ app.whenReady().then(() => {
           console.error(
             `Model not found. Expected path: ${path.join(modelsDir, `ggml-${modelType}.bin`)}`
           )
-          console.error(`Models directory exists: ${existsSync(modelsDir)}`)
-          if (existsSync(modelsDir)) {
-            const files = readdirSync(modelsDir)
-            console.error(`Files in models directory: ${files.join(', ')}`)
-          }
 
           const errorMsg = `Local model (${modelType}) not found. Please download the model in Settings.`
           console.error(errorMsg)
@@ -880,20 +881,24 @@ app.whenReady().then(() => {
         const mp3Path = join(recordingsDir, mp3FileName)
 
         await new Promise<void>((resolve, reject) => {
-          exec(`ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`, (error) => {
-            if (error) {
-              console.error('FFmpeg conversion failed:', error)
-              // If conversion fails, use the WebM file
-              audioPath = webmPath
-              reject(error)
-            } else {
-              // Conversion successful, delete WebM and use MP3
-              audioPath = mp3Path
-              // Delete the WebM file
-              exec(`rm "${webmPath}"`, () => {})
-              resolve()
+          exec(
+            `ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`,
+            (error, _stdout, stderr) => {
+              if (error) {
+                console.error('FFmpeg conversion failed:', stderr || error)
+                // If conversion fails, use the WebM file
+                audioPath = webmPath
+                showNotification('Toolify Error', 'Audio conversion failed, using original format')
+                reject(error)
+              } else {
+                // Conversion successful, delete WebM and use MP3
+                audioPath = mp3Path
+                // Delete the WebM file
+                exec(`rm "${webmPath}"`, () => {})
+                resolve()
+              }
             }
-          })
+          )
         })
       } catch (error) {
         console.error('Failed to save audio file:', error)
@@ -934,7 +939,12 @@ app.whenReady().then(() => {
 
         exec(
           'osascript -e "tell application \\"System Events\\" to keystroke \\"v\\" using command down"',
-          () => {
+          (error, _stdout, stderr) => {
+            if (error) {
+              console.error('Failed to paste text:', stderr || error)
+              showNotification('Toolify Warning', 'Text copied but could not auto-paste')
+            }
+
             // Show success checkmark animation
             showRecordingOverlaySuccess()
 

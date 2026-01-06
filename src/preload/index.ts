@@ -10,97 +10,101 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
-  onStartRecording: (callback: () => void) => {
-    const handler = () => callback()
+  onStartRecording: (callback: () => void): (() => void) => {
+    const handler: () => void = () => callback()
     ipcRenderer.on('start-recording', handler)
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener('start-recording', handler)
     }
   },
-  onStopRecording: (callback: () => void) => {
-    const handler = () => callback()
+  onStopRecording: (callback: () => void): (() => void) => {
+    const handler: () => void = () => callback()
     ipcRenderer.on('stop-recording', handler)
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener('stop-recording', handler)
     }
   },
-  onCancelRecording: (callback: () => void) => {
-    const handler = () => callback()
+  onCancelRecording: (callback: () => void): (() => void) => {
+    const handler: () => void = () => callback()
     ipcRenderer.on('cancel-recording', handler)
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener('cancel-recording', handler)
     }
   },
-  onProcessingComplete: (callback: () => void) => {
-    const handler = () => callback()
+  onProcessingComplete: (callback: () => void): (() => void) => {
+    const handler: () => void = () => callback()
     ipcRenderer.on('processing-complete', handler)
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener('processing-complete', handler)
     }
   },
-  onShowHistory: (callback: () => void) => {
-    const handler = () => callback()
+  onShowHistory: (callback: () => void): (() => void) => {
+    const handler: () => void = () => callback()
     ipcRenderer.on('show-history', handler)
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener('show-history', handler)
     }
   },
-  processAudio: (buffer: ArrayBuffer, duration: number) =>
+  processAudio: (buffer: ArrayBuffer, duration: number): void =>
     ipcRenderer.send('process-audio', buffer, duration),
-  saveSettings: (settings: Settings) => ipcRenderer.send('save-settings', settings),
-  getSettings: () => ipcRenderer.invoke('get-settings'),
-  hideWindow: () => ipcRenderer.send('hide-window'),
-  openSettings: () => ipcRenderer.send('open-settings'),
-  openHistory: () => ipcRenderer.send('open-history'),
-  closeSettings: () => ipcRenderer.send('close-settings'),
-  setRecordingState: (state: boolean) => ipcRenderer.send('set-recording-state', state),
-  setProcessingState: (state: boolean) => ipcRenderer.send('set-processing-state', state),
-  previewSound: (soundType: string) => ipcRenderer.send('preview-sound', soundType),
-  checkAccessibilityPermission: () => ipcRenderer.invoke('check-accessibility-permission'),
-  openAccessibilitySettings: () => ipcRenderer.send('open-accessibility-settings'),
-  resizeSettingsWindow: (height: number) => ipcRenderer.send('resize-settings-window', height),
-  updateRecordingAudioLevel: (level: number) =>
+  saveSettings: (settings: Settings): void => ipcRenderer.send('save-settings', settings),
+  getSettings: (): Promise<Settings> => ipcRenderer.invoke('get-settings'),
+  openSettings: (): void => ipcRenderer.send('open-settings'),
+  openHistory: (): void => ipcRenderer.send('open-history'),
+  closeSettings: (): void => ipcRenderer.send('close-settings'),
+  setRecordingState: (state: boolean): void => ipcRenderer.send('set-recording-state', state),
+  setProcessingState: (state: boolean): void => ipcRenderer.send('set-processing-state', state),
+  previewSound: (soundType: string): void => ipcRenderer.send('preview-sound', soundType),
+  checkAccessibilityPermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('check-accessibility-permission'),
+  openAccessibilitySettings: (): void => ipcRenderer.send('open-accessibility-settings'),
+  resizeSettingsWindow: (height: number): void =>
+    ipcRenderer.send('resize-settings-window', height),
+  updateRecordingAudioLevel: (level: number): void =>
     ipcRenderer.send('update-recording-audio-level', level),
-  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  downloadUpdate: () => ipcRenderer.invoke('download-update'),
-  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
-  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
-  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => {
+  checkForUpdates: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: (): Promise<boolean> => ipcRenderer.invoke('download-update'),
+  quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
+  getUpdateStatus: (): Promise<{ available: boolean; downloaded: boolean; version?: string }> =>
+    ipcRenderer.invoke('get-update-status'),
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void): (() => void) => {
     ipcRenderer.on('update-available', (_, info) => callback(info))
     return () => {
       ipcRenderer.removeAllListeners('update-available')
     }
   },
-  onUpdateDownloaded: (callback: (info: Pick<UpdateInfo, 'version'>) => void) => {
+  onUpdateDownloaded: (callback: (info: Pick<UpdateInfo, 'version'>) => void): (() => void) => {
     ipcRenderer.on('update-downloaded', (_, info) => callback(info))
     return () => {
       ipcRenderer.removeAllListeners('update-downloaded')
     }
   },
-  onUpdateDownloadProgress: (callback: (progress: UpdateDownloadProgress) => void) => {
+  onUpdateDownloadProgress: (
+    callback: (progress: UpdateDownloadProgress) => void
+  ): (() => void) => {
     ipcRenderer.on('update-download-progress', (_, progress) => callback(progress))
     return () => {
       ipcRenderer.removeAllListeners('update-download-progress')
     }
   },
   // History API
-  getAllHistory: () => ipcRenderer.invoke('get-all-history') as Promise<HistoryItem[]>,
-  getHistoryItem: (id: string) =>
-    ipcRenderer.invoke('get-history-item', id) as Promise<HistoryItem | null>,
-  deleteHistoryItem: (id: string) =>
-    ipcRenderer.invoke('delete-history-item', id) as Promise<boolean>,
-  clearHistory: () => ipcRenderer.invoke('clear-history') as Promise<boolean>,
-  getHistorySettings: () => ipcRenderer.invoke('get-history-settings') as Promise<HistorySettings>,
-  saveHistorySettings: (settings: HistorySettings) =>
-    ipcRenderer.invoke('save-history-settings', settings) as Promise<boolean>,
-  clearOldHistory: () => ipcRenderer.invoke('clear-old-history') as Promise<number>,
+  getAllHistory: (): Promise<HistoryItem[]> => ipcRenderer.invoke('get-all-history'),
+  getHistoryItem: (id: string): Promise<HistoryItem | null> =>
+    ipcRenderer.invoke('get-history-item', id),
+  deleteHistoryItem: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('delete-history-item', id),
+  clearHistory: (): Promise<boolean> => ipcRenderer.invoke('clear-history'),
+  getHistorySettings: (): Promise<HistorySettings> => ipcRenderer.invoke('get-history-settings'),
+  saveHistorySettings: (settings: HistorySettings): Promise<boolean> =>
+    ipcRenderer.invoke('save-history-settings', settings),
+  clearOldHistory: (): Promise<number> => ipcRenderer.invoke('clear-old-history'),
   // Local Model
-  checkLocalModel: (modelType: string) =>
-    ipcRenderer.invoke('check-local-model', modelType) as Promise<boolean>,
-  downloadLocalModel: (modelType: string) =>
-    ipcRenderer.invoke('download-local-model', modelType) as Promise<void>,
-  deleteLocalModel: (modelType: string) =>
-    ipcRenderer.invoke('delete-local-model', modelType) as Promise<void>,
+  checkLocalModel: (modelType: string): Promise<boolean> =>
+    ipcRenderer.invoke('check-local-model', modelType),
+  downloadLocalModel: (modelType: string): Promise<void> =>
+    ipcRenderer.invoke('download-local-model', modelType),
+  deleteLocalModel: (modelType: string): Promise<void> =>
+    ipcRenderer.invoke('delete-local-model', modelType),
   onModelDownloadProgress: (
     callback: (progress: {
       modelType: string
@@ -108,13 +112,13 @@ const api = {
       downloaded: number
       total: number
     }) => void
-  ) => {
+  ): (() => void) => {
     const handler = (
       _: unknown,
       progress: { modelType: string; percent: number; downloaded: number; total: number }
-    ) => callback(progress)
+    ): void => callback(progress)
     ipcRenderer.on('model-download-progress', handler)
-    return () => {
+    return (): void => {
       ipcRenderer.removeListener('model-download-progress', handler)
     }
   }
