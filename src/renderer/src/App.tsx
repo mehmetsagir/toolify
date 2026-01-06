@@ -257,7 +257,7 @@ function App(): React.JSX.Element {
       // Softer curve + higher gain preserves quiet sounds while making conversations more dynamic
       const responsiveValue = Math.pow(bucketAverage, 1.1) * 1.9
       const bucketLevel = Math.min(1, Math.max(0, responsiveValue))
-      const bucketAboveGate = bucketLevel - (threshold * 0.95)
+      const bucketAboveGate = bucketLevel - threshold * 0.95
       const gatedBucket = bucketAboveGate > 0 ? Math.min(1, bucketAboveGate / gateRange) : 0
       spectrum.push(gatedBucket)
     }
