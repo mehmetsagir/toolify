@@ -86,7 +86,10 @@ function App(): React.JSX.Element {
     const removeStartListener = window.api.onStartRecording(() => {
       console.log('Renderer: Received start-recording IPC message')
       console.log('Renderer: Current status:', statusRef.current)
-      if (statusRef.current === 'idle') {
+
+      // Allow starting recording from idle or processing state
+      // If processing, the new recording will override it
+      if (statusRef.current === 'idle' || statusRef.current === 'processing') {
         console.log('Renderer: Starting recording...')
         startRecording()
       } else {
@@ -203,6 +206,14 @@ function App(): React.JSX.Element {
   const startRecording = async (): Promise<void> => {
     console.log('startRecording called, current status:', statusRef.current)
     try {
+      // If we're still processing a previous recording, clean it up first
+      if (statusRef.current === 'processing') {
+        console.log('Previous recording still processing, cleaning up...')
+        // Clear any pending processing state
+        chunksRef.current = []
+        mediaRecorderRef.current = null
+      }
+
       console.log('Requesting microphone access...')
 
       // Ensure window is focused for microphone permission

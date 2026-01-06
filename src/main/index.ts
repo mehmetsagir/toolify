@@ -58,6 +58,14 @@ let recordingOverlay: BrowserWindow | null = null
 let overlayCloseTimeout: NodeJS.Timeout | null = null
 let isRecording = false
 let keyboardHookEnabled = false
+const RECORDING_COOLDOWN_MS = 1000 // 1 second cooldown between recordings
+const RAPID_PRESS_PENALTY_MS = 1500 // 1.5 second penalty for rapid key presses
+let idleTransitionTimeout: NodeJS.Timeout | null = null // Timeout for transitioning to idle state
+let isInCooldown = false // Flag to track if we're in cooldown period
+let isProcessingToggle = false // Flag to prevent rapid toggle actions
+let isInPenaltyLockout = false // Flag for penalty lockout after rapid presses
+let penaltyTimeout: NodeJS.Timeout | null = null // Timeout for penalty period
+let lastKeyPressTime = 0 // Track last key press time to detect rapid presses
 
 function updateTrayIcon(
   state: 'idle' | 'recording' | 'processing' | 'copied',
@@ -103,7 +111,34 @@ function updateTrayIcon(
       }
       tray.setImage(baseIcon)
       const overlaySettings = getSettings()
+
+      // Cancel any pending timeouts when starting new recording
+      if (overlayCloseTimeout) {
+        console.log('Cancelling pending overlay close timeout - new recording started')
+        clearTimeout(overlayCloseTimeout)
+        overlayCloseTimeout = null
+      }
+      if (idleTransitionTimeout) {
+        console.log('Cancelling pending idle transition timeout - new recording started')
+        clearTimeout(idleTransitionTimeout)
+        idleTransitionTimeout = null
+      }
+
+      // ALWAYS create a fresh overlay for each new recording
+      // This prevents issues with reusing overlays that are in bad states
       if (overlaySettings.showRecordingOverlay !== false) {
+        // Destroy existing overlay if present to get a clean state
+        if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+          console.log('Destroying existing overlay to create fresh one')
+          try {
+            recordingOverlay.destroy()
+          } catch (e) {
+            console.log('Error destroying overlay:', e)
+          }
+          recordingOverlay = null
+        }
+
+        console.log('Creating fresh recording overlay')
         createRecordingOverlay()
       }
       break
@@ -122,13 +157,25 @@ function updateTrayIcon(
     case 'copied':
       tray.setToolTip('Toolify - Text copied!')
       closeRecordingOverlay()
+      // Activate cooldown flag
+      isInCooldown = true
+      // Clear cooldown flag after the cooldown period
+      setTimeout(() => {
+        isInCooldown = false
+        console.log('Cooldown period ended')
+      }, RECORDING_COOLDOWN_MS)
       if (process.platform === 'darwin') {
         // @ts-ignore - macOS specific API
         tray.setTitle('')
       }
       tray.setImage(baseIcon)
-      setTimeout(() => {
+      // Clear any existing idle timeout before setting a new one
+      if (idleTransitionTimeout) {
+        clearTimeout(idleTransitionTimeout)
+      }
+      idleTransitionTimeout = setTimeout(() => {
         updateTrayIcon('idle', true)
+        idleTransitionTimeout = null
       }, 2000)
       break
 
@@ -219,8 +266,28 @@ function createRecordingOverlay(): void {
   const rightPadding = 5
   const topPadding = 30
 
-  const x = displayX + screenWidth - overlayWidth - rightPadding
-  const y = displayY + topPadding
+  // Check if user has saved a custom overlay position
+  const settings = getSettings()
+  let x = displayX + screenWidth - overlayWidth - rightPadding
+  let y = displayY + topPadding
+
+  if (settings.overlayPosition) {
+    // Validate saved position is within current display bounds
+    const savedX = settings.overlayPosition.x
+    const savedY = settings.overlayPosition.y
+    const { width: displayWidth, height: displayHeight } = activeDisplay.workAreaSize
+
+    // Ensure position is within display bounds (with some margin)
+    if (
+      savedX >= displayX - overlayWidth + 50 &&
+      savedX <= displayX + displayWidth - 50 &&
+      savedY >= displayY &&
+      savedY <= displayY + displayHeight - overlayHeight
+    ) {
+      x = savedX
+      y = savedY
+    }
+  }
 
   recordingOverlay = new BrowserWindow({
     width: overlayWidth,
@@ -232,7 +299,7 @@ function createRecordingOverlay(): void {
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
-    movable: false,
+    movable: true, // Enable dragging
     focusable: false,
     hasShadow: false,
     webPreferences: {
@@ -246,8 +313,51 @@ function createRecordingOverlay(): void {
   const htmlContent = getOverlayHTML()
   recordingOverlay.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
 
+  // Save overlay position when user moves it (debounced to avoid excessive saves)
+  let moveTimeout: NodeJS.Timeout | null = null
+  recordingOverlay.on('moved', () => {
+    if (moveTimeout) {
+      clearTimeout(moveTimeout)
+    }
+
+    // Wait 500ms after movement stops before saving
+    moveTimeout = setTimeout(() => {
+      if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+        const bounds = recordingOverlay.getBounds()
+        const currentSettings = getSettings()
+
+        // Validate position is within reasonable bounds before saving
+        const activeDisplay = screen.getDisplayNearestPoint({
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height / 2
+        })
+
+        const { width: displayWidth, height: displayHeight } = activeDisplay.workAreaSize
+        const { x: displayX, y: displayY } = activeDisplay.workArea
+
+        // Only save if position is valid
+        if (
+          bounds.x >= displayX - 50 &&
+          bounds.x <= displayX + displayWidth - 50 &&
+          bounds.y >= displayY &&
+          bounds.y <= displayY + displayHeight - 50
+        ) {
+          currentSettings.overlayPosition = { x: bounds.x, y: bounds.y }
+          saveSettingsUtil(currentSettings)
+          console.log('Overlay position saved:', bounds)
+        }
+      }
+      moveTimeout = null
+    }, 500)
+  })
+
   recordingOverlay.on('closed', () => {
     console.log('Recording overlay closed event')
+    // Clean up move timeout
+    if (moveTimeout) {
+      clearTimeout(moveTimeout)
+      moveTimeout = null
+    }
     recordingOverlay = null
   })
 
@@ -427,11 +537,76 @@ app.whenReady().then(() => {
   }
 
   const handleRecordingToggle = (): void => {
+    const currentTime = Date.now()
+
+    // FIRST: Check if we're in penalty lockout (user pressed too rapidly)
+    if (isInPenaltyLockout) {
+      console.log('Recording action blocked - penalty lockout active')
+      return
+    }
+
+    // SECOND: Detect rapid key presses (within 300ms of last press)
+    const timeSinceLastPress = currentTime - lastKeyPressTime
+    if (timeSinceLastPress < 300 && lastKeyPressTime > 0) {
+      console.log('Rapid key press detected! Initiating penalty lockout...')
+
+      // Cancel any ongoing action by setting processing flag
+      isProcessingToggle = true
+
+      // Activate penalty lockout
+      isInPenaltyLockout = true
+
+      // Clear any existing penalty timeout
+      if (penaltyTimeout) {
+        clearTimeout(penaltyTimeout)
+      }
+
+      // Set penalty timeout
+      penaltyTimeout = setTimeout(() => {
+        isInPenaltyLockout = false
+        isProcessingToggle = false
+        penaltyTimeout = null
+        console.log('Penalty lockout ended - actions now allowed')
+      }, RAPID_PRESS_PENALTY_MS)
+
+      // Reset last key press time to prevent chain penalties
+      lastKeyPressTime = 0
+      return
+    }
+
+    // THIRD: Check if we're already processing a toggle action
+    if (isProcessingToggle) {
+      console.log('Recording action blocked - already processing toggle')
+      return
+    }
+
+    // FOURTH: Check if we're in cooldown period
+    if (isInCooldown) {
+      console.log('Recording action blocked - cooldown active')
+      lastKeyPressTime = currentTime
+      return
+    }
+
+    // Update last key press time
+    lastKeyPressTime = currentTime
+
+    // Mark that we're processing a toggle action
+    isProcessingToggle = true
+    console.log('Processing toggle action...')
+
+    // Clear the processing flag after a short delay
+    setTimeout(() => {
+      isProcessingToggle = false
+      console.log('Toggle processing complete')
+    }, 500)
+
     if (isRecording) {
+      // Stop recording
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('stop-recording')
       }
     } else {
+      // Start recording
       if (!mainWindow || mainWindow.isDestroyed()) {
         createWindow()
         if (mainWindow) {
@@ -449,8 +624,24 @@ app.whenReady().then(() => {
 
   const handleCancelRecording = (): void => {
     console.log('Cancel recording requested')
+
+    // Check if we're in penalty lockout
+    if (isInPenaltyLockout) {
+      console.log('Cancel action blocked - penalty lockout active')
+      return
+    }
+
+    // Check if we're already processing a toggle action
+    if (isProcessingToggle) {
+      console.log('Cancel action blocked - already processing toggle')
+      return
+    }
+
     if (isRecording) {
       console.log('Cancelling active recording')
+
+      // Mark that we're processing a toggle action
+      isProcessingToggle = true
 
       // Unregister ESC shortcut when cancelling
       globalShortcut.unregister('Escape')
@@ -462,6 +653,14 @@ app.whenReady().then(() => {
       }
 
       isRecording = false
+
+      // Activate cooldown flag (cancel also counts as completion)
+      isInCooldown = true
+      // Clear cooldown flag after the cooldown period
+      setTimeout(() => {
+        isInCooldown = false
+        console.log('Cooldown period ended (after cancel)')
+      }, RECORDING_COOLDOWN_MS)
 
       // Unmute system
       unmuteSystem()
@@ -480,6 +679,12 @@ app.whenReady().then(() => {
 
       // Reset tray icon without animations/notifications (silent cancel)
       updateTrayIcon('idle', false)
+
+      // Clear processing flag after cancel completes
+      setTimeout(() => {
+        isProcessingToggle = false
+        console.log('Cancel processing complete')
+      }, 500)
 
       // NO notification or sound on cancel - user already knows they cancelled
 
