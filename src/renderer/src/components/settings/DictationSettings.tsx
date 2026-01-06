@@ -66,56 +66,16 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
     value: 'compact' | 'large'
     label: string
     description: string
-    preview: React.ReactNode
   }> = [
     {
       value: 'compact',
       label: 'Compact',
-      description: 'Minimal floating bubble that hugs screen edges.',
-      preview: (
-        <div className="flex justify-center py-2">
-          <div className="w-24 h-10 rounded-full bg-zinc-900/80 border border-white/10 shadow-lg shadow-black/30 flex items-center justify-center">
-            <div className="flex items-end gap-0.5">
-              {[10, 16, 22, 14, 9].map((height, index) => (
-                <span
-                  key={`compact-bar-${index}`}
-                  className="w-1.5 rounded-full bg-gradient-to-b from-rose-300 to-rose-500"
-                  style={{ height: `${height}px` }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )
+      description: 'Minimal floating bubble that hugs screen edges.'
     },
     {
       value: 'large',
       label: 'Large',
-      description: 'Detailed overlay with waveform, status text and shortcut hint.',
-      preview: (
-        <div className="flex justify-center py-2">
-          <div className="w-full max-w-[200px] rounded-xl border border-white/10 bg-gradient-to-b from-zinc-900/90 to-zinc-950/90 shadow-lg shadow-black/30 overflow-hidden">
-            <div className="h-10 flex items-center justify-center bg-white/5 border-b border-white/5">
-              <div className="flex items-end gap-0.5 w-36">
-                {[8, 14, 22, 30, 22, 14, 8].map((height, index) => (
-                  <span
-                    key={`large-bar-${index}`}
-                    className="flex-1 rounded-full bg-gradient-to-b from-rose-200 to-rose-500"
-                    style={{ height: `${height}px` }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-3 py-1.5 bg-black/30">
-              <div className="flex items-center gap-1.5 text-[11px] text-white">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Recording
-              </div>
-              <span className="text-[9px] uppercase tracking-wide text-zinc-500">Esc to cancel</span>
-            </div>
-          </div>
-        </div>
-      )
+      description: 'Detailed overlay with waveform, status text and shortcut hint.'
     }
   ]
 
@@ -528,14 +488,8 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                         : 'border-white/5 bg-transparent hover:bg-white/5 hover:border-white/15'
                     }`}
                   >
-                    {option.preview}
-                    <div className="flex items-center justify-between mb-0.5">
+                    <div className="mb-0.5">
                       <span className="text-sm font-semibold text-white">{option.label}</span>
-                      {selected && (
-                        <span className="text-[10px] font-semibold text-blue-300 bg-blue-500/10 rounded-full px-2 py-0.5">
-                          Selected
-                        </span>
-                      )}
                     </div>
                     <p className="text-xs text-zinc-500 leading-relaxed">{option.description}</p>
                   </button>
