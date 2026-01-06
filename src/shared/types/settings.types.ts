@@ -15,6 +15,7 @@ export interface Settings {
   historyMaxItems?: number // 0 = unlimited
   useLocalModel?: boolean
   localModelType?: 'base' | 'small' | 'medium' | 'large-v3'
+  overlayPosition?: { x: number; y: number } // Custom overlay position
 }
 
 export interface AccessibilityPermission {
