@@ -25,12 +25,6 @@ const defaultSettings: Settings = {
 export function getSettings(): Settings {
   const settings = store.get('settings', defaultSettings) as Settings
 
-  // Migration: force legacy models to medium (REMOVED - now supported again)
-  // if (['tiny', 'base', 'small'].includes(settings.localModelType || '')) {
-  //     settings.localModelType = 'medium'
-  //     store.set('settings', settings)
-  // }
-
   return settings
 }
 

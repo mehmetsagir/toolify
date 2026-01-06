@@ -41,25 +41,40 @@ function App(): React.JSX.Element {
     setShowSettings(isSettingsMode)
 
     const loadSettings = (): void => {
-      window.api.getSettings().then((settings) => {
-        setApiKey(settings.apiKey || '')
-        setTranslate(settings.translate || false)
-        setSourceLanguage(settings.sourceLanguage || 'en')
-        setTargetLanguage(settings.targetLanguage || 'tr')
-        setShortcut(settings.shortcut || 'Command+Space')
-        setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
-        setProcessNotifications(
-          settings.processNotifications !== undefined ? settings.processNotifications : false
-        )
-        setSoundAlert(settings.soundAlert !== undefined ? settings.soundAlert : false)
-        setSoundType(settings.soundType || 'Glass')
-        setAutoStart(settings.autoStart !== false)
-        setShowRecordingOverlay(settings.showRecordingOverlay !== false)
-        setUseLocalModel(settings.useLocalModel || false)
-        setLocalModelType(
-          (settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base'
-        )
-      })
+      window.api
+        .getSettings()
+        .then((settings) => {
+          setApiKey(settings.apiKey || '')
+          setTranslate(settings.translate || false)
+          setSourceLanguage(settings.sourceLanguage || 'en')
+          setTargetLanguage(settings.targetLanguage || 'tr')
+          setShortcut(settings.shortcut || 'Command+Space')
+          setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
+          setProcessNotifications(
+            settings.processNotifications !== undefined ? settings.processNotifications : false
+          )
+          setSoundAlert(settings.soundAlert !== undefined ? settings.soundAlert : false)
+          setSoundType(settings.soundType || 'Glass')
+          setAutoStart(settings.autoStart !== false)
+          setShowRecordingOverlay(settings.showRecordingOverlay !== false)
+          setUseLocalModel(settings.useLocalModel || false)
+          setLocalModelType(
+            (settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base'
+          )
+        })
+        .catch((error) => {
+          console.error('Failed to load settings:', error)
+          // Fallback to defaults if settings fail to load
+          setShortcut('Command+Space')
+          setTrayAnimations(true)
+          setProcessNotifications(false)
+          setSoundAlert(false)
+          setSoundType('Glass')
+          setAutoStart(true)
+          setShowRecordingOverlay(true)
+          setUseLocalModel(false)
+          setLocalModelType('base')
+        })
     }
 
     loadSettings()
@@ -248,8 +263,17 @@ function App(): React.JSX.Element {
         window.api.setRecordingState(false)
         setAudioLevel(0)
 
-        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
-        if (audioContextRef.current) audioContextRef.current.close()
+        // Clean up animation frame
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+          animationFrameRef.current = null
+        }
+
+        // Clean up audio context
+        if (audioContextRef.current) {
+          audioContextRef.current.close()
+          audioContextRef.current = null
+        }
 
         stream.getTracks().forEach((track) => track.stop())
       }
@@ -264,6 +288,18 @@ function App(): React.JSX.Element {
       console.error('Failed to start recording:', error)
       setStatus('idle')
       window.api.setRecordingState(false)
+
+      // Clean up animation frame on error
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+
+      // Clean up audio context on error
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+        audioContextRef.current = null
+      }
 
       // Show user-friendly error message
       if (error instanceof Error) {
@@ -351,12 +387,20 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     if (showSettings || window.location.hash === '#settings') {
-      window.api.getSettings().then((settings) => {
-        setApiKey(settings.apiKey || '')
-        setTranslate(settings.translate || false)
-        setShortcut(settings.shortcut || 'Command+Space')
-        setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
-      })
+      window.api
+        .getSettings()
+        .then((settings) => {
+          setApiKey(settings.apiKey || '')
+          setTranslate(settings.translate || false)
+          setShortcut(settings.shortcut || 'Command+Space')
+          setTrayAnimations(settings.trayAnimations !== undefined ? settings.trayAnimations : true)
+        })
+        .catch((error) => {
+          console.error('Failed to load settings for settings panel:', error)
+          // Fallback to defaults
+          setShortcut('Command+Space')
+          setTrayAnimations(true)
+        })
     }
   }, [showSettings])
 

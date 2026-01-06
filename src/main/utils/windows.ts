@@ -47,6 +47,8 @@ export function createMainWindow(): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
       backgroundThrottling: false
     }
   })
@@ -93,6 +95,8 @@ export function createSettingsWindow(): BrowserWindow {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
       backgroundThrottling: false
     }
   })

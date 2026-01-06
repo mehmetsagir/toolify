@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Search, Trash2, Copy, Clock, Calendar, Mic, CheckCircle2 } from 'lucide-react'
+import { Search, Trash2, Copy, Calendar, Mic, CheckCircle2 } from 'lucide-react'
 import type { HistoryItem } from '../../../shared/types'
 
 interface HistoryProps {
-  onClose: () => void
   onCopy: (text: string) => void
 }
 
@@ -17,20 +16,21 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadHistory()
-  }, [])
-
-  const loadHistory = async (): Promise<void> => {
-    try {
-      const items = await window.api.getAllHistory()
-      setHistory(items)
-      if (items.length > 0 && !selectedItemId) {
-        setSelectedItemId(items[0].id)
+    const loadHistory = async (): Promise<void> => {
+      try {
+        const items = await window.api.getAllHistory()
+        setHistory(items)
+        if (items.length > 0 && !selectedItemId) {
+          setSelectedItemId(items[0].id)
+        }
+      } catch (error) {
+        console.error('Failed to load history:', error)
       }
-    } catch (error) {
-      console.error('Failed to load history:', error)
     }
-  }
+
+    loadHistory()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const filteredHistory = useMemo(() => {
     let filtered = history
@@ -81,7 +81,7 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
     }
   }
 
-  const handleCopy = (text: string) => {
+  const handleCopy = (text: string): void => {
     onCopy(text)
     setCopiedId(selectedItemId)
     setTimeout(() => setCopiedId(null), 2000)
@@ -147,7 +147,7 @@ export const History: React.FC<HistoryProps> = ({ onCopy }) => {
               onClick={() => setActiveFilter('today')}
             />
             <SidebarItem
-              icon={<Clock size={18} />}
+              icon={<Calendar size={18} />}
               label="This Week"
               count={getFilterCount('week')}
               active={activeFilter === 'week'}
@@ -286,7 +286,14 @@ interface SidebarItemProps {
   onClick: () => void
 }
 
-const SidebarItem = ({ icon, label, count, active, color, onClick }: SidebarItemProps) => (
+const SidebarItem = ({
+  icon,
+  label,
+  count,
+  active,
+  color,
+  onClick
+}: SidebarItemProps): React.ReactElement => (
   <button
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
@@ -305,7 +312,7 @@ const SidebarItem = ({ icon, label, count, active, color, onClick }: SidebarItem
   </button>
 )
 
-const DetailRow = ({ label, value }: { label: string; value: string }) => (
+const DetailRow = ({ label, value }: { label: string; value: string }): React.ReactElement => (
   <tr className="group">
     <td className="py-3 text-zinc-500 w-32">{label}</td>
     <td className="py-3 text-zinc-300">{value}</td>
