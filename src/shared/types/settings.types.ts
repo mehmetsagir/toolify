@@ -11,6 +11,7 @@ export interface Settings {
   soundType?: string
   autoStart?: boolean
   showRecordingOverlay?: boolean
+  overlayStyle?: 'compact' | 'large' // Overlay display style
   historyAutoDeleteDays?: number // 0 = never delete
   historyMaxItems?: number // 0 = unlimited
   useLocalModel?: boolean
