@@ -1205,15 +1205,7 @@ app.whenReady().then(() => {
   tray.setToolTip('Toolify')
 
   const updateContextMenu = (): void => {
-    const settings = getSettings()
     const contextMenu = Menu.buildFromTemplate([
-      {
-        label: 'Start Recording',
-        type: 'normal',
-        accelerator: settings.shortcut || 'Command+Space',
-        click: () => handleRecordingToggle()
-      },
-      { type: 'separator' },
       {
         label: 'History',
         type: 'normal',
@@ -1250,13 +1242,15 @@ app.whenReady().then(() => {
       },
       { type: 'separator' },
       {
-        label: 'About Toolify',
+        label: `Version 0.0.12`,
+        type: 'normal',
+        enabled: false
+      },
+      {
+        label: 'Check for Updates',
         type: 'normal',
         click: () => {
-          // Show about dialog
-          if (process.platform === 'darwin') {
-            app.showAboutPanel()
-          }
+          checkForUpdates()
         }
       },
       { type: 'separator' },
