@@ -29,6 +29,8 @@ interface DictationSettingsProps {
   setLocalTranslate: (val: boolean) => void
   localShowRecordingOverlay: boolean
   setLocalShowRecordingOverlay: (val: boolean) => void
+  localOverlayStyle: 'compact' | 'large'
+  setLocalOverlayStyle: (val: 'compact' | 'large') => void
   localUseLocalModel: boolean
   setLocalUseLocalModel: (val: boolean) => void
   localLocalModelType: 'base' | 'small' | 'medium' | 'large-v3'
@@ -53,6 +55,8 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
   setLocalTranslate,
   localShowRecordingOverlay,
   setLocalShowRecordingOverlay,
+  localOverlayStyle,
+  setLocalOverlayStyle,
   localUseLocalModel,
   setLocalUseLocalModel,
   localLocalModelType,
@@ -439,6 +443,43 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Overlay Style */}
+        {localShowRecordingOverlay && (
+          <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+            <div className="flex items-center gap-3 mb-3">
+              <Radio size={18} className="text-zinc-400" />
+              <div className="flex flex-col">
+                <span className="text-white text-sm font-medium">Overlay Style</span>
+                <span className="text-zinc-500 text-xs mt-0.5">
+                  Choose the appearance of the recording overlay
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2 ml-7">
+              <button
+                onClick={() => setLocalOverlayStyle('compact')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  localOverlayStyle === 'compact'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                Compact
+              </button>
+              <button
+                onClick={() => setLocalOverlayStyle('large')}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  localOverlayStyle === 'large'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                Large
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

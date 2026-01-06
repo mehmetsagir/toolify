@@ -30,6 +30,8 @@ interface SettingsProps {
   setAutoStart: (val: boolean) => void
   showRecordingOverlay: boolean
   setShowRecordingOverlay: (val: boolean) => void
+  overlayStyle: 'compact' | 'large'
+  setOverlayStyle: (val: 'compact' | 'large') => void
   useLocalModel: boolean
   setUseLocalModel: (val: boolean) => void
   localModelType: 'base' | 'small' | 'medium' | 'large-v3'
@@ -46,6 +48,7 @@ interface SettingsProps {
     soundType: string
     autoStart: boolean
     showRecordingOverlay: boolean
+    overlayStyle: 'compact' | 'large'
     useLocalModel: boolean
     localModelType: 'base' | 'small' | 'medium' | 'large-v3'
   }) => void
@@ -74,6 +77,8 @@ export const Settings: React.FC<SettingsProps> = ({
   setAutoStart,
   showRecordingOverlay: initialShowRecordingOverlay,
   setShowRecordingOverlay,
+  overlayStyle: initialOverlayStyle,
+  setOverlayStyle,
   useLocalModel: initialUseLocalModel,
   setUseLocalModel,
   localModelType: initialLocalModelType,
@@ -94,6 +99,9 @@ export const Settings: React.FC<SettingsProps> = ({
   const [localSoundType, setLocalSoundType] = useState(initialSoundType || 'Glass')
   const [localShowRecordingOverlay, setLocalShowRecordingOverlay] = useState(
     initialShowRecordingOverlay !== false
+  )
+  const [localOverlayStyle, setLocalOverlayStyle] = useState<'compact' | 'large'>(
+    initialOverlayStyle || 'compact'
   )
   const [localUseLocalModel, setLocalUseLocalModel] = useState(initialUseLocalModel || false)
   const [localLocalModelType, setLocalLocalModelType] = useState(initialLocalModelType || 'base')
@@ -358,6 +366,7 @@ export const Settings: React.FC<SettingsProps> = ({
         soundType: localSoundType,
         autoStart: localAutoStart,
         showRecordingOverlay: localShowRecordingOverlay,
+        overlayStyle: localOverlayStyle,
         useLocalModel: localUseLocalModel,
         localModelType: localLocalModelType
       })
@@ -373,6 +382,7 @@ export const Settings: React.FC<SettingsProps> = ({
       setSoundType(localSoundType)
       setAutoStart(localAutoStart)
       setShowRecordingOverlay(localShowRecordingOverlay)
+      setOverlayStyle(localOverlayStyle)
       setUseLocalModel(localUseLocalModel)
       setLocalModelType(localLocalModelType)
     }
@@ -551,6 +561,8 @@ export const Settings: React.FC<SettingsProps> = ({
                   setLocalTranslate={setLocalTranslate}
                   localShowRecordingOverlay={localShowRecordingOverlay}
                   setLocalShowRecordingOverlay={setLocalShowRecordingOverlay}
+                  localOverlayStyle={localOverlayStyle}
+                  setLocalOverlayStyle={setLocalOverlayStyle}
                   localUseLocalModel={localUseLocalModel}
                   setLocalUseLocalModel={setLocalUseLocalModel}
                   localLocalModelType={localLocalModelType}

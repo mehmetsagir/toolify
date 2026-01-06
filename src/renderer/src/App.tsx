@@ -16,6 +16,7 @@ function App(): React.JSX.Element {
   const [soundType, setSoundType] = useState('Glass')
   const [autoStart, setAutoStart] = useState(true)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
+  const [overlayStyle, setOverlayStyle] = useState<'compact' | 'large'>('compact')
   const [useLocalModel, setUseLocalModel] = useState(false)
   const [localModelType, setLocalModelType] = useState<'base' | 'small' | 'medium' | 'large-v3'>(
     'base'
@@ -57,6 +58,7 @@ function App(): React.JSX.Element {
           setSoundType(settings.soundType || 'Glass')
           setAutoStart(settings.autoStart !== false)
           setShowRecordingOverlay(settings.showRecordingOverlay !== false)
+          setOverlayStyle(settings.overlayStyle || 'compact')
           setUseLocalModel(settings.useLocalModel || false)
           setLocalModelType(
             (settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base'
@@ -72,6 +74,7 @@ function App(): React.JSX.Element {
           setSoundType('Glass')
           setAutoStart(true)
           setShowRecordingOverlay(true)
+          setOverlayStyle('compact')
           setUseLocalModel(false)
           setLocalModelType('base')
         })
@@ -147,6 +150,7 @@ function App(): React.JSX.Element {
     newSoundType: string,
     newAutoStart: boolean,
     newShowRecordingOverlay: boolean,
+    newOverlayStyle: 'compact' | 'large',
     newUseLocalModel: boolean,
     newLocalModelType: 'base' | 'small' | 'medium' | 'large-v3'
   ): void => {
@@ -161,6 +165,7 @@ function App(): React.JSX.Element {
     setSoundType(newSoundType)
     setAutoStart(newAutoStart)
     setShowRecordingOverlay(newShowRecordingOverlay)
+    setOverlayStyle(newOverlayStyle)
     setUseLocalModel(newUseLocalModel)
     setLocalModelType(newLocalModelType)
     window.api.saveSettings({
@@ -176,6 +181,7 @@ function App(): React.JSX.Element {
       soundType: newSoundType,
       autoStart: newAutoStart,
       showRecordingOverlay: newShowRecordingOverlay,
+      overlayStyle: newOverlayStyle,
       useLocalModel: newUseLocalModel,
       localModelType: newLocalModelType
     })
@@ -433,6 +439,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -451,6 +458,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -469,6 +477,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -487,6 +496,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -505,6 +515,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -523,6 +534,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -541,6 +553,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -559,6 +572,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -577,6 +591,7 @@ function App(): React.JSX.Element {
               val,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -595,6 +610,7 @@ function App(): React.JSX.Element {
               soundType,
               val,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -613,6 +629,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               val,
+              overlayStyle,
               useLocalModel,
               localModelType
             )
@@ -631,6 +648,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               val,
               localModelType
             )
@@ -649,6 +667,7 @@ function App(): React.JSX.Element {
               soundType,
               autoStart,
               showRecordingOverlay,
+              overlayStyle,
               useLocalModel,
               val
             )
@@ -666,8 +685,28 @@ function App(): React.JSX.Element {
               settings.soundType,
               settings.autoStart,
               settings.showRecordingOverlay,
+              settings.overlayStyle,
               settings.useLocalModel,
               settings.localModelType
+            )
+          }
+          overlayStyle={overlayStyle}
+          setOverlayStyle={(val) =>
+            saveSettings(
+              apiKey,
+              translate,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay,
+              val,
+              useLocalModel,
+              localModelType
             )
           }
         />
