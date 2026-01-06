@@ -31,6 +31,7 @@ function App(): React.JSX.Element {
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
+  const noiseFloorRef = useRef(0.15) // Tracks ambient noise so overlay ignores it
 
   const statusRef = useRef(status)
   useEffect(() => {
@@ -199,11 +200,73 @@ function App(): React.JSX.Element {
     }
     const average = sum / dataArray.length
     const normalizedLevel = Math.min(100, average * 2.5)
+    const levelFraction = normalizedLevel / 100
 
-    setAudioLevel(normalizedLevel)
+    const MIN_NOISE_FLOOR = 0.05
+    const MAX_NOISE_FLOOR = 0.65
+    const QUIET_ADAPT_RATE = 0.25
+    const LOUD_ADAPT_RATE = 0.01
+    const GATE_PADDING = 0.15
+
+    const currentNoiseFloor = noiseFloorRef.current
+    const threshold = Math.min(0.9, Math.max(0.2, currentNoiseFloor + GATE_PADDING))
+    const gateRange = Math.max(0.05, 1 - threshold)
+
+    const clampedLevel = Math.min(1, Math.max(0, levelFraction))
+
+    if (clampedLevel <= threshold) {
+      // Rapidly adapt floor downwards when things are quiet so we keep ignoring ambient hiss
+      const target = Math.max(MIN_NOISE_FLOOR, clampedLevel)
+      noiseFloorRef.current = Math.max(
+        MIN_NOISE_FLOOR,
+        currentNoiseFloor + (target - currentNoiseFloor) * QUIET_ADAPT_RATE
+      )
+    } else {
+      // Only let the floor rise very slowly so single loud events don't reset the gate
+      const target = Math.min(MAX_NOISE_FLOOR, clampedLevel)
+      noiseFloorRef.current = Math.min(
+        MAX_NOISE_FLOOR,
+        currentNoiseFloor + (target - currentNoiseFloor) * LOUD_ADAPT_RATE
+      )
+    }
+
+    const levelAboveGate = clampedLevel - threshold
+    const gatedFraction = levelAboveGate > 0 ? Math.min(1, levelAboveGate / gateRange) : 0
+    const gatedLevel = Math.round(gatedFraction * 100)
+
+    // Build a coarse spectrum that represents how different frequencies behave
+    const bucketCount = 48
+    const bucketSize = Math.max(1, Math.floor(dataArray.length / bucketCount))
+    const spectrum: number[] = []
+
+    for (let i = 0; i < bucketCount; i++) {
+      let bucketSum = 0
+      let samples = 0
+      for (let j = 0; j < bucketSize; j++) {
+        const index = i * bucketSize + j
+        if (index >= dataArray.length) break
+        bucketSum += dataArray[index]
+        samples++
+      }
+      if (samples === 0) {
+        spectrum.push(0)
+        continue
+      }
+
+      const bucketAverage = bucketSum / samples / 255
+      // Softer curve + higher gain keeps küçük sesleri görünür, konuşmaları da daha dinamik yapar
+      const responsiveValue = Math.pow(bucketAverage, 1.1) * 1.9
+      const bucketLevel = Math.min(1, Math.max(0, responsiveValue))
+      const bucketAboveGate = bucketLevel - (threshold * 0.95)
+      const gatedBucket = bucketAboveGate > 0 ? Math.min(1, bucketAboveGate / gateRange) : 0
+      spectrum.push(gatedBucket)
+    }
+
+    setAudioLevel(gatedLevel)
 
     if (window.api?.updateRecordingAudioLevel && statusRef.current === 'recording') {
-      window.api.updateRecordingAudioLevel(normalizedLevel)
+      const durationMs = Math.max(0, Date.now() - (startTimeRef.current || 0))
+      window.api.updateRecordingAudioLevel({ level: gatedLevel, spectrum, durationMs })
     }
 
     animationFrameRef.current = requestAnimationFrame(analyzeAudio)
