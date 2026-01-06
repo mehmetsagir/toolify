@@ -4,71 +4,10 @@ import fs from 'fs'
 import { exec } from 'child_process'
 import { app } from 'electron'
 import OpenAI from 'openai'
+import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
 
 // Note: We no longer use whisper-node's createCppCommand due to path quoting issues
 // Instead, we build the whisper.cpp command manually with proper path escaping
-
-// Get language name for prompts
-function getLanguageName(code: string): string {
-  const languageNames: Record<string, string> = {
-    en: 'English',
-    tr: 'Turkish',
-    es: 'Spanish',
-    fr: 'French',
-    de: 'German',
-    it: 'Italian',
-    pt: 'Portuguese',
-    ru: 'Russian',
-    ja: 'Japanese',
-    ko: 'Korean',
-    zh: 'Chinese',
-    ar: 'Arabic',
-    auto: 'the original language'
-  }
-  return languageNames[code] || code
-}
-
-// Clean translation text - remove unwanted metadata and commentary
-function cleanTranslationText(text: string): string {
-  if (!text) return text
-
-  // Remove common unwanted patterns
-  const unwantedPatterns = [
-    /^translate was done with gpt/i,
-    /^translation by gpt/i,
-    /^translated by/i,
-    /^this is a translation/i,
-    /^note:.*$/im,
-    /^translation:.*$/im,
-    /^\[.*translation.*\]/i,
-    /^\(.*translation.*\)/i
-  ]
-
-  let cleaned = text.trim()
-
-  // Remove unwanted patterns
-  for (const pattern of unwantedPatterns) {
-    cleaned = cleaned.replace(pattern, '').trim()
-  }
-
-  // Remove lines that are clearly metadata
-  const lines = cleaned.split('\n')
-  const filteredLines = lines.filter((line) => {
-    const lowerLine = line.toLowerCase().trim()
-    return (
-      !lowerLine.startsWith('translation:') &&
-      !lowerLine.startsWith('note:') &&
-      !lowerLine.includes('translated by') &&
-      !lowerLine.includes('translation was done') &&
-      !lowerLine.match(/^\[.*\]$/) && // Remove lines that are just brackets
-      line.trim().length > 0
-    )
-  })
-
-  cleaned = filteredLines.join('\n').trim()
-
-  return cleaned || text // Return original if cleaning removed everything
-}
 
 // Check if we're in production build (packaged app)
 const isProductionBuild = (): boolean => {
@@ -148,7 +87,9 @@ const getModelPath = (modelType: string): string => {
 export async function checkLocalModelExists(modelType: string): Promise<boolean> {
   const modelPath = getModelPath(modelType)
   const exists = fs.existsSync(modelPath)
-  console.log(`Checking model existence: ${modelType} at ${modelPath} - ${exists ? 'EXISTS' : 'NOT FOUND'}`)
+  console.log(
+    `Checking model existence: ${modelType} at ${modelPath} - ${exists ? 'EXISTS' : 'NOT FOUND'}`
+  )
   if (exists) {
     const stats = fs.statSync(modelPath)
     console.log(`Model file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
@@ -259,57 +200,59 @@ function downloadWithCurl(
     }
 
     exec(curlCommand, { maxBuffer: 1024 * 1024 * 100 }, (error, _stdout, stderr) => {
-      // Clear progress interval
-      if (progressInterval) {
-        clearInterval(progressInterval)
-      }
+      try {
+        if (error) {
+          console.error('Model download failed:', stderr)
+          // Clean up partial download
+          if (fs.existsSync(modelPath)) {
+            try {
+              fs.unlinkSync(modelPath)
+              console.log('Cleaned up partial download')
+            } catch (e) {
+              console.error('Failed to clean up partial download:', e)
+            }
+          }
+          reject(
+            new Error(
+              `Failed to download model ${modelType} from HuggingFace CDN: ${stderr || error.message}`
+            )
+          )
+        } else {
+          // Verify file was downloaded successfully
+          if (fs.existsSync(modelPath)) {
+            const stats = fs.statSync(modelPath)
+            if (stats.size > 0) {
+              const sizeMB = (stats.size / 1024 / 1024).toFixed(2)
+              console.log(`✓ Model download successful: ${sizeMB} MB`)
+              console.log(`  Saved to: ${modelPath}`)
 
-      if (error) {
-        console.error('Model download failed:', stderr)
-        // Clean up partial download
-        if (fs.existsSync(modelPath)) {
-          try {
-            fs.unlinkSync(modelPath)
-            console.log('Cleaned up partial download')
-          } catch (e) {
-            console.error('Failed to clean up partial download:', e)
+              // Send final progress update
+              if (onProgress) {
+                onProgress({ percent: 100, downloaded: stats.size, total: stats.size })
+              }
+
+              // Verify the file is actually readable before resolving
+              try {
+                fs.accessSync(modelPath, fs.constants.R_OK)
+                console.log(`✓ Model file verified and readable: ${modelPath}`)
+              } catch (accessError) {
+                console.error(`✗ Model file exists but is not readable: ${accessError}`)
+                reject(new Error(`Model file downloaded but is not accessible: ${accessError}`))
+                return
+              }
+
+              resolve()
+            } else {
+              reject(new Error('Downloaded file is empty'))
+            }
+          } else {
+            reject(new Error('Downloaded file not found'))
           }
         }
-        reject(
-          new Error(
-            `Failed to download model ${modelType} from HuggingFace CDN: ${stderr || error.message}`
-          )
-        )
-      } else {
-        // Verify file was downloaded successfully
-        if (fs.existsSync(modelPath)) {
-          const stats = fs.statSync(modelPath)
-          if (stats.size > 0) {
-            const sizeMB = (stats.size / 1024 / 1024).toFixed(2)
-            console.log(`✓ Model download successful: ${sizeMB} MB`)
-            console.log(`  Saved to: ${modelPath}`)
-
-            // Send final progress update
-            if (onProgress) {
-              onProgress({ percent: 100, downloaded: stats.size, total: stats.size })
-            }
-            
-            // Verify the file is actually readable before resolving
-            try {
-              fs.accessSync(modelPath, fs.constants.R_OK)
-              console.log(`✓ Model file verified and readable: ${modelPath}`)
-            } catch (accessError) {
-              console.error(`✗ Model file exists but is not readable: ${accessError}`)
-              reject(new Error(`Model file downloaded but is not accessible: ${accessError}`))
-              return
-            }
-            
-            resolve()
-          } else {
-            reject(new Error('Downloaded file is empty'))
-          }
-        } else {
-          reject(new Error('Downloaded file not found'))
+      } finally {
+        // Clear progress interval - always execute, even on error
+        if (progressInterval) {
+          clearInterval(progressInterval)
         }
       }
     })
