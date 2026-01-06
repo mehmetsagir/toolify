@@ -245,6 +245,7 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalSoundType(initialSoundType || 'Glass')
     setLocalAutoStart(initialAutoStart !== false)
     setLocalShowRecordingOverlay(initialShowRecordingOverlay !== false)
+    setLocalOverlayStyle(initialOverlayStyle || 'compact')
     setLocalUseLocalModel(initialUseLocalModel || false)
     setLocalLocalModelType(initialLocalModelType || 'base')
   }, [
@@ -259,6 +260,7 @@ export const Settings: React.FC<SettingsProps> = ({
     initialSoundType,
     initialAutoStart,
     initialShowRecordingOverlay,
+    initialOverlayStyle,
     initialUseLocalModel,
     initialLocalModelType
   ])

@@ -62,6 +62,63 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
   localLocalModelType,
   setLocalLocalModelType
 }) => {
+  const overlayStyleOptions: Array<{
+    value: 'compact' | 'large'
+    label: string
+    description: string
+    preview: React.ReactNode
+  }> = [
+    {
+      value: 'compact',
+      label: 'Compact',
+      description: 'Minimal floating bubble that hugs screen edges.',
+      preview: (
+        <div className="flex justify-center py-2">
+          <div className="w-24 h-10 rounded-full bg-zinc-900/80 border border-white/10 shadow-lg shadow-black/30 flex items-center justify-center">
+            <div className="flex items-end gap-0.5">
+              {[10, 16, 22, 14, 9].map((height, index) => (
+                <span
+                  key={`compact-bar-${index}`}
+                  className="w-1.5 rounded-full bg-gradient-to-b from-rose-300 to-rose-500"
+                  style={{ height: `${height}px` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      value: 'large',
+      label: 'Large',
+      description: 'Detailed overlay with waveform, status text and shortcut hint.',
+      preview: (
+        <div className="flex justify-center py-2">
+          <div className="w-full max-w-[200px] rounded-xl border border-white/10 bg-gradient-to-b from-zinc-900/90 to-zinc-950/90 shadow-lg shadow-black/30 overflow-hidden">
+            <div className="h-10 flex items-center justify-center bg-white/5 border-b border-white/5">
+              <div className="flex items-end gap-0.5 w-36">
+                {[8, 14, 22, 30, 22, 14, 8].map((height, index) => (
+                  <span
+                    key={`large-bar-${index}`}
+                    className="flex-1 rounded-full bg-gradient-to-b from-rose-200 to-rose-500"
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-3 py-1.5 bg-black/30">
+              <div className="flex items-center gap-1.5 text-[11px] text-white">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Recording
+              </div>
+              <span className="text-[9px] uppercase tracking-wide text-zinc-500">Esc to cancel</span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  ]
+
   return (
     <div className="space-y-8">
       <div>
@@ -456,27 +513,34 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                 </span>
               </div>
             </div>
-            <div className="flex gap-2 ml-7">
-              <button
-                onClick={() => setLocalOverlayStyle('compact')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  localOverlayStyle === 'compact'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-                }`}
-              >
-                Compact
-              </button>
-              <button
-                onClick={() => setLocalOverlayStyle('large')}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  localOverlayStyle === 'large'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-                }`}
-              >
-                Large
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ml-7">
+              {overlayStyleOptions.map((option) => {
+                const selected = localOverlayStyle === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setLocalOverlayStyle(option.value)}
+                    aria-pressed={selected}
+                    className={`rounded-2xl border p-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#121212] ${
+                      selected
+                        ? 'border-blue-500/70 bg-blue-500/5 shadow-lg shadow-blue-500/20'
+                        : 'border-white/5 bg-transparent hover:bg-white/5 hover:border-white/15'
+                    }`}
+                  >
+                    {option.preview}
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-sm font-semibold text-white">{option.label}</span>
+                      {selected && (
+                        <span className="text-[10px] font-semibold text-blue-300 bg-blue-500/10 rounded-full px-2 py-0.5">
+                          Selected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 leading-relaxed">{option.description}</p>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

@@ -254,7 +254,7 @@ function App(): React.JSX.Element {
       }
 
       const bucketAverage = bucketSum / samples / 255
-      // Softer curve + higher gain keeps küçük sesleri görünür, konuşmaları da daha dinamik yapar
+      // Softer curve + higher gain preserves quiet sounds while making conversations more dynamic
       const responsiveValue = Math.pow(bucketAverage, 1.1) * 1.9
       const bucketLevel = Math.min(1, Math.max(0, responsiveValue))
       const bucketAboveGate = bucketLevel - (threshold * 0.95)
