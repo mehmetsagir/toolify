@@ -60,8 +60,12 @@ const api = {
   openAccessibilitySettings: (): void => ipcRenderer.send('open-accessibility-settings'),
   resizeSettingsWindow: (height: number): void =>
     ipcRenderer.send('resize-settings-window', height),
-  updateRecordingAudioLevel: (level: number): void =>
-    ipcRenderer.send('update-recording-audio-level', level),
+  updateRecordingAudioLevel: (payload: {
+    level: number
+    spectrum?: number[]
+    durationMs?: number
+  }): void =>
+    ipcRenderer.send('update-recording-audio-level', payload),
   checkForUpdates: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: (): Promise<boolean> => ipcRenderer.invoke('download-update'),
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),

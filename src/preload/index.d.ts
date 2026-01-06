@@ -31,7 +31,11 @@ declare global {
       checkAccessibilityPermission: () => Promise<AccessibilityPermission>
       openAccessibilitySettings: () => void
       resizeSettingsWindow: (height: number) => void
-      updateRecordingAudioLevel: (level: number) => void
+      updateRecordingAudioLevel: (payload: {
+        level: number
+        spectrum?: number[]
+        durationMs?: number
+      }) => void
       checkForUpdates: () => Promise<UpdateStatus>
       downloadUpdate: () => Promise<void>
       quitAndInstall: () => Promise<void>
