@@ -74,8 +74,8 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
     },
     {
       value: 'large',
-      label: 'Large',
-      description: 'Detailed overlay with waveform, status text and shortcut hint.'
+      label: 'Expanded',
+      description: 'Wide overlay with waveform, status text, duration, and shortcut hint.'
     }
   ]
 
