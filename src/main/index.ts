@@ -56,16 +56,25 @@ let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let recordingOverlay: BrowserWindow | null = null
 let overlayCloseTimeout: NodeJS.Timeout | null = null
+let overlayCloseDelayTimer: NodeJS.Timeout | null = null
+let overlaySuccessTimestamp: number | null = null
 let isRecording = false
 let keyboardHookEnabled = false
 const RECORDING_COOLDOWN_MS = 1000 // 1 second cooldown between recordings
 const RAPID_PRESS_PENALTY_MS = 1500 // 1.5 second penalty for rapid key presses
+const OVERLAY_SUCCESS_HOLD_MS = 1200
 let idleTransitionTimeout: NodeJS.Timeout | null = null // Timeout for transitioning to idle state
 let isInCooldown = false // Flag to track if we're in cooldown period
 let isProcessingToggle = false // Flag to prevent rapid toggle actions
 let isInPenaltyLockout = false // Flag for penalty lockout after rapid presses
 let penaltyTimeout: NodeJS.Timeout | null = null // Timeout for penalty period
 let lastKeyPressTime = 0 // Track last key press time to detect rapid presses
+
+type OverlayAudioPayload = {
+  level: number
+  spectrum?: number[]
+  durationMs?: number
+}
 
 function updateTrayIcon(
   state: 'idle' | 'recording' | 'processing' | 'copied',
@@ -114,12 +123,15 @@ function updateTrayIcon(
 
       // Cancel any pending timeouts when starting new recording
       if (overlayCloseTimeout) {
-        console.log('Cancelling pending overlay close timeout - new recording started')
         clearTimeout(overlayCloseTimeout)
         overlayCloseTimeout = null
       }
+      if (overlayCloseDelayTimer) {
+        clearTimeout(overlayCloseDelayTimer)
+        overlayCloseDelayTimer = null
+      }
+      overlaySuccessTimestamp = null
       if (idleTransitionTimeout) {
-        console.log('Cancelling pending idle transition timeout - new recording started')
         clearTimeout(idleTransitionTimeout)
         idleTransitionTimeout = null
       }
@@ -129,16 +141,13 @@ function updateTrayIcon(
       if (overlaySettings.showRecordingOverlay !== false) {
         // Destroy existing overlay if present to get a clean state
         if (recordingOverlay && !recordingOverlay.isDestroyed()) {
-          console.log('Destroying existing overlay to create fresh one')
           try {
             recordingOverlay.destroy()
           } catch (e) {
-            console.log('Error destroying overlay:', e)
           }
           recordingOverlay = null
         }
 
-        console.log('Creating fresh recording overlay')
         createRecordingOverlay()
       }
       break
@@ -156,13 +165,12 @@ function updateTrayIcon(
 
     case 'copied':
       tray.setToolTip('Toolify - Text copied!')
-      closeRecordingOverlay()
+      closeRecordingOverlay(OVERLAY_SUCCESS_HOLD_MS)
       // Activate cooldown flag
       isInCooldown = true
       // Clear cooldown flag after the cooldown period
       setTimeout(() => {
         isInCooldown = false
-        console.log('Cooldown period ended')
       }, RECORDING_COOLDOWN_MS)
       if (process.platform === 'darwin') {
         // @ts-ignore - macOS specific API
@@ -356,7 +364,6 @@ function createRecordingOverlay(): void {
         ) {
           currentSettings.overlayPosition = { x: bounds.x, y: bounds.y }
           saveSettingsUtil(currentSettings)
-          console.log('Overlay position saved:', bounds)
         }
       }
       moveTimeout = null
@@ -364,7 +371,6 @@ function createRecordingOverlay(): void {
   })
 
   recordingOverlay.on('closed', () => {
-    console.log('Recording overlay closed event')
     // Clean up move timeout
     if (moveTimeout) {
       clearTimeout(moveTimeout)
@@ -384,13 +390,22 @@ function createRecordingOverlay(): void {
   recordingOverlay.show()
   recordingOverlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
-  console.log('Recording overlay created and shown at position:', { x, y })
 }
 
-function updateRecordingOverlayAudioLevel(level: number): void {
+function updateRecordingOverlayAudioLevel(data: OverlayAudioPayload | number): void {
   if (recordingOverlay && !recordingOverlay.isDestroyed()) {
     try {
-      recordingOverlay.webContents.send('audio-level-update', { level })
+      const payload: OverlayAudioPayload =
+        typeof data === 'number'
+          ? { level: data }
+          : {
+              level: typeof data.level === 'number' ? data.level : 0,
+              spectrum: Array.isArray(data.spectrum) ? data.spectrum : undefined,
+              durationMs:
+                typeof data.durationMs === 'number' ? Math.max(0, data.durationMs) : undefined
+            }
+
+      recordingOverlay.webContents.send('audio-level-update', payload)
     } catch {
       // Overlay might not be ready yet, ignore
     }
@@ -410,15 +425,49 @@ function updateRecordingOverlayProcessingState(processing: boolean): void {
 function showRecordingOverlaySuccess(): void {
   if (recordingOverlay && !recordingOverlay.isDestroyed()) {
     try {
+      if (overlayCloseDelayTimer) {
+        clearTimeout(overlayCloseDelayTimer)
+        overlayCloseDelayTimer = null
+      }
+      if (overlayCloseTimeout) {
+        clearTimeout(overlayCloseTimeout)
+        overlayCloseTimeout = null
+      }
       recordingOverlay.webContents.send('success-state')
+      overlaySuccessTimestamp = Date.now()
     } catch {
       // Overlay might not be ready yet, ignore
     }
   }
 }
 
-function closeRecordingOverlay(): void {
-  console.log('closeRecordingOverlay called')
+function closeRecordingOverlay(delayMs = 0): void {
+  if (delayMs > 0) {
+    if (overlayCloseDelayTimer) {
+      clearTimeout(overlayCloseDelayTimer)
+    }
+    overlayCloseDelayTimer = setTimeout(() => {
+      overlayCloseDelayTimer = null
+      closeRecordingOverlay()
+    }, delayMs)
+    return
+  }
+
+  if (overlaySuccessTimestamp) {
+    const elapsed = Date.now() - overlaySuccessTimestamp
+    if (elapsed < OVERLAY_SUCCESS_HOLD_MS) {
+      const remaining = OVERLAY_SUCCESS_HOLD_MS - elapsed
+      closeRecordingOverlay(remaining)
+      return
+    }
+    overlaySuccessTimestamp = null
+  }
+
+  if (overlayCloseDelayTimer) {
+    clearTimeout(overlayCloseDelayTimer)
+    overlayCloseDelayTimer = null
+  }
+
 
   // Cancel any existing close timeout
   if (overlayCloseTimeout) {
@@ -428,13 +477,11 @@ function closeRecordingOverlay(): void {
 
   if (recordingOverlay && !recordingOverlay.isDestroyed()) {
     try {
-      console.log('Sending fade-out to overlay')
       recordingOverlay.webContents.send('fade-out')
 
       // Track the close timeout so it can be cancelled if needed
       overlayCloseTimeout = setTimeout(() => {
         if (recordingOverlay && !recordingOverlay.isDestroyed()) {
-          console.log('Closing overlay window')
           recordingOverlay.close()
         }
         recordingOverlay = null
@@ -449,7 +496,6 @@ function closeRecordingOverlay(): void {
       overlayCloseTimeout = null
     }
   } else {
-    console.log('Overlay already destroyed or null')
     recordingOverlay = null
     overlayCloseTimeout = null
   }
@@ -553,14 +599,12 @@ app.whenReady().then(() => {
 
     // FIRST: Check if we're in penalty lockout (user pressed too rapidly)
     if (isInPenaltyLockout) {
-      console.log('Recording action blocked - penalty lockout active')
       return
     }
 
     // SECOND: Detect rapid key presses (within 300ms of last press)
     const timeSinceLastPress = currentTime - lastKeyPressTime
     if (timeSinceLastPress < 300 && lastKeyPressTime > 0) {
-      console.log('Rapid key press detected! Initiating penalty lockout...')
 
       // Cancel any ongoing action by setting processing flag
       isProcessingToggle = true
@@ -578,7 +622,6 @@ app.whenReady().then(() => {
         isInPenaltyLockout = false
         isProcessingToggle = false
         penaltyTimeout = null
-        console.log('Penalty lockout ended - actions now allowed')
       }, RAPID_PRESS_PENALTY_MS)
 
       // Reset last key press time to prevent chain penalties
@@ -588,13 +631,11 @@ app.whenReady().then(() => {
 
     // THIRD: Check if we're already processing a toggle action
     if (isProcessingToggle) {
-      console.log('Recording action blocked - already processing toggle')
       return
     }
 
     // FOURTH: Check if we're in cooldown period
     if (isInCooldown) {
-      console.log('Recording action blocked - cooldown active')
       lastKeyPressTime = currentTime
       return
     }
@@ -604,12 +645,10 @@ app.whenReady().then(() => {
 
     // Mark that we're processing a toggle action
     isProcessingToggle = true
-    console.log('Processing toggle action...')
 
     // Clear the processing flag after a short delay
     setTimeout(() => {
       isProcessingToggle = false
-      console.log('Toggle processing complete')
     }, 500)
 
     if (isRecording) {
@@ -635,29 +674,24 @@ app.whenReady().then(() => {
   }
 
   const handleCancelRecording = (): void => {
-    console.log('Cancel recording requested')
 
     // Check if we're in penalty lockout
     if (isInPenaltyLockout) {
-      console.log('Cancel action blocked - penalty lockout active')
       return
     }
 
     // Check if we're already processing a toggle action
     if (isProcessingToggle) {
-      console.log('Cancel action blocked - already processing toggle')
       return
     }
 
     if (isRecording) {
-      console.log('Cancelling active recording')
 
       // Mark that we're processing a toggle action
       isProcessingToggle = true
 
       // Unregister ESC shortcut when cancelling
       globalShortcut.unregister('Escape')
-      console.log('ESC shortcut unregistered')
 
       // IMPORTANT: Send cancel-recording (NOT stop-recording) to abort without processing
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -671,7 +705,6 @@ app.whenReady().then(() => {
       // Clear cooldown flag after the cooldown period
       setTimeout(() => {
         isInCooldown = false
-        console.log('Cooldown period ended (after cancel)')
       }, RECORDING_COOLDOWN_MS)
 
       // Unmute system
@@ -682,6 +715,7 @@ app.whenReady().then(() => {
         recordingOverlay.destroy()
         recordingOverlay = null
       }
+      overlaySuccessTimestamp = null
 
       // Clear any pending close timeout
       if (overlayCloseTimeout) {
@@ -695,12 +729,10 @@ app.whenReady().then(() => {
       // Clear processing flag after cancel completes
       setTimeout(() => {
         isProcessingToggle = false
-        console.log('Cancel processing complete')
       }, 500)
 
       // NO notification or sound on cancel - user already knows they cancelled
 
-      console.log('Recording cancelled successfully')
     }
   }
 
@@ -893,7 +925,6 @@ app.whenReady().then(() => {
       // Register ESC shortcut when recording starts
       try {
         globalShortcut.register('Escape', handleCancelRecording)
-        console.log('ESC shortcut registered for recording session')
       } catch (error) {
         console.error('Failed to register ESC shortcut:', error)
       }
@@ -906,7 +937,6 @@ app.whenReady().then(() => {
     } else {
       // Unregister ESC shortcut when recording stops
       globalShortcut.unregister('Escape')
-      console.log('ESC shortcut unregistered - recording stopped')
 
       unmuteSystem()
       // Don't set to idle immediately - processing will start right after
@@ -924,8 +954,8 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.on('update-recording-audio-level', (_, level: number) => {
-    updateRecordingOverlayAudioLevel(level)
+  ipcMain.on('update-recording-audio-level', (_, payload: OverlayAudioPayload) => {
+    updateRecordingOverlayAudioLevel(payload)
   })
 
   ipcMain.on('preview-sound', (_, soundType: string) => {
@@ -998,7 +1028,6 @@ app.whenReady().then(() => {
           downloaded: progress.downloaded,
           total: progress.total
         })
-        console.log('Progress update sent:', { modelType, ...progress })
       }
     })
   })
@@ -1009,14 +1038,6 @@ app.whenReady().then(() => {
 
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
-
-    console.log('Processing audio with settings:', {
-      useLocalModel: settings.useLocalModel,
-      translate: settings.translate,
-      targetLanguage: settings.targetLanguage,
-      sourceLanguage: settings.sourceLanguage,
-      hasApiKey: !!settings.apiKey
-    })
 
     // Only require API key if using online model OR if translation is enabled (which needs API key)
     if (!settings.useLocalModel && !settings.apiKey) {
@@ -1052,7 +1073,6 @@ app.whenReady().then(() => {
 
         // Verify model exists before attempting transcription
         const modelType = settings.localModelType || 'medium'
-        console.log(`Checking for local model before transcription: ${modelType}`)
         console.log(
           `Current settings - useLocalModel: ${settings.useLocalModel}, localModelType: ${settings.localModelType}`
         )
@@ -1075,7 +1095,6 @@ app.whenReady().then(() => {
           return
         }
 
-        console.log(`✓ Model ${modelType} found, proceeding with transcription`)
 
         text = await transcribeLocal(Buffer.from(buffer), modelType, {
           translate: shouldTranslate,
@@ -1176,6 +1195,12 @@ app.whenReady().then(() => {
           mainWindow.webContents.send('processing-complete')
         }
 
+        // Show success immediately; auto-paste happens in background
+        showRecordingOverlaySuccess()
+        setTimeout(() => {
+          updateTrayIcon('copied', settings.trayAnimations)
+        }, 1400)
+
         exec(
           'osascript -e "tell application \\"System Events\\" to keystroke \\"v\\" using command down"',
           (error, _stdout, stderr) => {
@@ -1183,14 +1208,6 @@ app.whenReady().then(() => {
               console.error('Failed to paste text:', stderr || error)
               showNotification('Toolify Warning', 'Text copied but could not auto-paste')
             }
-
-            // Show success checkmark animation
-            showRecordingOverlaySuccess()
-
-            // Wait for checkmark animation to complete, then close overlay
-            setTimeout(() => {
-              updateTrayIcon('copied', settings.trayAnimations)
-            }, 800)
           }
         )
       } else {
@@ -1313,7 +1330,6 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   // If quitting for update, don't prevent default behavior
   if (getIsQuittingForUpdate()) {
-    console.log('Quitting for update, allowing default quit behavior')
     // Still clean up resources but don't prevent quit
     closeRecordingOverlay()
     globalShortcut.unregisterAll()

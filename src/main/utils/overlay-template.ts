@@ -217,13 +217,18 @@ export function getCompactOverlayHTML(): string {
       const centerY = height / 2;
       const maxBarHeight = height * 0.7;
 
-      let currentLevel = 0;
-      let audioHistory = new Array(barCount).fill(0);
       let targetLevel = 0;
+      let targetSpectrum = new Array(barCount).fill(0);
+      let barLevels = new Array(barCount).fill(0);
       let isFadingOut = false;
       let containerOpacity = 0;
       let fadeInProgress = true;
       let isProcessing = false;
+      const SILENCE_LEVEL = 0.04;
+      const SILENCE_FRAMES = 6;
+      const LEVEL_NOISE_GATE = 0.25;
+      const SPECTRUM_NOISE_GATE = 0.12;
+      let silentFrames = 0;
 
       const fadeInInterval = setInterval(() => {
         if (containerOpacity < 1) {
@@ -240,9 +245,152 @@ export function getCompactOverlayHTML(): string {
       ipcRenderer.on('audio-level-update', (event, data) => {
         if (data && data.level !== undefined) {
           const rawLevel = data.level / 100;
-          targetLevel = Math.min(1, Math.max(0, rawLevel * 1.2));
+          // Apply heavier noise gate so tiny ambient sounds don't animate bars
+          const adjustedLevel = Math.max(0, rawLevel - LEVEL_NOISE_GATE) * 2.1;
+          targetLevel = Math.min(1, adjustedLevel);
+        }
+
+        if (data && Array.isArray(data.spectrum)) {
+          mapSpectrumToBars(data.spectrum);
+        } else if (data && data.level !== undefined) {
+          mapSpectrumToBars(new Array(barCount).fill(targetLevel));
         }
       });
+
+      function resetSpectrum(value) {
+        targetSpectrum = new Array(barCount).fill(value);
+      }
+
+      function resampleSpectrum(sourceLevels, targetSize) {
+        if (!Array.isArray(sourceLevels) || sourceLevels.length === 0 || targetSize <= 0) {
+          return [];
+        }
+
+        const normalized = sourceLevels.map((value) => {
+          if (typeof value !== 'number' || Number.isNaN(value)) {
+            return 0;
+          }
+          const clamped = Math.max(0, Math.min(1, value));
+          if (clamped <= SPECTRUM_NOISE_GATE) {
+            return 0;
+          }
+          // Re-scale remaining values so real speech still animates fully
+          return Math.min(1, (clamped - SPECTRUM_NOISE_GATE) / (1 - SPECTRUM_NOISE_GATE));
+        });
+
+        const maxIndex = normalized.length - 1;
+        if (maxIndex <= 0) {
+          return new Array(targetSize).fill(normalized[0] || 0);
+        }
+
+        const divisor = Math.max(1, targetSize - 1);
+        const mapped = [];
+        for (let i = 0; i < targetSize; i++) {
+          const position = (i / divisor) * maxIndex;
+          const leftIndex = Math.floor(position);
+          const rightIndex = Math.min(maxIndex, Math.ceil(position));
+          const mix = position - leftIndex;
+          const interpolated =
+            normalized[leftIndex] + (normalized[rightIndex] - normalized[leftIndex]) * mix;
+          mapped.push(interpolated);
+        }
+
+        return mapped;
+      }
+
+      function mapSpectrumToBars(sourceLevels) {
+        const hasCenterBar = barCount % 2 !== 0;
+        const pairCount = Math.floor(barCount / 2);
+        const requiredValues = hasCenterBar ? pairCount + 1 : pairCount;
+
+        if (requiredValues <= 0) {
+          resetSpectrum(targetLevel);
+          return;
+        }
+
+        const sampled = resampleSpectrum(sourceLevels, requiredValues);
+        if (sampled.length === 0) {
+          resetSpectrum(targetLevel);
+          return;
+        }
+
+        if (hasCenterBar) {
+          const centerIndex = Math.floor(barCount / 2);
+          targetSpectrum[centerIndex] = sampled[0];
+          for (let i = 1; i < sampled.length; i++) {
+            const value = sampled[i];
+            const offset = i;
+            const leftIndex = centerIndex - offset;
+            const rightIndex = centerIndex + offset;
+            if (leftIndex >= 0) {
+              targetSpectrum[leftIndex] = value;
+            }
+            if (rightIndex < barCount) {
+              targetSpectrum[rightIndex] = value;
+            }
+          }
+        } else {
+          for (let i = 0; i < pairCount; i++) {
+            const value = sampled[i];
+            const leftIndex = pairCount - 1 - i;
+            const rightIndex = pairCount + i;
+            if (leftIndex >= 0) {
+              targetSpectrum[leftIndex] = value;
+            }
+            if (rightIndex < barCount) {
+              targetSpectrum[rightIndex] = value;
+            }
+          }
+        }
+
+        applyEdgeSpread();
+      }
+
+      function applyEdgeSpread() {
+        if (barCount <= 1) return;
+        const center = (barCount - 1) / 2;
+        const maxDistance = center === 0 ? 1 : center;
+        for (let i = 0; i < barCount; i++) {
+          const distance = Math.abs(i - center) / maxDistance;
+          const weight = 1 + distance * 0.4;
+          targetSpectrum[i] = Math.min(1, targetSpectrum[i] * weight);
+        }
+      }
+
+      function updateBars() {
+        const time = Date.now() / 100;
+        const averageLevel =
+          targetSpectrum.reduce((sum, value) => sum + value, 0) /
+          Math.max(1, targetSpectrum.length);
+        const isInstantSilent = targetLevel < SILENCE_LEVEL && averageLevel < SILENCE_LEVEL;
+        if (isInstantSilent) {
+          silentFrames = Math.min(SILENCE_FRAMES + 1, silentFrames + 1);
+        } else {
+          silentFrames = Math.max(0, silentFrames - 1);
+        }
+        const fullySilent = silentFrames >= SILENCE_FRAMES;
+        const minLevel = fullySilent ? 0.006 : 0.05;
+        const waveScale = fullySilent ? 0.12 : 1;
+        const levelBoost = fullySilent ? 0.92 : 1.1;
+        const smoothing = fullySilent ? 0.2 : 0.35;
+
+        for (let i = 0; i < barCount; i++) {
+          const spectrumValue =
+            targetSpectrum[i] !== undefined ? targetSpectrum[i] : targetLevel;
+
+          // Keep a hint of subtle wave so idle state feels alive without overpowering real data
+          const waveMotion = Math.sin(time * 2.2 + i * 0.35) * 0.02 * waveScale;
+
+          const target = Math.max(
+            minLevel,
+            Math.min(1, spectrumValue * levelBoost + waveMotion)
+          );
+
+          // Fast smoothing for responsive audio visualization
+          barLevels[i] += (target - barLevels[i]) * smoothing;
+          barLevels[i] = Math.max(minLevel, Math.min(1, barLevels[i]));
+        }
+      }
 
       ipcRenderer.on('processing-state', (event, data) => {
         if (data && data.processing !== undefined) {
@@ -252,6 +400,7 @@ export function getCompactOverlayHTML(): string {
             loader.classList.add('visible');
             checkmark.classList.remove('visible');
             targetLevel = 0;
+            resetSpectrum(0);
           } else {
             canvas.classList.remove('hidden');
             loader.classList.remove('visible');
@@ -267,27 +416,41 @@ export function getCompactOverlayHTML(): string {
         container.style.background = 'rgba(34, 197, 94, 0.15)';
         container.style.borderColor = 'rgba(34, 197, 94, 0.4)';
         container.style.boxShadow = '0 4px 16px rgba(34, 197, 94, 0.2), 0 0 0 1px rgba(34, 197, 94, 0.1)';
+        resetSpectrum(0);
       });
 
+      let fadeOutTimeout = null;
+
+      function startFadeOut() {
+        if (isFadingOut) return;
+        isFadingOut = true;
+        container.classList.add('fade-out');
+        const fadeOutInterval = setInterval(() => {
+          if (containerOpacity > 0) {
+            containerOpacity = Math.max(0, containerOpacity - 0.03);
+            container.style.opacity = containerOpacity;
+          } else {
+            clearInterval(fadeOutInterval);
+          }
+        }, 16);
+      }
+
       ipcRenderer.on('fade-out', () => {
-        if (!isFadingOut) {
-          isFadingOut = true;
-          container.classList.add('fade-out');
-          const fadeOutInterval = setInterval(() => {
-            if (containerOpacity > 0) {
-              containerOpacity = Math.max(0, containerOpacity - 0.03);
-              container.style.opacity = containerOpacity;
-            } else {
-              clearInterval(fadeOutInterval);
-            }
-          }, 16);
+        const shouldDelay = checkmark.classList.contains('visible');
+        if (shouldDelay) {
+          if (fadeOutTimeout) return;
+          fadeOutTimeout = setTimeout(() => {
+            fadeOutTimeout = null;
+            startFadeOut();
+          }, 600);
+        } else {
+          startFadeOut();
         }
       });
 
       function updateWaveform() {
-        currentLevel += (targetLevel - currentLevel) * 0.3;
-        audioHistory.shift();
-        audioHistory.push(currentLevel);
+        updateBars();
+
         ctx.clearRect(0, 0, width, height);
 
         const canvasOpacity = fadeInProgress ? containerOpacity : (isFadingOut ? containerOpacity : 1);
@@ -295,7 +458,7 @@ export function getCompactOverlayHTML(): string {
 
         const fadeZoneWidth = width * 0.2;
 
-        audioHistory.forEach((level, index) => {
+        barLevels.forEach((level, index) => {
           const x = index * (barWidth + spacing);
           const barX = x;
 
@@ -307,7 +470,9 @@ export function getCompactOverlayHTML(): string {
           }
 
           const clampedLevel = level;
-          const barHeight = clampedLevel * maxBarHeight;
+          // Minimum height so dots always visible
+          const minBarHeight = 2;
+          const barHeight = minBarHeight + (clampedLevel * (maxBarHeight - minBarHeight));
 
           if (edgeOpacity < 0.01) return;
 
@@ -349,11 +514,9 @@ export function getCompactOverlayHTML(): string {
 
       function animate() {
         if (isFadingOut) {
-          audioHistory = audioHistory.map(level => Math.max(0, level * 0.88));
-        } else {
-          if (targetLevel < 0.01) {
-            audioHistory = audioHistory.map(level => Math.max(0, level * 0.92));
-          }
+          barLevels = barLevels.map((level) => Math.max(0, level * 0.88));
+        } else if (targetLevel < 0.01) {
+          barLevels = barLevels.map((level) => Math.max(0, level * 0.92));
         }
         updateWaveform();
         requestAnimationFrame(animate);
@@ -393,17 +556,57 @@ export function getLargeOverlayHTML(): string {
     }
     .overlay-container {
       width: 400px;
-      background: rgba(30, 30, 30, 0.95);
-      backdrop-filter: blur(20px);
-      border: 2px solid rgba(0, 0, 0, 0.6);
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      background: linear-gradient(184deg, rgba(16, 17, 26, 0.97), rgba(7, 8, 12, 0.94));
+      backdrop-filter: blur(22px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      box-shadow: 0 22px 58px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.015);
       opacity: 0;
       animation: slideUp 0.3s ease-out forwards;
       -webkit-app-region: drag;
       user-select: none;
       position: relative;
       overflow: hidden;
+      --accent-main: #f87171;
+      --accent-soft: rgba(248, 113, 113, 0.2);
+      --accent-glow: rgba(248, 113, 113, 0.35);
+      --accent-shadow: rgba(248, 113, 113, 0.35);
+    }
+    .overlay-container.processing {
+      --accent-main: #60a5fa;
+      --accent-soft: rgba(96, 165, 250, 0.23);
+      --accent-glow: rgba(96, 165, 250, 0.35);
+      --accent-shadow: rgba(96, 165, 250, 0.4);
+    }
+    .overlay-container.success {
+      --accent-main: #4ade80;
+      --accent-soft: rgba(74, 222, 128, 0.25);
+      --accent-glow: rgba(34, 197, 94, 0.35);
+      --accent-shadow: rgba(34, 197, 94, 0.4);
+    }
+    .overlay-container::before {
+      content: '';
+      position: absolute;
+      inset: -60px;
+      background: radial-gradient(circle, var(--accent-glow), transparent 82%);
+      opacity: 0.22;
+      filter: blur(65px);
+      transition: opacity 0.3s ease, background 0.3s ease;
+      z-index: 0;
+    }
+    .overlay-container::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.35;
+    }
+    .overlay-container > * {
+      position: relative;
+      z-index: 1;
     }
     @keyframes slideUp {
       0% {
@@ -433,10 +636,23 @@ export function getLargeOverlayHTML(): string {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(15, 15, 15, 1);
+      background: linear-gradient(180deg, rgba(22, 24, 34, 0.98), rgba(11, 12, 18, 0.95));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .waveform-section::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.06), transparent 70%);
+      opacity: 0.5;
+      pointer-events: none;
+      mix-blend-mode: screen;
     }
     #waveformCanvas {
       display: block;
+      position: relative;
+      z-index: 2;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
     }
     #waveformCanvas.hidden {
       display: none;
@@ -446,8 +662,8 @@ export function getLargeOverlayHTML(): string {
     .info-bar {
       padding: 14px 16px;
       height: 42px;
-      background: rgba(20, 20, 20, 0.6);
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(10, 11, 17, 0.93);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -457,53 +673,67 @@ export function getLargeOverlayHTML(): string {
       align-items: center;
       gap: 8px;
     }
+    .status-labels {
+      display: flex;
+      align-items: baseline;
+    }
     .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #ef4444;
+      background: var(--accent-main);
       animation: pulse 1.5s ease-in-out infinite;
       flex-shrink: 0;
-      opacity: 0.5;
+      opacity: 0.9;
+      box-shadow: 0 0 10px var(--accent-shadow);
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
     }
     .status-dot.processing {
-      background: #3b82f6;
+      background: #60a5fa;
     }
     .status-dot.success {
-      background: #22c55e;
+      background: #4ade80;
       animation: none;
     }
     .status-text {
       font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .status-duration {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.6);
       font-weight: 500;
-      color: rgba(255, 255, 255, 0.4);
+      min-width: 52px;
+      margin-left: 6px;
     }
 
     .shortcuts {
       display: flex;
       align-items: center;
       gap: 12px;
+      opacity: 0.95;
     }
     .shortcut {
       display: flex;
       align-items: center;
       gap: 4px;
       font-size: 11px;
-      color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.55);
     }
     .shortcut-key {
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.08);
       padding: 2px 6px;
       border-radius: 4px;
       font-family: 'SF Mono', Monaco, monospace;
       font-size: 11px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.04);
     }
 
     /* Loading State */
@@ -530,14 +760,14 @@ export function getLargeOverlayHTML(): string {
     }
 
     /* Success State */
-    .success {
+    .success-indicator {
       display: none;
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
     }
-    .success.visible {
+    .success-indicator.visible {
       display: block;
     }
     .success-icon {
@@ -562,7 +792,7 @@ export function getLargeOverlayHTML(): string {
       <div class="loader" id="loader">
         <div class="spinner"></div>
       </div>
-      <div class="success" id="success">
+      <div class="success-indicator" id="successIndicator">
         <div class="success-icon">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M7 12L10 15L17 8" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -574,7 +804,10 @@ export function getLargeOverlayHTML(): string {
     <div class="info-bar">
       <div class="status">
         <div class="status-dot" id="statusDot"></div>
-        <span class="status-text" id="statusText">Recording</span>
+        <div class="status-labels">
+          <span class="status-text" id="statusText">Recording</span>
+          <span class="status-duration" id="statusDuration">(00:00)</span>
+        </div>
       </div>
       <div class="shortcuts">
         <div class="shortcut">
@@ -591,9 +824,13 @@ export function getLargeOverlayHTML(): string {
       const container = document.getElementById('overlayContainer');
       const statusDot = document.getElementById('statusDot');
       const statusText = document.getElementById('statusText');
+      const statusDuration = document.getElementById('statusDuration');
       const loader = document.getElementById('loader');
-      const success = document.getElementById('success');
-      if (!canvas || !container || !statusDot || !statusText || !loader || !success) return;
+      const successIndicator = document.getElementById('successIndicator');
+      if (!canvas || !container || !statusDot || !statusText || !loader || !successIndicator) return;
+      if (statusDuration) {
+        statusDuration.textContent = '(00:00)';
+      }
 
       const ctx = canvas.getContext('2d');
       const width = canvas.width;
@@ -605,34 +842,246 @@ export function getLargeOverlayHTML(): string {
       const centerY = height / 2;
       const maxBarHeight = height * 0.75;
 
-      let currentLevel = 0;
-      let audioHistory = new Array(barCount).fill(0);
       let targetLevel = 0;
+      let targetSpectrum = new Array(barCount).fill(0);
+      let barLevels = new Array(barCount).fill(0);
       let isFadingOut = false;
       let isProcessing = false;
+      let overlayState = 'recording';
+      const SILENCE_LEVEL = 0.045;
+      const SILENCE_FRAMES = 6;
+      const LEVEL_NOISE_GATE = 0.25;
+      const SPECTRUM_NOISE_GATE = 0.12;
+      let silentFrames = 0;
+      let isSuccessState = false;
+      const SUCCESS_HOLD_MS = 1200;
+
+      const stateColorMap = {
+        recording: {
+          start: 'rgba(248, 113, 113, 0.95)',
+          end: 'rgba(239, 68, 68, 0.85)',
+          shadow: 'rgba(248, 113, 113, 0.45)'
+        },
+        processing: {
+          start: 'rgba(147, 197, 253, 0.95)',
+          end: 'rgba(59, 130, 246, 0.85)',
+          shadow: 'rgba(96, 165, 250, 0.45)'
+        },
+        success: {
+          start: 'rgba(134, 239, 172, 0.95)',
+          end: 'rgba(34, 197, 94, 0.85)',
+          shadow: 'rgba(34, 197, 94, 0.45)'
+        }
+      };
+
+      let currentWaveColors = stateColorMap.recording;
+
+      function setOverlayState(nextState) {
+        overlayState = nextState;
+        currentWaveColors = stateColorMap[nextState] || stateColorMap.recording;
+
+        container.classList.remove('recording', 'processing', 'success');
+        container.classList.add(nextState);
+
+        statusDot.classList.remove('processing', 'success');
+        if (nextState === 'processing') {
+          statusDot.classList.add('processing');
+          statusText.textContent = 'Processing';
+          if (statusDuration) statusDuration.textContent = '';
+        } else if (nextState === 'success') {
+          statusDot.classList.add('success');
+          statusText.textContent = 'Complete';
+          if (statusDuration) statusDuration.textContent = '';
+        } else {
+          statusText.textContent = 'Recording';
+          if (statusDuration && statusDuration.textContent.trim() === '') {
+            statusDuration.textContent = '(00:00)';
+          }
+        }
+      }
+
+      setOverlayState('recording');
 
       const { ipcRenderer } = require('electron');
 
       ipcRenderer.on('audio-level-update', (event, data) => {
         if (data && data.level !== undefined) {
           const rawLevel = data.level / 100;
-          targetLevel = Math.min(1, Math.max(0, rawLevel * 1.6));
+          // Apply stronger noise gate to ignore ambient hiss completely
+          const adjustedLevel = Math.max(0, rawLevel - LEVEL_NOISE_GATE) * 2.4;
+          targetLevel = Math.min(1, adjustedLevel);
+        }
+
+        if (data && Array.isArray(data.spectrum)) {
+          mapSpectrumToBars(data.spectrum);
+        } else if (data && data.level !== undefined) {
+          mapSpectrumToBars(new Array(barCount).fill(targetLevel));
+        }
+
+        if (
+          statusDuration &&
+          overlayState === 'recording' &&
+          typeof data.durationMs === 'number'
+        ) {
+          statusDuration.textContent = '(' + formatDuration(data.durationMs) + ')';
         }
       });
+
+      function resetSpectrum(value) {
+        targetSpectrum = new Array(barCount).fill(value);
+      }
+
+      function resampleSpectrum(sourceLevels, targetSize) {
+        if (!Array.isArray(sourceLevels) || sourceLevels.length === 0 || targetSize <= 0) {
+          return [];
+        }
+
+        const normalized = sourceLevels.map((value) => {
+          if (typeof value !== 'number' || Number.isNaN(value)) {
+            return 0;
+          }
+          const clamped = Math.max(0, Math.min(1, value));
+          if (clamped <= SPECTRUM_NOISE_GATE) {
+            return 0;
+          }
+          return Math.min(1, (clamped - SPECTRUM_NOISE_GATE) / (1 - SPECTRUM_NOISE_GATE));
+        });
+
+        const maxIndex = normalized.length - 1;
+        if (maxIndex <= 0) {
+          return new Array(targetSize).fill(normalized[0] || 0);
+        }
+
+        const divisor = Math.max(1, targetSize - 1);
+        const mapped = [];
+        for (let i = 0; i < targetSize; i++) {
+          const position = (i / divisor) * maxIndex;
+          const leftIndex = Math.floor(position);
+          const rightIndex = Math.min(maxIndex, Math.ceil(position));
+          const mix = position - leftIndex;
+          const interpolated =
+            normalized[leftIndex] + (normalized[rightIndex] - normalized[leftIndex]) * mix;
+          mapped.push(interpolated);
+        }
+
+        return mapped;
+      }
+
+      function mapSpectrumToBars(sourceLevels) {
+        const hasCenterBar = barCount % 2 !== 0;
+        const pairCount = Math.floor(barCount / 2);
+        const requiredValues = hasCenterBar ? pairCount + 1 : pairCount;
+
+        if (requiredValues <= 0) {
+          resetSpectrum(targetLevel);
+          return;
+        }
+
+        const sampled = resampleSpectrum(sourceLevels, requiredValues);
+        if (sampled.length === 0) {
+          resetSpectrum(targetLevel);
+          return;
+        }
+
+        if (hasCenterBar) {
+          const centerIndex = Math.floor(barCount / 2);
+          targetSpectrum[centerIndex] = sampled[0];
+          for (let i = 1; i < sampled.length; i++) {
+            const value = sampled[i];
+            const offset = i;
+            const leftIndex = centerIndex - offset;
+            const rightIndex = centerIndex + offset;
+            if (leftIndex >= 0) {
+              targetSpectrum[leftIndex] = value;
+            }
+            if (rightIndex < barCount) {
+              targetSpectrum[rightIndex] = value;
+            }
+          }
+        } else {
+          for (let i = 0; i < pairCount; i++) {
+            const value = sampled[i];
+            const leftIndex = pairCount - 1 - i;
+            const rightIndex = pairCount + i;
+            if (leftIndex >= 0) {
+              targetSpectrum[leftIndex] = value;
+            }
+            if (rightIndex < barCount) {
+              targetSpectrum[rightIndex] = value;
+            }
+          }
+        }
+
+        applyEdgeSpread();
+      }
+
+      function applyEdgeSpread() {
+        if (barCount <= 1) return;
+        const center = (barCount - 1) / 2;
+        const maxDistance = center === 0 ? 1 : center;
+        for (let i = 0; i < barCount; i++) {
+          const distance = Math.abs(i - center) / maxDistance;
+          const weight = 1 + distance * 0.35;
+          targetSpectrum[i] = Math.min(1, targetSpectrum[i] * weight);
+        }
+      }
+
+      function formatDuration(ms) {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+        const seconds = String(totalSeconds % 60).padStart(2, '0');
+        return minutes + ':' + seconds;
+      }
+
+      function updateBars() {
+        const time = Date.now() / 100;
+        const averageLevel =
+          targetSpectrum.reduce((sum, value) => sum + value, 0) /
+          Math.max(1, targetSpectrum.length);
+        const isInstantSilent = targetLevel < SILENCE_LEVEL && averageLevel < SILENCE_LEVEL;
+        if (isInstantSilent) {
+          silentFrames = Math.min(SILENCE_FRAMES + 1, silentFrames + 1);
+        } else {
+          silentFrames = Math.max(0, silentFrames - 1);
+        }
+        const fullySilent = silentFrames >= SILENCE_FRAMES;
+        const minLevel = fullySilent ? 0.005 : 0.04;
+        const waveScale = fullySilent ? 0.15 : 1;
+        const levelBoost = fullySilent ? 0.95 : 1.08;
+        const smoothing = fullySilent ? 0.22 : 0.32;
+
+        for (let i = 0; i < barCount; i++) {
+          const spectrumValue =
+            targetSpectrum[i] !== undefined ? targetSpectrum[i] : targetLevel;
+
+          const waveMotion = Math.sin(time * 2.4 + i * 0.25) * 0.025 * waveScale;
+
+          const target = Math.max(
+            minLevel,
+            Math.min(1, spectrumValue * levelBoost + waveMotion)
+          );
+
+          // Fast smoothing for responsive audio visualization
+          barLevels[i] += (target - barLevels[i]) * smoothing;
+          barLevels[i] = Math.max(minLevel, Math.min(1, barLevels[i]));
+        }
+      }
 
       ipcRenderer.on('processing-state', (event, data) => {
         if (data && data.processing !== undefined) {
           isProcessing = data.processing;
           if (isProcessing) {
-            statusDot.classList.add('processing');
-            statusText.textContent = 'Processing';
-            canvas.classList.add('hidden');
-            loader.classList.add('visible');
-            success.classList.remove('visible');
-            targetLevel = 0;
-          } else {
-            statusDot.classList.remove('processing');
-            statusText.textContent = 'Recording';
+            // Only transition to processing if not in success state
+            if (!isSuccessState) {
+              setOverlayState('processing');
+              canvas.classList.add('hidden');
+              loader.classList.add('visible');
+              successIndicator.classList.remove('visible');
+              targetLevel = 0;
+              resetSpectrum(0);
+            }
+          } else if (overlayState !== 'success' && !isSuccessState) {
+            setOverlayState('recording');
             canvas.classList.remove('hidden');
             loader.classList.remove('visible');
           }
@@ -640,30 +1089,50 @@ export function getLargeOverlayHTML(): string {
       });
 
       ipcRenderer.on('success-state', () => {
-        statusDot.classList.remove('processing');
-        statusDot.classList.add('success');
-        statusText.textContent = 'Complete';
+        isSuccessState = true;
+        setOverlayState('success');
         canvas.classList.add('hidden');
         loader.classList.remove('visible');
-        success.classList.add('visible');
+        successIndicator.classList.add('visible');
+        resetSpectrum(0);
+
+        // Cancel any pending fade-out when success is shown
+        if (fadeOutTimeout) {
+          clearTimeout(fadeOutTimeout);
+          fadeOutTimeout = null;
+        }
+
+        // Auto-fade after SUCCESS_HOLD_MS
+        fadeOutTimeout = setTimeout(() => {
+          fadeOutTimeout = null;
+          startFadeOut();
+        }, SUCCESS_HOLD_MS);
       });
 
+      let fadeOutTimeout = null;
+
+      function startFadeOut() {
+        if (isFadingOut) return;
+        isFadingOut = true;
+        container.classList.add('fade-out');
+      }
+
       ipcRenderer.on('fade-out', () => {
-        if (!isFadingOut) {
-          isFadingOut = true;
-          container.classList.add('fade-out');
+        // If success is active, ignore fade-out - we handle it ourselves with timeout
+        if (isSuccessState && successIndicator.classList.contains('visible')) {
+          return;
         }
+        startFadeOut();
       });
 
       function updateWaveform() {
-        currentLevel += (targetLevel - currentLevel) * 0.4;
-        audioHistory.shift();
-        audioHistory.push(currentLevel);
+        updateBars();
+
         ctx.clearRect(0, 0, width, height);
 
         const fadeZoneWidth = width * 0.08;
 
-        audioHistory.forEach((level, index) => {
+        barLevels.forEach((level, index) => {
           const x = index * (barWidth + spacing);
           const barX = x;
 
@@ -675,14 +1144,23 @@ export function getLargeOverlayHTML(): string {
           }
 
           const clampedLevel = level;
-          const barHeight = clampedLevel * maxBarHeight;
+          // Minimum height so dots always visible
+          const minBarHeight = 2;
+          const barHeight = minBarHeight + (clampedLevel * (maxBarHeight - minBarHeight));
 
           if (edgeOpacity < 0.01) return;
 
           ctx.globalAlpha = edgeOpacity;
 
-          const brightness = Math.floor(120 + clampedLevel * 100);
-          ctx.fillStyle = \`rgb(\${brightness}, \${brightness}, \${brightness})\`;
+          const gradient = ctx.createLinearGradient(
+            x,
+            centerY - barHeight / 2,
+            x,
+            centerY + barHeight / 2
+          );
+          gradient.addColorStop(0, currentWaveColors.start);
+          gradient.addColorStop(1, currentWaveColors.end);
+          ctx.fillStyle = gradient;
 
           const barY = centerY - barHeight / 2;
           const radius = barWidth / 2;
@@ -691,15 +1169,16 @@ export function getLargeOverlayHTML(): string {
           ctx.roundRect(barX, barY, barWidth, barHeight, radius);
           ctx.fill();
         });
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
       }
 
       function animate() {
         if (isFadingOut || isProcessing) {
-          audioHistory = audioHistory.map(level => Math.max(0, level * 0.9));
-        } else {
-          if (targetLevel < 0.01) {
-            audioHistory = audioHistory.map(level => Math.max(0, level * 0.94));
-          }
+          barLevels = barLevels.map((level) => Math.max(0, level * 0.9));
+        } else if (targetLevel < 0.01) {
+          barLevels = barLevels.map((level) => Math.max(0, level * 0.94));
         }
         updateWaveform();
         requestAnimationFrame(animate);
