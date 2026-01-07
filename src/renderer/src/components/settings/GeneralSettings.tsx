@@ -1,10 +1,12 @@
 import React from 'react'
-import { Power } from 'lucide-react'
+import { Power, Dock } from 'lucide-react'
 import { HistorySettings } from './HistorySettings'
 
 interface GeneralSettingsProps {
   autoStart: boolean
   setAutoStart: (val: boolean) => void
+  showDockIcon: boolean
+  setShowDockIcon: (val: boolean) => void
   historyAutoDeleteDays: number
   setHistoryAutoDeleteDays: (val: number) => void
   historyMaxItems: number
@@ -14,6 +16,8 @@ interface GeneralSettingsProps {
 export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   autoStart,
   setAutoStart,
+  showDockIcon,
+  setShowDockIcon,
   historyAutoDeleteDays,
   setHistoryAutoDeleteDays,
   historyMaxItems,
@@ -50,6 +54,36 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
               <div
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
                   autoStart ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Dock Icon Toggle */}
+        <div className="bg-white/5 rounded-lg p-4 border border-white/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Dock size={18} className="text-zinc-400" />
+              <div className="flex flex-col">
+                <span className="text-white text-sm font-medium">Show Dock Icon</span>
+                <span className="text-zinc-500 text-xs mt-0.5">
+                  {showDockIcon
+                    ? 'Keep Toolify visible in the macOS Dock'
+                    : 'Hide the Dock icon while Toolify runs'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowDockIcon(!showDockIcon)}
+              className={`w-11 h-6 rounded-full relative transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a] focus:ring-blue-500/50 ${
+                showDockIcon ? 'bg-blue-600' : 'bg-white/10'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                  showDockIcon ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>

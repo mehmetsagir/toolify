@@ -28,6 +28,8 @@ interface SettingsProps {
   setSoundType: (val: string) => void
   autoStart: boolean
   setAutoStart: (val: boolean) => void
+  showDockIcon: boolean
+  setShowDockIcon: (val: boolean) => void
   showRecordingOverlay: boolean
   setShowRecordingOverlay: (val: boolean) => void
   overlayStyle: 'compact' | 'large'
@@ -47,6 +49,7 @@ interface SettingsProps {
     soundAlert: boolean
     soundType: string
     autoStart: boolean
+    showDockIcon: boolean
     showRecordingOverlay: boolean
     overlayStyle: 'compact' | 'large'
     useLocalModel: boolean
@@ -75,6 +78,8 @@ export const Settings: React.FC<SettingsProps> = ({
   setSoundType,
   autoStart: initialAutoStart,
   setAutoStart,
+  showDockIcon: initialShowDockIcon,
+  setShowDockIcon,
   showRecordingOverlay: initialShowRecordingOverlay,
   setShowRecordingOverlay,
   overlayStyle: initialOverlayStyle,
@@ -95,6 +100,7 @@ export const Settings: React.FC<SettingsProps> = ({
     initialProcessNotifications
   )
   const [localAutoStart, setLocalAutoStart] = useState(initialAutoStart !== false)
+  const [localShowDockIcon, setLocalShowDockIcon] = useState(initialShowDockIcon === true)
   const [localSoundAlert, setLocalSoundAlert] = useState(initialSoundAlert)
   const [localSoundType, setLocalSoundType] = useState(initialSoundType || 'Glass')
   const [localShowRecordingOverlay, setLocalShowRecordingOverlay] = useState(
@@ -169,6 +175,7 @@ export const Settings: React.FC<SettingsProps> = ({
         soundAlert: localSoundAlert,
         soundType: localSoundType,
         autoStart: localAutoStart,
+        showDockIcon: localShowDockIcon,
         showRecordingOverlay: localShowRecordingOverlay,
         useLocalModel: localUseLocalModel,
         localModelType: localLocalModelType
@@ -244,6 +251,7 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalSoundAlert(initialSoundAlert)
     setLocalSoundType(initialSoundType || 'Glass')
     setLocalAutoStart(initialAutoStart !== false)
+    setLocalShowDockIcon(initialShowDockIcon === true)
     setLocalShowRecordingOverlay(initialShowRecordingOverlay !== false)
     setLocalOverlayStyle(initialOverlayStyle || 'compact')
     setLocalUseLocalModel(initialUseLocalModel || false)
@@ -259,6 +267,7 @@ export const Settings: React.FC<SettingsProps> = ({
     initialSoundAlert,
     initialSoundType,
     initialAutoStart,
+    initialShowDockIcon,
     initialShowRecordingOverlay,
     initialOverlayStyle,
     initialUseLocalModel,
@@ -367,6 +376,7 @@ export const Settings: React.FC<SettingsProps> = ({
         soundAlert: localSoundAlert,
         soundType: localSoundType,
         autoStart: localAutoStart,
+        showDockIcon: localShowDockIcon,
         showRecordingOverlay: localShowRecordingOverlay,
         overlayStyle: localOverlayStyle,
         useLocalModel: localUseLocalModel,
@@ -383,6 +393,7 @@ export const Settings: React.FC<SettingsProps> = ({
       setSoundAlert(localSoundAlert)
       setSoundType(localSoundType)
       setAutoStart(localAutoStart)
+      setShowDockIcon(localShowDockIcon)
       setShowRecordingOverlay(localShowRecordingOverlay)
       setOverlayStyle(localOverlayStyle)
       setUseLocalModel(localUseLocalModel)
@@ -536,6 +547,8 @@ export const Settings: React.FC<SettingsProps> = ({
                 <GeneralSettings
                   autoStart={localAutoStart}
                   setAutoStart={setLocalAutoStart}
+                  showDockIcon={localShowDockIcon}
+                  setShowDockIcon={setLocalShowDockIcon}
                   historyAutoDeleteDays={historyAutoDeleteDays}
                   setHistoryAutoDeleteDays={setHistoryAutoDeleteDays}
                   historyMaxItems={historyMaxItems}
