@@ -64,6 +64,21 @@ const RECORDING_COOLDOWN_MS = 1000 // 1 second cooldown between recordings
 const RAPID_PRESS_PENALTY_MS = 1500 // 1.5 second penalty for rapid key presses
 const OVERLAY_SUCCESS_HOLD_MS = 1200
 let idleTransitionTimeout: NodeJS.Timeout | null = null // Timeout for transitioning to idle state
+let dockIconImage: Electron.NativeImage | null = null
+
+function getMenuBarIconImage(): Electron.NativeImage | null {
+  try {
+    const baseIcon = nativeImage.createFromPath(icon)
+    if (baseIcon.isEmpty()) {
+      return null
+    }
+    const scaled = baseIcon.resize({ width: 64, height: 64, quality: 'best' })
+    scaled.setTemplateImage(true)
+    return scaled
+  } catch {
+    return null
+  }
+}
 let isInCooldown = false // Flag to track if we're in cooldown period
 let isProcessingToggle = false // Flag to prevent rapid toggle actions
 let isInPenaltyLockout = false // Flag for penalty lockout after rapid presses
@@ -517,11 +532,25 @@ function configureAutoStart(enabled: boolean): void {
   }
 }
 
-app.whenReady().then(() => {
-  if (process.platform === 'darwin') {
-    app.dock?.hide()
+function updateDockVisibility(showDockIcon: boolean | undefined): void {
+  if (process.platform !== 'darwin' || !app.dock) {
+    return
   }
 
+  if (showDockIcon) {
+    if (!dockIconImage || dockIconImage.isEmpty()) {
+      dockIconImage = getMenuBarIconImage()
+    }
+    if (dockIconImage && !dockIconImage.isEmpty()) {
+      app.dock.setIcon(dockIconImage)
+    }
+    app.dock.show()
+  } else {
+    app.dock.hide()
+  }
+}
+
+app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.toolify.app')
 
   if (process.platform === 'darwin') {
@@ -554,7 +583,13 @@ app.whenReady().then(() => {
     }
 
     if (!appIcon.isEmpty()) {
-      app.dock?.setIcon(appIcon)
+      const menuIcon = getMenuBarIconImage()
+      if (menuIcon && !menuIcon.isEmpty()) {
+        dockIconImage = menuIcon
+        app.dock?.setIcon(menuIcon)
+      } else {
+        app.dock?.setIcon(appIcon)
+      }
     }
 
     // Set About Panel options for macOS
@@ -571,6 +606,7 @@ app.whenReady().then(() => {
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
+  updateDockVisibility(settings.showDockIcon)
 
   setupAutoUpdater(mainWindow)
 
@@ -851,6 +887,11 @@ app.whenReady().then(() => {
     saveSettingsUtil(settings)
 
     configureAutoStart(settings.autoStart !== false)
+    const prevDock = previousSettings.showDockIcon === true
+    const nextDock = settings.showDockIcon === true
+    if (prevDock !== nextDock) {
+      updateDockVisibility(nextDock)
+    }
 
     if (settings.shortcut) {
       const shortcutChanged = previousSettings.shortcut !== settings.shortcut

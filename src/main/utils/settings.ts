@@ -15,6 +15,7 @@ const defaultSettings: Settings = {
   soundAlert: true,
   soundType: 'Glass',
   autoStart: true,
+  showDockIcon: false,
   showRecordingOverlay: true,
   historyAutoDeleteDays: 30,
   historyMaxItems: 0,
