@@ -211,11 +211,18 @@ function createWindow(): void {
 }
 
 function createSettingsWindowInstance(): void {
-  if (settingsWindow) {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow.isMinimized()) {
+      settingsWindow.restore()
+    }
     settingsWindow.focus()
+    settingsWindow.moveTop?.()
     return
   }
-  settingsWindow = createSettingsWindow()
+
+  const cursorPoint = screen.getCursorScreenPoint()
+  const targetDisplay = screen.getDisplayNearestPoint(cursorPoint)
+  settingsWindow = createSettingsWindow(targetDisplay)
   registerWindow(settingsWindow)
   settingsWindow.on('closed', () => {
     if (settingsWindow) {
