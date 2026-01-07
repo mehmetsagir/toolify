@@ -17,6 +17,13 @@ export interface Settings {
   useLocalModel?: boolean
   localModelType?: 'base' | 'small' | 'medium' | 'large-v3'
   overlayPosition?: { x: number; y: number } // Custom overlay position
+  settingsWindowLayout?: {
+    width: number
+    height: number
+    offsetX: number
+    offsetY: number
+    displayId?: number
+  }
 }
 
 export interface AccessibilityPermission {
