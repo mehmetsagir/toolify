@@ -1,3 +1,5 @@
+import type { LocalModelType } from './local-models.types'
+
 export interface Settings {
   apiKey?: string
   language?: string
@@ -16,7 +18,7 @@ export interface Settings {
   historyAutoDeleteDays?: number // 0 = never delete
   historyMaxItems?: number // 0 = unlimited
   useLocalModel?: boolean
-  localModelType?: 'base' | 'small' | 'medium' | 'large-v3'
+  localModelType?: LocalModelType
   overlayPosition?: { x: number; y: number } // Custom overlay position
   settingsWindowLayout?: {
     width: number
