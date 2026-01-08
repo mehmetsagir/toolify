@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Status } from './components/Status'
 import { Settings } from './components/Settings'
+import type { LocalModelType } from '../../shared/types'
 
 function App(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'recording' | 'processing'>('idle')
@@ -19,9 +20,7 @@ function App(): React.JSX.Element {
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
   const [overlayStyle, setOverlayStyle] = useState<'compact' | 'large'>('compact')
   const [useLocalModel, setUseLocalModel] = useState(false)
-  const [localModelType, setLocalModelType] = useState<'base' | 'small' | 'medium' | 'large-v3'>(
-    'base'
-  )
+  const [localModelType, setLocalModelType] = useState<LocalModelType>('base')
 
   const [audioLevel, setAudioLevel] = useState(0)
 
@@ -63,9 +62,7 @@ function App(): React.JSX.Element {
           setShowRecordingOverlay(settings.showRecordingOverlay !== false)
           setOverlayStyle(settings.overlayStyle || 'compact')
           setUseLocalModel(settings.useLocalModel || false)
-          setLocalModelType(
-            (settings.localModelType as 'base' | 'small' | 'medium' | 'large-v3') || 'base'
-          )
+          setLocalModelType((settings.localModelType as LocalModelType) || 'base')
         })
         .catch((error) => {
           console.error('Failed to load settings:', error)
@@ -157,7 +154,7 @@ function App(): React.JSX.Element {
     newShowRecordingOverlay: boolean,
     newOverlayStyle: 'compact' | 'large',
     newUseLocalModel: boolean,
-    newLocalModelType: 'base' | 'small' | 'medium' | 'large-v3'
+    newLocalModelType: LocalModelType
   ): void => {
     setApiKey(newKey)
     setTranslate(newTranslate)
