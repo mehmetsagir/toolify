@@ -6,7 +6,9 @@ import type {
   UpdateStatus,
   AccessibilityPermission,
   HistoryItem,
-  HistorySettings
+  HistorySettings,
+  LocalModelInfo,
+  LocalModelType
 } from '../shared/types'
 
 declare global {
@@ -51,12 +53,14 @@ declare global {
       getHistorySettings: () => Promise<HistorySettings>
       saveHistorySettings: (settings: HistorySettings) => Promise<boolean>
       clearOldHistory: () => Promise<number>
-      checkLocalModel: (modelType: string) => Promise<boolean>
-      downloadLocalModel: (modelType: string) => Promise<void>
-      deleteLocalModel: (modelType: string) => Promise<void>
+      checkLocalModel: (modelType: LocalModelType) => Promise<boolean>
+      downloadLocalModel: (modelType: LocalModelType) => Promise<void>
+      deleteLocalModel: (modelType: LocalModelType) => Promise<void>
+      getLocalModelsInfo: () => Promise<LocalModelInfo[]>
+      openModelsFolder: () => Promise<string>
       onModelDownloadProgress: (
         callback: (progress: {
-          modelType: string
+          modelType: LocalModelType
           percent: number
           downloaded: number
           total: number

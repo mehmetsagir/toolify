@@ -4,7 +4,9 @@ import type {
   UpdateInfo,
   UpdateDownloadProgress,
   HistoryItem,
-  HistorySettings
+  HistorySettings,
+  LocalModelInfo,
+  LocalModelType
 } from '../shared/types'
 import { electronAPI } from '@electron-toolkit/preload'
 
@@ -64,8 +66,7 @@ const api = {
     level: number
     spectrum?: number[]
     durationMs?: number
-  }): void =>
-    ipcRenderer.send('update-recording-audio-level', payload),
+  }): void => ipcRenderer.send('update-recording-audio-level', payload),
   checkForUpdates: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: (): Promise<boolean> => ipcRenderer.invoke('download-update'),
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
@@ -103,15 +104,17 @@ const api = {
     ipcRenderer.invoke('save-history-settings', settings),
   clearOldHistory: (): Promise<number> => ipcRenderer.invoke('clear-old-history'),
   // Local Model
-  checkLocalModel: (modelType: string): Promise<boolean> =>
+  checkLocalModel: (modelType: LocalModelType): Promise<boolean> =>
     ipcRenderer.invoke('check-local-model', modelType),
-  downloadLocalModel: (modelType: string): Promise<void> =>
+  downloadLocalModel: (modelType: LocalModelType): Promise<void> =>
     ipcRenderer.invoke('download-local-model', modelType),
-  deleteLocalModel: (modelType: string): Promise<void> =>
+  deleteLocalModel: (modelType: LocalModelType): Promise<void> =>
     ipcRenderer.invoke('delete-local-model', modelType),
+  getLocalModelsInfo: (): Promise<LocalModelInfo[]> => ipcRenderer.invoke('get-local-models-info'),
+  openModelsFolder: (): Promise<string> => ipcRenderer.invoke('open-models-folder'),
   onModelDownloadProgress: (
     callback: (progress: {
-      modelType: string
+      modelType: LocalModelType
       percent: number
       downloaded: number
       total: number
@@ -119,7 +122,7 @@ const api = {
   ): (() => void) => {
     const handler = (
       _: unknown,
-      progress: { modelType: string; percent: number; downloaded: number; total: number }
+      progress: { modelType: LocalModelType; percent: number; downloaded: number; total: number }
     ): void => callback(progress)
     ipcRenderer.on('model-download-progress', handler)
     return (): void => {
