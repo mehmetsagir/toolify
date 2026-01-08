@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Save, Mic, Settings as SettingsIcon, History as HistoryIcon, Bell } from 'lucide-react'
 import { History } from './History'
 import { UpdateBanner } from './settings/UpdateBanner'
@@ -6,6 +6,35 @@ import { GeneralSettings } from './settings/GeneralSettings'
 import { DictationSettings } from './settings/DictationSettings'
 import { AudioSettings } from './settings/AudioSettings'
 import appIcon from '../assets/app-icon.png'
+import type { LocalModelInfo, LocalModelType } from '../../../shared/types'
+
+type ModelDownloadStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'missing'
+
+type ModelDownloadProgress = {
+  percent: number
+  downloaded: number
+  total: number
+}
+
+const MODEL_TYPES: LocalModelType[] = ['base', 'small', 'medium', 'large-v3']
+
+const createStatusMap = (): Record<LocalModelType, ModelDownloadStatus> =>
+  MODEL_TYPES.reduce(
+    (acc, type) => {
+      acc[type] = 'idle'
+      return acc
+    },
+    {} as Record<LocalModelType, ModelDownloadStatus>
+  )
+
+const createProgressMap = (): Record<LocalModelType, ModelDownloadProgress | null> =>
+  MODEL_TYPES.reduce(
+    (acc, type) => {
+      acc[type] = null
+      return acc
+    },
+    {} as Record<LocalModelType, ModelDownloadProgress | null>
+  )
 
 interface SettingsProps {
   apiKey: string
@@ -36,8 +65,8 @@ interface SettingsProps {
   setOverlayStyle: (val: 'compact' | 'large') => void
   useLocalModel: boolean
   setUseLocalModel: (val: boolean) => void
-  localModelType: 'base' | 'small' | 'medium' | 'large-v3'
-  setLocalModelType: (val: 'base' | 'small' | 'medium' | 'large-v3') => void
+  localModelType: LocalModelType
+  setLocalModelType: (val: LocalModelType) => void
   onSave?: (settings: {
     apiKey: string
     sourceLanguage: string
@@ -53,7 +82,7 @@ interface SettingsProps {
     showRecordingOverlay: boolean
     overlayStyle: 'compact' | 'large'
     useLocalModel: boolean
-    localModelType: 'base' | 'small' | 'medium' | 'large-v3'
+    localModelType: LocalModelType
   }) => void
 }
 
@@ -110,7 +139,9 @@ export const Settings: React.FC<SettingsProps> = ({
     initialOverlayStyle || 'compact'
   )
   const [localUseLocalModel, setLocalUseLocalModel] = useState(initialUseLocalModel || false)
-  const [localLocalModelType, setLocalLocalModelType] = useState(initialLocalModelType || 'base')
+  const [localLocalModelType, setLocalLocalModelType] = useState<LocalModelType>(
+    initialLocalModelType || 'base'
+  )
   const [saved, setSaved] = useState(false)
 
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
@@ -125,76 +156,135 @@ export const Settings: React.FC<SettingsProps> = ({
   const [activeTab, setActiveTab] = useState<'settings' | 'history'>('settings')
   const [activeSection, setActiveSection] = useState<string>('general')
 
-  const [modelDownloadStatus, setModelDownloadStatus] = useState<
-    'idle' | 'checking' | 'downloading' | 'ready' | 'missing'
-  >('idle')
-  const [downloadProgress, setDownloadProgress] = useState<{
-    percent: number
-    downloaded: number
-    total: number
-  } | null>(null)
+  const [modelDownloadStatusMap, setModelDownloadStatusMap] = useState<
+    Record<LocalModelType, ModelDownloadStatus>
+  >(() => createStatusMap())
+  const [downloadProgressMap, setDownloadProgressMap] = useState<
+    Record<LocalModelType, ModelDownloadProgress | null>
+  >(() => createProgressMap())
+  const [localModelsInfo, setLocalModelsInfo] = useState<LocalModelInfo[]>([])
 
-  const checkModelStatus = async (modelType: string): Promise<void> => {
-    if (!window.api?.checkLocalModel) return
-    setModelDownloadStatus('checking')
+  const setStatusForModel = useCallback(
+    (modelType: LocalModelType, status: ModelDownloadStatus) => {
+      setModelDownloadStatusMap((prev) => ({
+        ...prev,
+        [modelType]: status
+      }))
+    },
+    []
+  )
+
+  const setProgressForModel = useCallback(
+    (modelType: LocalModelType, progress: ModelDownloadProgress | null) => {
+      setDownloadProgressMap((prev) => ({
+        ...prev,
+        [modelType]: progress
+      }))
+    },
+    []
+  )
+
+  const refreshLocalModelsInfo = useCallback(async () => {
+    if (!window.api?.getLocalModelsInfo) return
     try {
-      const exists = await window.api.checkLocalModel(modelType)
-      setModelDownloadStatus(exists ? 'ready' : 'missing')
-    } catch (error) {
-      console.error('Failed to check model status:', error)
-      setModelDownloadStatus('missing')
-    }
-  }
-
-  const handleDownloadModel = async (): Promise<void> => {
-    if (!window.api?.downloadLocalModel) return
-    setModelDownloadStatus('downloading')
-    setDownloadProgress({ percent: 0, downloaded: 0, total: 0 })
-    try {
-      await window.api.downloadLocalModel(localLocalModelType)
-
-      // Verify model exists after download before updating UI
-      const modelExists = await window.api.checkLocalModel(localLocalModelType)
-      if (!modelExists) {
-        throw new Error(`Model ${localLocalModelType} was downloaded but cannot be found`)
-      }
-
-      setModelDownloadStatus('ready')
-      setDownloadProgress(null)
-
-      // Ensure settings are saved with the current model type after successful download
-      await window.api.saveSettings({
-        apiKey: localKey,
-        language: '',
-        sourceLanguage: localSourceLanguage,
-        targetLanguage: localTargetLanguage,
-        shortcut: localShortcut,
-        translate: localTranslate,
-        trayAnimations: localTrayAnimations,
-        processNotifications: localProcessNotifications,
-        soundAlert: localSoundAlert,
-        soundType: localSoundType,
-        autoStart: localAutoStart,
-        showDockIcon: localShowDockIcon,
-        showRecordingOverlay: localShowRecordingOverlay,
-        useLocalModel: localUseLocalModel,
-        localModelType: localLocalModelType
+      const info = await window.api.getLocalModelsInfo()
+      setLocalModelsInfo(info)
+      setModelDownloadStatusMap((prev) => {
+        const updated = { ...prev }
+        info.forEach((model) => {
+          if (prev[model.type] === 'downloading') return
+          updated[model.type] = model.exists ? 'ready' : 'missing'
+        })
+        return updated
       })
-
-      console.log(
-        `Settings saved with localModelType: ${localLocalModelType}, useLocalModel: ${localUseLocalModel}`
-      )
     } catch (error) {
-      console.error('Failed to download model:', error)
-      setModelDownloadStatus('missing')
-      setDownloadProgress(null)
-      // You might want to show an error toast here
+      console.error('Failed to load local model info:', error)
     }
-  }
+  }, [])
 
-  const handleModelTypeChange = async (
-    newType: 'base' | 'small' | 'medium' | 'large-v3'
-  ): Promise<void> => {
+  const checkModelStatus = useCallback(
+    async (modelType: LocalModelType): Promise<void> => {
+      if (!window.api?.checkLocalModel) return
+      setStatusForModel(modelType, 'checking')
+      try {
+        const exists = await window.api.checkLocalModel(modelType)
+        setStatusForModel(modelType, exists ? 'ready' : 'missing')
+      } catch (error) {
+        console.error('Failed to check model status:', error)
+        setStatusForModel(modelType, 'missing')
+      }
+      await refreshLocalModelsInfo()
+    },
+    [refreshLocalModelsInfo, setStatusForModel]
+  )
+
+  const handleDownloadModel = useCallback(
+    async (modelType: LocalModelType): Promise<void> => {
+      if (!window.api?.downloadLocalModel) return
+      setStatusForModel(modelType, 'downloading')
+      setProgressForModel(modelType, { percent: 0, downloaded: 0, total: 0 })
+      try {
+        await window.api.downloadLocalModel(modelType)
+
+        const modelExists = await window.api.checkLocalModel(modelType)
+        if (!modelExists) {
+          throw new Error(`Model ${modelType} was downloaded but cannot be found`)
+        }
+
+        setStatusForModel(modelType, 'ready')
+        setProgressForModel(modelType, null)
+
+        if (modelType === localLocalModelType) {
+          await window.api.saveSettings({
+            apiKey: localKey,
+            language: '',
+            sourceLanguage: localSourceLanguage,
+            targetLanguage: localTargetLanguage,
+            shortcut: localShortcut,
+            translate: localTranslate,
+            trayAnimations: localTrayAnimations,
+            processNotifications: localProcessNotifications,
+            soundAlert: localSoundAlert,
+            soundType: localSoundType,
+            autoStart: localAutoStart,
+            showDockIcon: localShowDockIcon,
+            showRecordingOverlay: localShowRecordingOverlay,
+            overlayStyle: localOverlayStyle,
+            useLocalModel: localUseLocalModel,
+            localModelType: localLocalModelType
+          })
+        }
+
+        await refreshLocalModelsInfo()
+      } catch (error) {
+        console.error('Failed to download model:', error)
+        setStatusForModel(modelType, 'missing')
+        setProgressForModel(modelType, null)
+      }
+    },
+    [
+      localAutoStart,
+      localKey,
+      localLocalModelType,
+      localOverlayStyle,
+      localProcessNotifications,
+      localShortcut,
+      localShowDockIcon,
+      localShowRecordingOverlay,
+      localSoundAlert,
+      localSoundType,
+      localSourceLanguage,
+      localTargetLanguage,
+      localTranslate,
+      localTrayAnimations,
+      localUseLocalModel,
+      refreshLocalModelsInfo,
+      setProgressForModel,
+      setStatusForModel
+    ]
+  )
+
+  const handleModelTypeChange = async (newType: LocalModelType): Promise<void> => {
     // Auto-save using all current local state values
     await window.api.saveSettings({
       apiKey: localKey,
@@ -208,7 +298,9 @@ export const Settings: React.FC<SettingsProps> = ({
       soundAlert: localSoundAlert,
       soundType: localSoundType,
       autoStart: localAutoStart,
+      showDockIcon: localShowDockIcon,
       showRecordingOverlay: localShowRecordingOverlay,
+      overlayStyle: localOverlayStyle,
       useLocalModel: localUseLocalModel,
       localModelType: newType
     })
@@ -216,29 +308,55 @@ export const Settings: React.FC<SettingsProps> = ({
     checkModelStatus(newType)
   }
 
+  const handleDeleteModel = useCallback(
+    async (modelType: LocalModelType): Promise<void> => {
+      if (!window.api?.deleteLocalModel) return
+      try {
+        await window.api.deleteLocalModel(modelType)
+        setStatusForModel(modelType, 'missing')
+        setProgressForModel(modelType, null)
+        await refreshLocalModelsInfo()
+      } catch (error) {
+        console.error('Failed to delete model:', error)
+      }
+    },
+    [refreshLocalModelsInfo, setProgressForModel, setStatusForModel]
+  )
+
+  const handleOpenModelsFolder = useCallback(async () => {
+    if (!window.api?.openModelsFolder) return
+    try {
+      await window.api.openModelsFolder()
+    } catch (error) {
+      console.error('Failed to open models folder:', error)
+    }
+  }, [])
+
   // Listen for download progress updates
   useEffect(() => {
     if (!window.api?.onModelDownloadProgress) return
 
     const removeListener = window.api.onModelDownloadProgress((progress) => {
       console.log('Received progress update:', progress)
-      // Always update progress regardless of modelType (in case user switches during download)
-      setDownloadProgress({
-        percent: progress.percent,
-        downloaded: progress.downloaded,
-        total: progress.total
-      })
+      setStatusForModel(progress.modelType, 'downloading')
+      setProgressForModel(progress.modelType, progress)
+
+      if (progress.percent >= 100) {
+        setProgressForModel(progress.modelType, null)
+        setStatusForModel(progress.modelType, 'ready')
+        refreshLocalModelsInfo()
+      }
     })
 
     return removeListener
-  }, []) // Empty dependency array - listener should be set once and stay active
+  }, [refreshLocalModelsInfo, setProgressForModel, setStatusForModel])
 
   // Check model status when toggle is on or model type changes
   useEffect(() => {
     if (localUseLocalModel) {
       checkModelStatus(localLocalModelType)
     }
-  }, [localUseLocalModel, localLocalModelType])
+  }, [checkModelStatus, localLocalModelType, localUseLocalModel])
 
   useEffect(() => {
     setLocalKey(initialKey)
@@ -273,6 +391,10 @@ export const Settings: React.FC<SettingsProps> = ({
     initialUseLocalModel,
     initialLocalModelType
   ])
+
+  useEffect(() => {
+    refreshLocalModelsInfo()
+  }, [refreshLocalModelsInfo])
 
   useEffect(() => {
     const checkPermission = async (): Promise<void> => {
@@ -559,11 +681,13 @@ export const Settings: React.FC<SettingsProps> = ({
               {/* Dictation Settings Section */}
               {activeSection === 'dictation' && (
                 <DictationSettings
-                  modelDownloadStatus={modelDownloadStatus}
-                  downloadProgress={downloadProgress}
+                  modelDownloadStatusMap={modelDownloadStatusMap}
+                  downloadProgressMap={downloadProgressMap}
+                  localModelsInfo={localModelsInfo}
                   onModelTypeChange={handleModelTypeChange}
                   onDownloadModel={handleDownloadModel}
-                  onCheckModelStatus={checkModelStatus}
+                  onDeleteModel={handleDeleteModel}
+                  onOpenModelsFolder={handleOpenModelsFolder}
                   localKey={localKey}
                   setLocalKey={setLocalKey}
                   localSourceLanguage={localSourceLanguage}
