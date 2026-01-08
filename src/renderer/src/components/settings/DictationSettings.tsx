@@ -45,7 +45,6 @@ interface DictationSettingsProps {
   localUseLocalModel: boolean
   setLocalUseLocalModel: (val: boolean) => void
   localLocalModelType: LocalModelType
-  setLocalLocalModelType: (val: LocalModelType) => void
 }
 
 export const DictationSettings: React.FC<DictationSettingsProps> = ({
@@ -72,8 +71,7 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
   setLocalOverlayStyle,
   localUseLocalModel,
   setLocalUseLocalModel,
-  localLocalModelType,
-  setLocalLocalModelType
+  localLocalModelType
 }) => {
   const overlayStyleOptions: Array<{
     value: 'compact' | 'large'
@@ -213,10 +211,7 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                             type="radio"
                             className="mt-1 accent-blue-500"
                             checked={isSelected}
-                            onChange={() => {
-                              setLocalLocalModelType(model.type)
-                              onModelTypeChange(model.type)
-                            }}
+                            onChange={() => onModelTypeChange(model.type)}
                           />
                           <div>
                             <p className="text-sm text-white font-medium">{model.displayName}</p>

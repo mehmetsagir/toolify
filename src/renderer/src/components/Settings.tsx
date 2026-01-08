@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Save, Mic, Settings as SettingsIcon, History as HistoryIcon, Bell } from 'lucide-react'
+import { Mic, Settings as SettingsIcon, History as HistoryIcon, Bell } from 'lucide-react'
 import { History } from './History'
 import { UpdateBanner } from './settings/UpdateBanner'
 import { GeneralSettings } from './settings/GeneralSettings'
@@ -47,8 +47,6 @@ interface SettingsProps {
   setShortcut: (shortcut: string) => void
   translate: boolean
   setTranslate: (val: boolean) => void
-  trayAnimations: boolean
-  setTrayAnimations: (val: boolean) => void
   processNotifications: boolean
   setProcessNotifications: (val: boolean) => void
   soundAlert: boolean
@@ -67,23 +65,6 @@ interface SettingsProps {
   setUseLocalModel: (val: boolean) => void
   localModelType: LocalModelType
   setLocalModelType: (val: LocalModelType) => void
-  onSave?: (settings: {
-    apiKey: string
-    sourceLanguage: string
-    targetLanguage: string
-    shortcut: string
-    translate: boolean
-    trayAnimations: boolean
-    processNotifications: boolean
-    soundAlert: boolean
-    soundType: string
-    autoStart: boolean
-    showDockIcon: boolean
-    showRecordingOverlay: boolean
-    overlayStyle: 'compact' | 'large'
-    useLocalModel: boolean
-    localModelType: LocalModelType
-  }) => void
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -97,8 +78,6 @@ export const Settings: React.FC<SettingsProps> = ({
   setShortcut,
   translate: initialTranslate,
   setTranslate,
-  trayAnimations: initialTrayAnimations,
-  setTrayAnimations,
   processNotifications: initialProcessNotifications,
   setProcessNotifications,
   soundAlert: initialSoundAlert,
@@ -116,15 +95,13 @@ export const Settings: React.FC<SettingsProps> = ({
   useLocalModel: initialUseLocalModel,
   setUseLocalModel,
   localModelType: initialLocalModelType,
-  setLocalModelType,
-  onSave
+  setLocalModelType
 }) => {
   const [localKey, setLocalKey] = useState(initialKey)
   const [localSourceLanguage, setLocalSourceLanguage] = useState(initialSourceLanguage || 'en')
   const [localTargetLanguage, setLocalTargetLanguage] = useState(initialTargetLanguage || 'tr')
   const [localShortcut, setLocalShortcut] = useState(initialShortcut || 'Command+Space')
   const [localTranslate, setLocalTranslate] = useState(initialTranslate)
-  const [localTrayAnimations, setLocalTrayAnimations] = useState(initialTrayAnimations)
   const [localProcessNotifications, setLocalProcessNotifications] = useState(
     initialProcessNotifications
   )
@@ -142,7 +119,6 @@ export const Settings: React.FC<SettingsProps> = ({
   const [localLocalModelType, setLocalLocalModelType] = useState<LocalModelType>(
     initialLocalModelType || 'base'
   )
-  const [saved, setSaved] = useState(false)
 
   const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
   const [accessibilityRequired, setAccessibilityRequired] = useState(false)
@@ -182,6 +158,118 @@ export const Settings: React.FC<SettingsProps> = ({
       }))
     },
     []
+  )
+
+  const handleSetApiKey = useCallback(
+    (value: string) => {
+      setLocalKey(value)
+      setApiKey(value)
+    },
+    [setApiKey]
+  )
+
+  const handleSetSourceLanguage = useCallback(
+    (value: string) => {
+      setLocalSourceLanguage(value)
+      setSourceLanguage(value)
+    },
+    [setSourceLanguage]
+  )
+
+  const handleSetTargetLanguage = useCallback(
+    (value: string) => {
+      setLocalTargetLanguage(value)
+      setTargetLanguage(value)
+    },
+    [setTargetLanguage]
+  )
+
+  const handleSetShortcut = useCallback(
+    (value: string) => {
+      setLocalShortcut(value)
+      setShortcut(value)
+    },
+    [setShortcut]
+  )
+
+  const handleSetTranslate = useCallback(
+    (value: boolean) => {
+      setLocalTranslate(value)
+      setTranslate(value)
+    },
+    [setTranslate]
+  )
+
+  const handleSetProcessNotifications = useCallback(
+    (value: boolean) => {
+      setLocalProcessNotifications(value)
+      setProcessNotifications(value)
+    },
+    [setProcessNotifications]
+  )
+
+  const handleSetSoundAlert = useCallback(
+    (value: boolean) => {
+      setLocalSoundAlert(value)
+      setSoundAlert(value)
+    },
+    [setSoundAlert]
+  )
+
+  const handleSetSoundType = useCallback(
+    (value: string) => {
+      setLocalSoundType(value)
+      setSoundType(value)
+    },
+    [setSoundType]
+  )
+
+  const handleSetAutoStart = useCallback(
+    (value: boolean) => {
+      setLocalAutoStart(value)
+      setAutoStart(value)
+    },
+    [setAutoStart]
+  )
+
+  const handleSetShowDockIcon = useCallback(
+    (value: boolean) => {
+      setLocalShowDockIcon(value)
+      setShowDockIcon(value)
+    },
+    [setShowDockIcon]
+  )
+
+  const handleSetShowRecordingOverlay = useCallback(
+    (value: boolean) => {
+      setLocalShowRecordingOverlay(value)
+      setShowRecordingOverlay(value)
+    },
+    [setShowRecordingOverlay]
+  )
+
+  const handleSetOverlayStyle = useCallback(
+    (value: 'compact' | 'large') => {
+      setLocalOverlayStyle(value)
+      setOverlayStyle(value)
+    },
+    [setOverlayStyle]
+  )
+
+  const handleSetUseLocalModel = useCallback(
+    (value: boolean) => {
+      setLocalUseLocalModel(value)
+      setUseLocalModel(value)
+    },
+    [setUseLocalModel]
+  )
+
+  const handleSetLocalModelType = useCallback(
+    (value: LocalModelType) => {
+      setLocalLocalModelType(value)
+      setLocalModelType(value)
+    },
+    [setLocalModelType]
   )
 
   const refreshLocalModelsInfo = useCallback(async () => {
@@ -233,28 +321,6 @@ export const Settings: React.FC<SettingsProps> = ({
 
         setStatusForModel(modelType, 'ready')
         setProgressForModel(modelType, null)
-
-        if (modelType === localLocalModelType) {
-          await window.api.saveSettings({
-            apiKey: localKey,
-            language: '',
-            sourceLanguage: localSourceLanguage,
-            targetLanguage: localTargetLanguage,
-            shortcut: localShortcut,
-            translate: localTranslate,
-            trayAnimations: localTrayAnimations,
-            processNotifications: localProcessNotifications,
-            soundAlert: localSoundAlert,
-            soundType: localSoundType,
-            autoStart: localAutoStart,
-            showDockIcon: localShowDockIcon,
-            showRecordingOverlay: localShowRecordingOverlay,
-            overlayStyle: localOverlayStyle,
-            useLocalModel: localUseLocalModel,
-            localModelType: localLocalModelType
-          })
-        }
-
         await refreshLocalModelsInfo()
       } catch (error) {
         console.error('Failed to download model:', error)
@@ -262,50 +328,12 @@ export const Settings: React.FC<SettingsProps> = ({
         setProgressForModel(modelType, null)
       }
     },
-    [
-      localAutoStart,
-      localKey,
-      localLocalModelType,
-      localOverlayStyle,
-      localProcessNotifications,
-      localShortcut,
-      localShowDockIcon,
-      localShowRecordingOverlay,
-      localSoundAlert,
-      localSoundType,
-      localSourceLanguage,
-      localTargetLanguage,
-      localTranslate,
-      localTrayAnimations,
-      localUseLocalModel,
-      refreshLocalModelsInfo,
-      setProgressForModel,
-      setStatusForModel
-    ]
+    [refreshLocalModelsInfo, setProgressForModel, setStatusForModel]
   )
 
-  const handleModelTypeChange = async (newType: LocalModelType): Promise<void> => {
-    // Auto-save using all current local state values
-    await window.api.saveSettings({
-      apiKey: localKey,
-      language: '',
-      sourceLanguage: localSourceLanguage,
-      targetLanguage: localTargetLanguage,
-      shortcut: localShortcut,
-      translate: localTranslate,
-      trayAnimations: localTrayAnimations,
-      processNotifications: localProcessNotifications,
-      soundAlert: localSoundAlert,
-      soundType: localSoundType,
-      autoStart: localAutoStart,
-      showDockIcon: localShowDockIcon,
-      showRecordingOverlay: localShowRecordingOverlay,
-      overlayStyle: localOverlayStyle,
-      useLocalModel: localUseLocalModel,
-      localModelType: newType
-    })
-
-    checkModelStatus(newType)
+  const handleModelTypeChange = (newType: LocalModelType): void => {
+    handleSetLocalModelType(newType)
+    void checkModelStatus(newType)
   }
 
   const handleDeleteModel = useCallback(
@@ -331,6 +359,37 @@ export const Settings: React.FC<SettingsProps> = ({
       console.error('Failed to open models folder:', error)
     }
   }, [])
+
+  const persistHistorySettings = useCallback(
+    async (autoDelete = historyAutoDeleteDays, maxItems = historyMaxItems) => {
+      if (!window.api?.saveHistorySettings) return
+      try {
+        await window.api.saveHistorySettings({
+          autoDeleteDays: autoDelete,
+          maxHistoryItems: maxItems
+        })
+      } catch (error) {
+        console.error('Failed to save history settings:', error)
+      }
+    },
+    [historyAutoDeleteDays, historyMaxItems]
+  )
+
+  const handleSetHistoryAutoDeleteDays = useCallback(
+    (value: number) => {
+      setHistoryAutoDeleteDays(value)
+      void persistHistorySettings(value, historyMaxItems)
+    },
+    [historyMaxItems, persistHistorySettings]
+  )
+
+  const handleSetHistoryMaxItems = useCallback(
+    (value: number) => {
+      setHistoryMaxItems(value)
+      void persistHistorySettings(historyAutoDeleteDays, value)
+    },
+    [historyAutoDeleteDays, persistHistorySettings]
+  )
 
   // Listen for download progress updates
   useEffect(() => {
@@ -364,7 +423,6 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalTargetLanguage(initialTargetLanguage || 'tr')
     setLocalShortcut(initialShortcut || 'Command+Space')
     setLocalTranslate(initialTranslate)
-    setLocalTrayAnimations(initialTrayAnimations)
     setLocalProcessNotifications(initialProcessNotifications)
     setLocalSoundAlert(initialSoundAlert)
     setLocalSoundType(initialSoundType || 'Glass')
@@ -380,7 +438,6 @@ export const Settings: React.FC<SettingsProps> = ({
     initialTargetLanguage,
     initialShortcut,
     initialTranslate,
-    initialTrayAnimations,
     initialProcessNotifications,
     initialSoundAlert,
     initialSoundType,
@@ -484,59 +541,6 @@ export const Settings: React.FC<SettingsProps> = ({
     }
     return undefined
   }, [])
-
-  const handleSave = async (): Promise<void> => {
-    if (onSave) {
-      onSave({
-        apiKey: localKey,
-        sourceLanguage: localSourceLanguage,
-        targetLanguage: localTargetLanguage,
-        shortcut: localShortcut,
-        translate: localTranslate,
-        trayAnimations: localTrayAnimations,
-        processNotifications: localProcessNotifications,
-        soundAlert: localSoundAlert,
-        soundType: localSoundType,
-        autoStart: localAutoStart,
-        showDockIcon: localShowDockIcon,
-        showRecordingOverlay: localShowRecordingOverlay,
-        overlayStyle: localOverlayStyle,
-        useLocalModel: localUseLocalModel,
-        localModelType: localLocalModelType
-      })
-    } else {
-      setApiKey(localKey)
-      setSourceLanguage(localSourceLanguage)
-      setTargetLanguage(localTargetLanguage)
-      setShortcut(localShortcut)
-      setTranslate(localTranslate)
-      setTrayAnimations(localTrayAnimations)
-      setProcessNotifications(localProcessNotifications)
-      setSoundAlert(localSoundAlert)
-      setSoundType(localSoundType)
-      setAutoStart(localAutoStart)
-      setShowDockIcon(localShowDockIcon)
-      setShowRecordingOverlay(localShowRecordingOverlay)
-      setOverlayStyle(localOverlayStyle)
-      setUseLocalModel(localUseLocalModel)
-      setLocalModelType(localLocalModelType)
-    }
-
-    // Save history settings
-    if (window.api?.saveHistorySettings) {
-      try {
-        await window.api.saveHistorySettings({
-          autoDeleteDays: historyAutoDeleteDays,
-          maxHistoryItems: historyMaxItems
-        })
-      } catch (error) {
-        console.error('Failed to save history settings:', error)
-      }
-    }
-
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
 
   const handleDownloadUpdate = async (): Promise<void> => {
     if (window.api?.downloadUpdate) {
@@ -668,13 +672,13 @@ export const Settings: React.FC<SettingsProps> = ({
               {activeSection === 'general' && (
                 <GeneralSettings
                   autoStart={localAutoStart}
-                  setAutoStart={setLocalAutoStart}
+                  setAutoStart={handleSetAutoStart}
                   showDockIcon={localShowDockIcon}
-                  setShowDockIcon={setLocalShowDockIcon}
+                  setShowDockIcon={handleSetShowDockIcon}
                   historyAutoDeleteDays={historyAutoDeleteDays}
-                  setHistoryAutoDeleteDays={setHistoryAutoDeleteDays}
+                  setHistoryAutoDeleteDays={handleSetHistoryAutoDeleteDays}
                   historyMaxItems={historyMaxItems}
-                  setHistoryMaxItems={setHistoryMaxItems}
+                  setHistoryMaxItems={handleSetHistoryMaxItems}
                 />
               )}
 
@@ -689,23 +693,23 @@ export const Settings: React.FC<SettingsProps> = ({
                   onDeleteModel={handleDeleteModel}
                   onOpenModelsFolder={handleOpenModelsFolder}
                   localKey={localKey}
-                  setLocalKey={setLocalKey}
+                  setLocalKey={handleSetApiKey}
                   localSourceLanguage={localSourceLanguage}
-                  setLocalSourceLanguage={setLocalSourceLanguage}
+                  setLocalSourceLanguage={handleSetSourceLanguage}
                   localTargetLanguage={localTargetLanguage}
-                  setLocalTargetLanguage={setLocalTargetLanguage}
+                  setLocalTargetLanguage={handleSetTargetLanguage}
                   localShortcut={localShortcut}
-                  setLocalShortcut={setLocalShortcut}
+                  setLocalShortcut={handleSetShortcut}
                   localTranslate={localTranslate}
-                  setLocalTranslate={setLocalTranslate}
+                  setLocalTranslate={handleSetTranslate}
                   localShowRecordingOverlay={localShowRecordingOverlay}
-                  setLocalShowRecordingOverlay={setLocalShowRecordingOverlay}
+                  setLocalShowRecordingOverlay={handleSetShowRecordingOverlay}
                   localOverlayStyle={localOverlayStyle}
-                  setLocalOverlayStyle={setLocalOverlayStyle}
+                  setLocalOverlayStyle={handleSetOverlayStyle}
                   localUseLocalModel={localUseLocalModel}
-                  setLocalUseLocalModel={setLocalUseLocalModel}
+                  setLocalUseLocalModel={handleSetUseLocalModel}
                   localLocalModelType={localLocalModelType}
-                  setLocalLocalModelType={setLocalLocalModelType}
+                  setLocalLocalModelType={handleSetLocalModelType}
                 />
               )}
 
@@ -713,43 +717,13 @@ export const Settings: React.FC<SettingsProps> = ({
               {activeSection === 'audio' && (
                 <AudioSettings
                   processNotifications={localProcessNotifications}
-                  setProcessNotifications={setLocalProcessNotifications}
+                  setProcessNotifications={handleSetProcessNotifications}
                   soundAlert={localSoundAlert}
-                  setSoundAlert={setLocalSoundAlert}
+                  setSoundAlert={handleSetSoundAlert}
                   soundType={localSoundType}
-                  setSoundType={setLocalSoundType}
+                  setSoundType={handleSetSoundType}
                 />
               )}
-            </div>
-          </div>
-        )}
-
-        {/* Save Button - Only show on Settings tab */}
-        {activeTab === 'settings' && (
-          <div className="px-8 py-5 bg-[#1a1a1a] border-t border-white/5">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-              <div className="text-xs text-zinc-500">Toolify v0.0.12</div>
-              <button
-                onClick={handleSave}
-                disabled={saved}
-                className={`px-6 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                  saved
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-600'
-                }`}
-              >
-                {saved ? (
-                  <>
-                    <Save size={16} />
-                    <span>Saved</span>
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} />
-                    <span>Save Changes</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
         )}

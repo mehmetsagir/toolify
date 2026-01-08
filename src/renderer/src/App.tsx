@@ -591,26 +591,6 @@ function App(): React.JSX.Element {
               localModelType
             )
           }
-          trayAnimations={trayAnimations}
-          setTrayAnimations={(val) =>
-            saveSettings(
-              apiKey,
-              translate,
-              sourceLanguage,
-              targetLanguage,
-              shortcut,
-              val,
-              processNotifications,
-              soundAlert,
-              soundType,
-              autoStart,
-              showDockIcon,
-              showRecordingOverlay,
-              overlayStyle,
-              useLocalModel,
-              localModelType
-            )
-          }
           processNotifications={processNotifications}
           setProcessNotifications={(val) =>
             saveSettings(
@@ -769,25 +749,6 @@ function App(): React.JSX.Element {
               overlayStyle,
               useLocalModel,
               val
-            )
-          }
-          onSave={(settings) =>
-            saveSettings(
-              settings.apiKey,
-              settings.translate,
-              settings.sourceLanguage,
-              settings.targetLanguage,
-              settings.shortcut,
-              settings.trayAnimations,
-              settings.processNotifications,
-              settings.soundAlert,
-              settings.soundType,
-              settings.autoStart,
-              settings.showDockIcon === true,
-              settings.showRecordingOverlay,
-              settings.overlayStyle,
-              settings.useLocalModel,
-              settings.localModelType
             )
           }
           overlayStyle={overlayStyle}
