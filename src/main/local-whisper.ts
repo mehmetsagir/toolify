@@ -5,6 +5,7 @@ import { exec } from 'child_process'
 import { app } from 'electron'
 import OpenAI from 'openai'
 import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
+import type { LocalModelInfo, LocalModelType } from '../shared/types'
 
 // Note: We no longer use whisper-node's createCppCommand due to path quoting issues
 // Instead, we build the whisper.cpp command manually with proper path escaping
@@ -68,7 +69,7 @@ const getBasePath = (): string => {
 }
 
 // Get models directory - always use userData (models are downloaded from CDN, never bundled)
-const getModelsDir = (): string => {
+export const getModelsDir = (): string => {
   // Always store models in userData (never bundle them)
   const modelsDir = path.join(app.getPath('userData'), 'models')
   if (!fs.existsSync(modelsDir)) {
@@ -77,14 +78,14 @@ const getModelsDir = (): string => {
   return modelsDir
 }
 
-const getModelPath = (modelType: string): string => {
+const getModelPath = (modelType: LocalModelType): string => {
   return path.join(getModelsDir(), `ggml-${modelType}.bin`)
 }
 
 // Note: Script-based download is no longer used - we always download from HuggingFace CDN
 // This ensures consistent behavior in both dev and production environments
 
-export async function checkLocalModelExists(modelType: string): Promise<boolean> {
+export async function checkLocalModelExists(modelType: LocalModelType): Promise<boolean> {
   const modelPath = getModelPath(modelType)
   const exists = fs.existsSync(modelPath)
   console.log(
@@ -98,7 +99,7 @@ export async function checkLocalModelExists(modelType: string): Promise<boolean>
 }
 
 export async function downloadLocalModel(
-  modelType: string,
+  modelType: LocalModelType,
   onProgress?: (progress: { percent: number; downloaded: number; total: number }) => void
 ): Promise<void> {
   const modelsDir = getModelsDir()
@@ -114,8 +115,16 @@ export async function downloadLocalModel(
 }
 
 // HuggingFace CDN URLs for Whisper models
-const MODEL_URLS: Record<string, string> = {
-  tiny: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
+export const MODEL_TYPES: LocalModelType[] = ['base', 'small', 'medium', 'large-v3']
+
+const MODEL_LABELS: Record<LocalModelType, string> = {
+  base: 'Whisper Base',
+  small: 'Whisper Small',
+  medium: 'Whisper Medium (GGML)',
+  'large-v3': 'Whisper Large V3 (GGML)'
+}
+
+const MODEL_URLS: Record<LocalModelType, string> = {
   base: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
   small: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
   medium: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
@@ -123,30 +132,47 @@ const MODEL_URLS: Record<string, string> = {
 }
 
 // Expected model sizes in bytes (approximate, for progress calculation)
-const MODEL_SIZES: Record<string, number> = {
-  tiny: 75 * 1024 * 1024, // ~75 MB
+const MODEL_SIZES: Record<LocalModelType, number> = {
   base: 142 * 1024 * 1024, // ~142 MB
   small: 466 * 1024 * 1024, // ~466 MB
   medium: 1500 * 1024 * 1024, // ~1.5 GB
   'large-v3': 2900 * 1024 * 1024 // ~2.9 GB
 }
 
+const bytesToMB = (bytes: number): number => Number((bytes / 1024 / 1024).toFixed(1))
+
+export function getLocalModelsInfo(): LocalModelInfo[] {
+  return MODEL_TYPES.map((modelType) => {
+    const modelPath = getModelPath(modelType)
+    const exists = fs.existsSync(modelPath)
+    const info: LocalModelInfo = {
+      type: modelType,
+      displayName: MODEL_LABELS[modelType],
+      expectedSizeMB: bytesToMB(MODEL_SIZES[modelType]),
+      exists,
+      path: modelPath
+    }
+
+    if (exists) {
+      const stats = fs.statSync(modelPath)
+      info.fileSizeMB = bytesToMB(stats.size)
+      info.updatedAt = stats.mtimeMs
+    }
+
+    return info
+  })
+}
+
 // Helper function to download model using curl from HuggingFace CDN
 // Works in both dev and production environments - always downloads from CDN
 function downloadWithCurl(
-  modelType: string,
+  modelType: LocalModelType,
   modelPath: string,
   modelsDir: string,
   onProgress?: (progress: { percent: number; downloaded: number; total: number }) => void
 ): Promise<void> {
-  const modelUrl =
-    MODEL_URLS[modelType] ||
-    `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${modelType}.bin`
+  const modelUrl = MODEL_URLS[modelType]
   const expectedSize = MODEL_SIZES[modelType] || 0
-
-  if (!MODEL_URLS[modelType]) {
-    console.warn(`Unknown model type: ${modelType}, using default URL pattern`)
-  }
 
   return new Promise((resolve, reject) => {
     console.log(`Downloading model ${modelType} from HuggingFace CDN...`)
@@ -259,7 +285,7 @@ function downloadWithCurl(
   })
 }
 
-export async function deleteLocalModel(modelType: string): Promise<void> {
+export async function deleteLocalModel(modelType: LocalModelType): Promise<void> {
   const modelPath = getModelPath(modelType)
   if (fs.existsSync(modelPath)) {
     fs.unlinkSync(modelPath)
@@ -269,7 +295,7 @@ export async function deleteLocalModel(modelType: string): Promise<void> {
 
 export async function transcribeLocal(
   audioBuffer: Buffer,
-  modelType: string = 'base',
+  modelType: LocalModelType = 'base',
   options: {
     translate?: boolean
     language?: string

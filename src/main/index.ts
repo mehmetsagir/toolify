@@ -23,7 +23,9 @@ import {
   transcribeLocal,
   checkLocalModelExists,
   downloadLocalModel,
-  deleteLocalModel
+  deleteLocalModel,
+  getLocalModelsInfo,
+  getModelsDir
 } from './local-whisper'
 import { Settings } from './types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
@@ -158,7 +160,8 @@ function updateTrayIcon(
         if (recordingOverlay && !recordingOverlay.isDestroyed()) {
           try {
             recordingOverlay.destroy()
-          } catch (e) {
+          } catch (error) {
+            console.error('Failed to destroy existing overlay before recreating:', error)
           }
           recordingOverlay = null
         }
@@ -411,7 +414,6 @@ function createRecordingOverlay(): void {
 
   recordingOverlay.show()
   recordingOverlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-
 }
 
 function updateRecordingOverlayAudioLevel(data: OverlayAudioPayload | number): void {
@@ -489,7 +491,6 @@ function closeRecordingOverlay(delayMs = 0): void {
     clearTimeout(overlayCloseDelayTimer)
     overlayCloseDelayTimer = null
   }
-
 
   // Cancel any existing close timeout
   if (overlayCloseTimeout) {
@@ -648,7 +649,6 @@ app.whenReady().then(() => {
     // SECOND: Detect rapid key presses (within 300ms of last press)
     const timeSinceLastPress = currentTime - lastKeyPressTime
     if (timeSinceLastPress < 300 && lastKeyPressTime > 0) {
-
       // Cancel any ongoing action by setting processing flag
       isProcessingToggle = true
 
@@ -717,7 +717,6 @@ app.whenReady().then(() => {
   }
 
   const handleCancelRecording = (): void => {
-
     // Check if we're in penalty lockout
     if (isInPenaltyLockout) {
       return
@@ -729,7 +728,6 @@ app.whenReady().then(() => {
     }
 
     if (isRecording) {
-
       // Mark that we're processing a toggle action
       isProcessingToggle = true
 
@@ -775,7 +773,6 @@ app.whenReady().then(() => {
       }, 500)
 
       // NO notification or sound on cancel - user already knows they cancelled
-
     }
   }
 
@@ -1084,6 +1081,19 @@ app.whenReady().then(() => {
     return deleteLocalModel(modelType)
   })
 
+  ipcMain.handle('get-local-models-info', async () => {
+    return getLocalModelsInfo()
+  })
+
+  ipcMain.handle('open-models-folder', async () => {
+    const dir = getModelsDir()
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true })
+    }
+    await shell.openPath(dir)
+    return dir
+  })
+
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
 
@@ -1142,7 +1152,6 @@ app.whenReady().then(() => {
           }
           return
         }
-
 
         text = await transcribeLocal(Buffer.from(buffer), modelType, {
           translate: shouldTranslate,
