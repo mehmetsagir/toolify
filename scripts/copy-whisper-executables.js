@@ -34,6 +34,19 @@ executables.forEach((exec) => {
   }
 })
 
+// Copy Metal library for macOS GPU acceleration
+console.log('Copying Metal library for GPU acceleration...')
+const metalLib = 'ggml-metal.metal'
+const metalLibSource = path.join(sourceExecDir, metalLib)
+const metalLibTarget = path.join(targetExecDir, metalLib)
+
+if (fs.existsSync(metalLibSource)) {
+  fs.copyFileSync(metalLibSource, metalLibTarget)
+  console.log(`  ✓ Copied ${metalLib}`)
+} else {
+  console.warn(`  ⚠ ${metalLib} not found, skipping`)
+}
+
 // Copy dist files recursively
 console.log('Copying whisper-node dist files...')
 function copyRecursive(src, dest) {
