@@ -12,7 +12,6 @@ export interface Settings {
   soundAlert?: boolean
   soundType?: string
   autoStart?: boolean
-  showDockIcon?: boolean
   showRecordingOverlay?: boolean
   overlayStyle?: 'compact' | 'large' // Overlay display style
   historyAutoDeleteDays?: number // 0 = never delete

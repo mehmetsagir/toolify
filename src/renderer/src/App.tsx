@@ -16,7 +16,6 @@ function App(): React.JSX.Element {
   const [soundAlert, setSoundAlert] = useState(false)
   const [soundType, setSoundType] = useState('Glass')
   const [autoStart, setAutoStart] = useState(true)
-  const [showDockIcon, setShowDockIcon] = useState(false)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
   const [overlayStyle, setOverlayStyle] = useState<'compact' | 'large'>('compact')
   const [useLocalModel, setUseLocalModel] = useState(false)
@@ -58,7 +57,6 @@ function App(): React.JSX.Element {
           setSoundAlert(settings.soundAlert !== undefined ? settings.soundAlert : false)
           setSoundType(settings.soundType || 'Glass')
           setAutoStart(settings.autoStart !== false)
-          setShowDockIcon(settings.showDockIcon === true)
           setShowRecordingOverlay(settings.showRecordingOverlay !== false)
           setOverlayStyle(settings.overlayStyle || 'compact')
           setUseLocalModel(settings.useLocalModel || false)
@@ -73,7 +71,6 @@ function App(): React.JSX.Element {
           setSoundAlert(false)
           setSoundType('Glass')
           setAutoStart(true)
-          setShowDockIcon(false)
           setShowRecordingOverlay(true)
           setOverlayStyle('compact')
           setUseLocalModel(false)
@@ -150,7 +147,6 @@ function App(): React.JSX.Element {
     newSoundAlert: boolean,
     newSoundType: string,
     newAutoStart: boolean,
-    newShowDockIcon: boolean,
     newShowRecordingOverlay: boolean,
     newOverlayStyle: 'compact' | 'large',
     newUseLocalModel: boolean,
@@ -166,7 +162,6 @@ function App(): React.JSX.Element {
     setSoundAlert(newSoundAlert)
     setSoundType(newSoundType)
     setAutoStart(newAutoStart)
-    setShowDockIcon(newShowDockIcon)
     setShowRecordingOverlay(newShowRecordingOverlay)
     setOverlayStyle(newOverlayStyle)
     setUseLocalModel(newUseLocalModel)
@@ -183,7 +178,6 @@ function App(): React.JSX.Element {
       soundAlert: newSoundAlert,
       soundType: newSoundType,
       autoStart: newAutoStart,
-      showDockIcon: newShowDockIcon,
       showRecordingOverlay: newShowRecordingOverlay,
       overlayStyle: newOverlayStyle,
       useLocalModel: newUseLocalModel,
@@ -511,7 +505,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -531,7 +525,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -551,7 +545,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -571,7 +565,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -591,7 +585,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -611,7 +605,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -631,7 +625,7 @@ function App(): React.JSX.Element {
               val,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -651,7 +645,7 @@ function App(): React.JSX.Element {
               soundAlert,
               val,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -671,27 +665,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               val,
-              showDockIcon,
-              showRecordingOverlay,
-              overlayStyle,
-              useLocalModel,
-              localModelType
-            )
-          }
-          showDockIcon={showDockIcon}
-          setShowDockIcon={(val) =>
-            saveSettings(
-              apiKey,
-              translate,
-              sourceLanguage,
-              targetLanguage,
-              shortcut,
-              trayAnimations,
-              processNotifications,
-              soundAlert,
-              soundType,
-              autoStart,
-              val,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -711,7 +685,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               val,
               overlayStyle,
               useLocalModel,
@@ -731,7 +705,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               val,
@@ -751,7 +725,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -771,7 +745,7 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-              showDockIcon,
+
               showRecordingOverlay,
               val,
               useLocalModel,

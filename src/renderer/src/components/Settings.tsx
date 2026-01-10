@@ -55,8 +55,6 @@ interface SettingsProps {
   setSoundType: (val: string) => void
   autoStart: boolean
   setAutoStart: (val: boolean) => void
-  showDockIcon: boolean
-  setShowDockIcon: (val: boolean) => void
   showRecordingOverlay: boolean
   setShowRecordingOverlay: (val: boolean) => void
   overlayStyle: 'compact' | 'large'
@@ -86,8 +84,6 @@ export const Settings: React.FC<SettingsProps> = ({
   setSoundType,
   autoStart: initialAutoStart,
   setAutoStart,
-  showDockIcon: initialShowDockIcon,
-  setShowDockIcon,
   showRecordingOverlay: initialShowRecordingOverlay,
   setShowRecordingOverlay,
   overlayStyle: initialOverlayStyle,
@@ -106,7 +102,6 @@ export const Settings: React.FC<SettingsProps> = ({
     initialProcessNotifications
   )
   const [localAutoStart, setLocalAutoStart] = useState(initialAutoStart !== false)
-  const [localShowDockIcon, setLocalShowDockIcon] = useState(initialShowDockIcon === true)
   const [localSoundAlert, setLocalSoundAlert] = useState(initialSoundAlert)
   const [localSoundType, setLocalSoundType] = useState(initialSoundType || 'Glass')
   const [localShowRecordingOverlay, setLocalShowRecordingOverlay] = useState(
@@ -230,14 +225,6 @@ export const Settings: React.FC<SettingsProps> = ({
       setAutoStart(value)
     },
     [setAutoStart]
-  )
-
-  const handleSetShowDockIcon = useCallback(
-    (value: boolean) => {
-      setLocalShowDockIcon(value)
-      setShowDockIcon(value)
-    },
-    [setShowDockIcon]
   )
 
   const handleSetShowRecordingOverlay = useCallback(
@@ -434,7 +421,6 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalSoundAlert(initialSoundAlert)
     setLocalSoundType(initialSoundType || 'Glass')
     setLocalAutoStart(initialAutoStart !== false)
-    setLocalShowDockIcon(initialShowDockIcon === true)
     setLocalShowRecordingOverlay(initialShowRecordingOverlay !== false)
     setLocalOverlayStyle(initialOverlayStyle || 'compact')
     setLocalUseLocalModel(initialUseLocalModel || false)
@@ -449,7 +435,6 @@ export const Settings: React.FC<SettingsProps> = ({
     initialSoundAlert,
     initialSoundType,
     initialAutoStart,
-    initialShowDockIcon,
     initialShowRecordingOverlay,
     initialOverlayStyle,
     initialUseLocalModel,
@@ -680,8 +665,6 @@ export const Settings: React.FC<SettingsProps> = ({
                 <GeneralSettings
                   autoStart={localAutoStart}
                   setAutoStart={handleSetAutoStart}
-                  showDockIcon={localShowDockIcon}
-                  setShowDockIcon={handleSetShowDockIcon}
                   historyAutoDeleteDays={historyAutoDeleteDays}
                   setHistoryAutoDeleteDays={handleSetHistoryAutoDeleteDays}
                   historyMaxItems={historyMaxItems}

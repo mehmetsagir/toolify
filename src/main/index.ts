@@ -67,21 +67,6 @@ const RECORDING_COOLDOWN_MS = 1000 // 1 second cooldown between recordings
 const RAPID_PRESS_PENALTY_MS = 1500 // 1.5 second penalty for rapid key presses
 const OVERLAY_SUCCESS_HOLD_MS = 1200
 let idleTransitionTimeout: NodeJS.Timeout | null = null // Timeout for transitioning to idle state
-let dockIconImage: Electron.NativeImage | null = null
-
-function getMenuBarIconImage(): Electron.NativeImage | null {
-  try {
-    const baseIcon = nativeImage.createFromPath(icon)
-    if (baseIcon.isEmpty()) {
-      return null
-    }
-    const scaled = baseIcon.resize({ width: 64, height: 64, quality: 'best' })
-    scaled.setTemplateImage(true)
-    return scaled
-  } catch {
-    return null
-  }
-}
 let isInCooldown = false // Flag to track if we're in cooldown period
 let isProcessingToggle = false // Flag to prevent rapid toggle actions
 let isInPenaltyLockout = false // Flag for penalty lockout after rapid presses
@@ -534,32 +519,13 @@ function configureAutoStart(enabled: boolean): void {
   }
 }
 
-function updateDockVisibility(showDockIcon: boolean | undefined): void {
-  if (process.platform !== 'darwin' || !app.dock) {
-    return
-  }
-
-  if (showDockIcon) {
-    if (!dockIconImage || dockIconImage.isEmpty()) {
-      dockIconImage = getMenuBarIconImage()
-    }
-    if (dockIconImage && !dockIconImage.isEmpty()) {
-      app.dock.setIcon(dockIconImage)
-    }
-    app.dock.show()
-  } else {
-    app.dock.hide()
-  }
-}
-
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.toolify.app')
 
   if (process.platform === 'darwin') {
     app.setName('Toolify')
 
-    // Set the app icon explicitly to ensure Toolify icon is used everywhere
-    let appIcon: Electron.NativeImage
+    // Determine icon path for About panel
     let iconPathForAbout: string | undefined
 
     const isDevelopment =
@@ -567,7 +533,6 @@ app.whenReady().then(() => {
 
     if (isDevelopment || !app.isPackaged) {
       // In development, use the icon from resources
-      appIcon = nativeImage.createFromPath(icon)
       iconPathForAbout = icon
     } else {
       // In production, try .icns first, then fallback to .png
@@ -575,25 +540,12 @@ app.whenReady().then(() => {
       const pngPath = join(process.resourcesPath, 'icon.png')
 
       if (existsSync(icnsPath)) {
-        appIcon = nativeImage.createFromPath(icnsPath)
         iconPathForAbout = icnsPath
       } else if (existsSync(pngPath)) {
-        appIcon = nativeImage.createFromPath(pngPath)
         iconPathForAbout = pngPath
       } else {
         // Fallback to development icon
-        appIcon = nativeImage.createFromPath(icon)
         iconPathForAbout = icon
-      }
-    }
-
-    if (!appIcon.isEmpty()) {
-      const menuIcon = getMenuBarIconImage()
-      if (menuIcon && !menuIcon.isEmpty()) {
-        dockIconImage = menuIcon
-        app.dock?.setIcon(menuIcon)
-      } else {
-        app.dock?.setIcon(appIcon)
       }
     }
 
@@ -611,7 +563,6 @@ app.whenReady().then(() => {
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
-  updateDockVisibility(settings.showDockIcon)
 
   setupAutoUpdater(mainWindow)
 
@@ -888,11 +839,6 @@ app.whenReady().then(() => {
     saveSettingsUtil(settings)
 
     configureAutoStart(settings.autoStart !== false)
-    const prevDock = previousSettings.showDockIcon === true
-    const nextDock = settings.showDockIcon === true
-    if (prevDock !== nextDock) {
-      updateDockVisibility(nextDock)
-    }
 
     if (settings.shortcut) {
       const shortcutChanged = previousSettings.shortcut !== settings.shortcut
