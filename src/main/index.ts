@@ -28,6 +28,7 @@ import {
   getModelsDir
 } from './local-whisper'
 import { Settings } from './types'
+import type { LocalModelType } from '../shared/types/local-models.types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
 import { createMainWindow, createSettingsWindow } from './utils/windows'
 import { getCompactOverlayHTML, getLargeOverlayHTML } from './utils/overlay-template'
@@ -561,7 +562,10 @@ app.whenReady().then(() => {
     let appIcon: Electron.NativeImage
     let iconPathForAbout: string | undefined
 
-    if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    const isDevelopment =
+      process.env.NODE_ENV === 'development' && process.env.NODE_ENV !== undefined
+
+    if (isDevelopment || !app.isPackaged) {
       // In development, use the icon from resources
       appIcon = nativeImage.createFromPath(icon)
       iconPathForAbout = icon
@@ -965,7 +969,6 @@ app.whenReady().then(() => {
 
   ipcMain.on('set-recording-state', (_, state) => {
     isRecording = state
-    const settings = getSettings()
     if (state) {
       // Register ESC shortcut when recording starts
       try {
@@ -1056,11 +1059,11 @@ app.whenReady().then(() => {
     return clearOldHistory()
   })
 
-  ipcMain.handle('check-local-model', async (_, modelType: string) => {
+  ipcMain.handle('check-local-model', async (_, modelType: LocalModelType) => {
     return await checkLocalModelExists(modelType)
   })
 
-  ipcMain.handle('download-local-model', async (_, modelType: string) => {
+  ipcMain.handle('download-local-model', async (_, modelType: LocalModelType) => {
     // Get settings window to send progress updates (settings window is where download happens)
     const windowToNotify = settingsWindow || mainWindow
 
@@ -1077,7 +1080,7 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle('delete-local-model', async (_, modelType: string) => {
+  ipcMain.handle('delete-local-model', async (_, modelType: LocalModelType) => {
     return deleteLocalModel(modelType)
   })
 
@@ -1350,7 +1353,7 @@ app.whenReady().then(() => {
       },
       { type: 'separator' },
       {
-        label: `Version 0.0.12`,
+        label: `Version ${app.getVersion()}`,
         type: 'normal',
         enabled: false
       },
