@@ -278,6 +278,13 @@ function App(): React.JSX.Element {
   const startRecording = async (): Promise<void> => {
     console.log('startRecording called, current status:', statusRef.current)
     try {
+      // Check if API key is required and present
+      const settings = await window.api.getSettings()
+      if (!settings.useLocalModel && !settings.apiKey) {
+        new Notification('Toolify Error', { body: 'API Key required for cloud transcription' })
+        return
+      }
+
       // If we're still processing a previous recording, clean it up first
       if (statusRef.current === 'processing') {
         console.log('Previous recording still processing, cleaning up...')
