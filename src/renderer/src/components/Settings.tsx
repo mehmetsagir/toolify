@@ -256,22 +256,6 @@ export const Settings: React.FC<SettingsProps> = ({
     [setOverlayStyle]
   )
 
-  const handleSetUseLocalModel = useCallback(
-    (value: boolean) => {
-      setLocalUseLocalModel(value)
-      setUseLocalModel(value)
-    },
-    [setUseLocalModel]
-  )
-
-  const handleSetLocalModelType = useCallback(
-    (value: LocalModelType) => {
-      setLocalLocalModelType(value)
-      setLocalModelType(value)
-    },
-    [setLocalModelType]
-  )
-
   const refreshLocalModelsInfo = useCallback(async () => {
     if (!window.api?.getLocalModelsInfo) return
     try {
@@ -289,6 +273,26 @@ export const Settings: React.FC<SettingsProps> = ({
       console.error('Failed to load local model info:', error)
     }
   }, [])
+
+  const handleSetUseLocalModel = useCallback(
+    (value: boolean) => {
+      setLocalUseLocalModel(value)
+      setUseLocalModel(value)
+      // When switching to local model, refresh model info to update status
+      if (value) {
+        refreshLocalModelsInfo()
+      }
+    },
+    [setUseLocalModel, refreshLocalModelsInfo]
+  )
+
+  const handleSetLocalModelType = useCallback(
+    (value: LocalModelType) => {
+      setLocalLocalModelType(value)
+      setLocalModelType(value)
+    },
+    [setLocalModelType]
+  )
 
   const checkModelStatus = useCallback(
     async (modelType: LocalModelType): Promise<void> => {
@@ -413,9 +417,12 @@ export const Settings: React.FC<SettingsProps> = ({
   // Check model status when toggle is on or model type changes
   useEffect(() => {
     if (localUseLocalModel) {
+      // Check selected model
       checkModelStatus(localLocalModelType)
+      // Also refresh all models info to update status map
+      refreshLocalModelsInfo()
     }
-  }, [checkModelStatus, localLocalModelType, localUseLocalModel])
+  }, [checkModelStatus, localLocalModelType, localUseLocalModel, refreshLocalModelsInfo])
 
   useEffect(() => {
     setLocalKey(initialKey)
@@ -709,7 +716,6 @@ export const Settings: React.FC<SettingsProps> = ({
                   localUseLocalModel={localUseLocalModel}
                   setLocalUseLocalModel={handleSetUseLocalModel}
                   localLocalModelType={localLocalModelType}
-                  setLocalLocalModelType={handleSetLocalModelType}
                 />
               )}
 
