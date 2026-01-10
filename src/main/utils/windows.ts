@@ -72,9 +72,11 @@ export function createSettingsWindow(preferredDisplay?: Electron.Display): Brows
   const savedLayout = settings.settingsWindowLayout
 
   const baseDisplay =
-    preferredDisplay || (savedLayout?.displayId
+    preferredDisplay ||
+    (savedLayout?.displayId
       ? screen.getAllDisplays().find((display) => display.id === savedLayout.displayId)
-      : null) || getActiveDisplay()
+      : null) ||
+    getActiveDisplay()
 
   const { width: displayWidth, height: screenHeight } = baseDisplay.workAreaSize
   const { x: displayX, y: displayY } = baseDisplay.workArea
@@ -84,10 +86,7 @@ export function createSettingsWindow(preferredDisplay?: Electron.Display): Brows
   const minWidth = 1000
   const minHeight = 500
 
-  const windowWidth = Math.min(
-    displayWidth,
-    Math.max(minWidth, savedLayout?.width ?? defaultWidth)
-  )
+  const windowWidth = Math.min(displayWidth, Math.max(minWidth, savedLayout?.width ?? defaultWidth))
   const windowHeight = Math.min(
     screenHeight,
     Math.max(minHeight, savedLayout?.height ?? defaultHeight)
@@ -98,14 +97,8 @@ export function createSettingsWindow(preferredDisplay?: Electron.Display): Brows
   const defaultOffsetX = Math.round((displayWidth - windowWidth) / 2)
   const defaultOffsetY = Math.round((screenHeight - windowHeight) / 2)
 
-  const offsetX = Math.min(
-    maxOffsetX,
-    Math.max(0, savedLayout?.offsetX ?? defaultOffsetX)
-  )
-  const offsetY = Math.min(
-    maxOffsetY,
-    Math.max(0, savedLayout?.offsetY ?? defaultOffsetY)
-  )
+  const offsetX = Math.min(maxOffsetX, Math.max(0, savedLayout?.offsetX ?? defaultOffsetX))
+  const offsetY = Math.min(maxOffsetY, Math.max(0, savedLayout?.offsetY ?? defaultOffsetY))
 
   const x = displayX + offsetX
   const y = displayY + offsetY
