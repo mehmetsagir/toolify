@@ -112,6 +112,8 @@ const api = {
     ipcRenderer.invoke('delete-local-model', modelType),
   getLocalModelsInfo: (): Promise<LocalModelInfo[]> => ipcRenderer.invoke('get-local-models-info'),
   openModelsFolder: (): Promise<string> => ipcRenderer.invoke('open-models-folder'),
+  getVersion: (): Promise<string> => ipcRenderer.invoke('get-version'),
+  openExternal: (url: string): void => ipcRenderer.send('open-external', url),
   onModelDownloadProgress: (
     callback: (progress: {
       modelType: LocalModelType

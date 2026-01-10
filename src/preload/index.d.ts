@@ -58,6 +58,8 @@ declare global {
       deleteLocalModel: (modelType: LocalModelType) => Promise<void>
       getLocalModelsInfo: () => Promise<LocalModelInfo[]>
       openModelsFolder: () => Promise<string>
+      getVersion: () => Promise<string>
+      openExternal: (url: string) => void
       onModelDownloadProgress: (
         callback: (progress: {
           modelType: LocalModelType

@@ -1043,6 +1043,17 @@ app.whenReady().then(() => {
     return dir
   })
 
+  ipcMain.handle('get-version', () => {
+    return app.getVersion()
+  })
+
+  ipcMain.on('open-external', (_, url: string) => {
+    console.log('[Main] open-external called with URL:', url)
+    shell.openExternal(url).catch((error) => {
+      console.error('Failed to open external URL:', error)
+    })
+  })
+
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
 
