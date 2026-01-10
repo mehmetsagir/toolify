@@ -5,6 +5,7 @@ import { exec } from 'child_process'
 import { app } from 'electron'
 import OpenAI from 'openai'
 import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
+import { logger } from './utils/logger'
 import type { LocalModelInfo, LocalModelType } from '../shared/types'
 
 // Note: We no longer use whisper-node's createCppCommand due to path quoting issues
@@ -19,7 +20,20 @@ const isProductionBuild = (): boolean => {
 
 // Get the base path for whisper.cpp executables - works in both dev and production
 const getBasePath = (): string => {
-  // In production, executables are in app.asar.unpacked/build/whisper-executables
+  // Always try build/whisper-executables first (works in both dev and production)
+  const projectRoot = process.cwd()
+  const buildExecutablesPath = path.join(projectRoot, 'build', 'whisper-executables')
+
+  logger.log('Checking for executables in:', buildExecutablesPath)
+  if (fs.existsSync(buildExecutablesPath)) {
+    const mainPath = path.join(buildExecutablesPath, 'main')
+    if (fs.existsSync(mainPath)) {
+      logger.log(`Found executables at: ${buildExecutablesPath}`)
+      return buildExecutablesPath
+    }
+  }
+
+  // In production build, try unpacked location
   if (isProductionBuild()) {
     const resourcesPath = process.resourcesPath || app.getAppPath()
 
@@ -39,13 +53,13 @@ const getBasePath = (): string => {
       path.join(__dirname, '..', '..', 'node_modules', 'whisper-node', 'lib', 'whisper.cpp')
     ]
 
-    console.log('Looking for whisper.cpp executables in production build...')
+    logger.log('Looking for whisper.cpp executables in production build...')
     for (const possiblePath of possiblePaths) {
-      console.log(`  Checking: ${possiblePath}`)
+      logger.log(`  Checking: ${possiblePath}`)
       if (fs.existsSync(possiblePath)) {
         const mainPath = path.join(possiblePath, 'main')
         if (fs.existsSync(mainPath)) {
-          console.log(`  Found executables at: ${possiblePath}`)
+          logger.log(`  Found executables at: ${possiblePath}`)
           return possiblePath
         }
       }
@@ -60,7 +74,7 @@ const getBasePath = (): string => {
     return fallbackPath
   }
 
-  // Development mode - use original location
+  // Development mode fallback - node_modules (though this typically won't have the executable)
   const cwd = process.cwd()
   if (cwd.includes('whisper-node/lib/whisper.cpp')) {
     return cwd
@@ -88,12 +102,12 @@ const getModelPath = (modelType: LocalModelType): string => {
 export async function checkLocalModelExists(modelType: LocalModelType): Promise<boolean> {
   const modelPath = getModelPath(modelType)
   const exists = fs.existsSync(modelPath)
-  console.log(
+  logger.log(
     `Checking model existence: ${modelType} at ${modelPath} - ${exists ? 'EXISTS' : 'NOT FOUND'}`
   )
   if (exists) {
     const stats = fs.statSync(modelPath)
-    console.log(`Model file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
+    logger.log(`Model file size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`)
   }
   return exists
 }
@@ -105,9 +119,9 @@ export async function downloadLocalModel(
   const modelsDir = getModelsDir()
   const modelPath = getModelPath(modelType)
 
-  console.log(`Downloading model ${modelType} from HuggingFace CDN...`)
-  console.log(`Model will be saved to: ${modelPath}`)
-  console.log(`Models directory: ${modelsDir}`)
+  logger.log(`Downloading model ${modelType} from HuggingFace CDN...`)
+  logger.log(`Model will be saved to: ${modelPath}`)
+  logger.log(`Models directory: ${modelsDir}`)
 
   // Always use CDN download for both dev and production
   // This ensures consistent behavior and smaller bundle size
@@ -175,15 +189,15 @@ function downloadWithCurl(
   const expectedSize = MODEL_SIZES[modelType] || 0
 
   return new Promise((resolve, reject) => {
-    console.log(`Downloading model ${modelType} from HuggingFace CDN...`)
-    console.log(`URL: ${modelUrl}`)
-    console.log(`Saving to: ${modelPath}`)
-    console.log(`Expected size: ${(expectedSize / 1024 / 1024).toFixed(2)} MB`)
+    logger.log(`Downloading model ${modelType} from HuggingFace CDN...`)
+    logger.log(`URL: ${modelUrl}`)
+    logger.log(`Saving to: ${modelPath}`)
+    logger.log(`Expected size: ${(expectedSize / 1024 / 1024).toFixed(2)} MB`)
 
     // Ensure models directory exists
     if (!fs.existsSync(modelsDir)) {
       fs.mkdirSync(modelsDir, { recursive: true })
-      console.log(`Created models directory: ${modelsDir}`)
+      logger.log(`Created models directory: ${modelsDir}`)
     }
 
     // Use curl with progress indicator and retry logic
@@ -196,7 +210,7 @@ function downloadWithCurl(
     // -o: Output file
     const curlCommand = `curl -L --silent --show-error --fail --retry 3 --retry-delay 2 -o "${modelPath}" "${modelUrl}"`
 
-    console.log('Starting download...')
+    logger.log('Starting download...')
 
     // Start progress tracking if callback provided
     let progressInterval: NodeJS.Timeout | null = null
@@ -210,7 +224,7 @@ function downloadWithCurl(
             const stats = fs.statSync(modelPath)
             const downloaded = stats.size
             const percent = Math.min(100, Math.round((downloaded / expectedSize) * 100))
-            console.log(
+            logger.log(
               `Download progress: ${percent}% (${(downloaded / 1024 / 1024).toFixed(2)} MB / ${(expectedSize / 1024 / 1024).toFixed(2)} MB)`
             )
             onProgress({ percent, downloaded, total: expectedSize })
@@ -233,7 +247,7 @@ function downloadWithCurl(
           if (fs.existsSync(modelPath)) {
             try {
               fs.unlinkSync(modelPath)
-              console.log('Cleaned up partial download')
+              logger.log('Cleaned up partial download')
             } catch (e) {
               console.error('Failed to clean up partial download:', e)
             }
@@ -249,8 +263,8 @@ function downloadWithCurl(
             const stats = fs.statSync(modelPath)
             if (stats.size > 0) {
               const sizeMB = (stats.size / 1024 / 1024).toFixed(2)
-              console.log(`✓ Model download successful: ${sizeMB} MB`)
-              console.log(`  Saved to: ${modelPath}`)
+              logger.log(`✓ Model download successful: ${sizeMB} MB`)
+              logger.log(`  Saved to: ${modelPath}`)
 
               // Send final progress update
               if (onProgress) {
@@ -260,7 +274,7 @@ function downloadWithCurl(
               // Verify the file is actually readable before resolving
               try {
                 fs.accessSync(modelPath, fs.constants.R_OK)
-                console.log(`✓ Model file verified and readable: ${modelPath}`)
+                logger.log(`✓ Model file verified and readable: ${modelPath}`)
               } catch (accessError) {
                 console.error(`✗ Model file exists but is not readable: ${accessError}`)
                 reject(new Error(`Model file downloaded but is not accessible: ${accessError}`))
@@ -289,7 +303,7 @@ export async function deleteLocalModel(modelType: LocalModelType): Promise<void>
   const modelPath = getModelPath(modelType)
   if (fs.existsSync(modelPath)) {
     fs.unlinkSync(modelPath)
-    console.log(`Deleted model: ${modelPath}`)
+    logger.log(`Deleted model: ${modelPath}`)
   }
 }
 
@@ -330,17 +344,17 @@ export async function transcribeLocal(
 
     const inputStats = fs.statSync(tempInputPath)
     const wavStats = fs.statSync(tempWavPath)
-    console.log(`Audio file sizes - Input: ${inputStats.size} bytes, WAV: ${wavStats.size} bytes`)
+    logger.log(`Audio file sizes - Input: ${inputStats.size} bytes, WAV: ${wavStats.size} bytes`)
 
     if (wavStats.size < 1000) {
       console.warn('WAV file is suspiciously small!')
     }
 
-    console.log('Starting local transcription with model:', modelType)
+    logger.log('Starting local transcription with model:', modelType)
 
     // whisper-node takes file path strings
     const modelPath = getModelPath(modelType)
-    console.log('Using local model path:', modelPath)
+    logger.log('Using local model path:', modelPath)
 
     if (!fs.existsSync(modelPath)) {
       throw new Error('Local model not found. Please download the model in Settings.')
@@ -372,30 +386,40 @@ export async function transcribeLocal(
             'main'
           ),
           path.join(process.resourcesPath || app.getAppPath(), 'whisper-main'),
-          path.join(__dirname, '../../whisper-main'),
-          'whisper-main' // fallback to PATH
+          path.join(__dirname, '../../whisper-main')
         ]
 
         for (const altPath of altPaths) {
-          if (fs.existsSync(altPath) || altPath === 'whisper-main') {
+          if (fs.existsSync(altPath)) {
             executablePath = altPath
             break
           }
         }
       }
 
-      console.log('Using whisper executable:', executablePath)
-      console.log('Model path:', modelPath)
-      console.log('Audio file:', tempWavPath)
+      // If still not found, throw clear error
+      if (!fs.existsSync(executablePath) && executablePath !== 'whisper-main') {
+        throw new Error(
+          `Whisper executable not found at: ${executablePath}\n` +
+            `Please ensure whisper.cpp executables are installed in build/whisper-executables/`
+        )
+      }
+
+      logger.log('Using whisper executable:', executablePath)
+      logger.log('Model path:', modelPath)
+      logger.log('Audio file:', tempWavPath)
+      logger.log('Working directory:', whisperDir)
 
       // Build command manually with proper quoting for paths with spaces
       const language = options.language || 'auto'
       const finalCmd = `"${executablePath}" -l ${language} -m "${modelPath}" -f "${tempWavPath}"`
 
-      console.log('Executing whisper command:', finalCmd)
+      logger.log('Executing whisper command:', finalCmd)
 
-      // cmd is like "./main ...", so we need to run it from whisperDir
-      exec(finalCmd, { cwd: whisperDir }, (error, stdout, stderr) => {
+      // Use cwd only if we're using a relative path (doesn't start with /)
+      const execOptions = path.isAbsolute(executablePath) ? {} : { cwd: whisperDir }
+
+      exec(finalCmd, execOptions, (error, stdout, stderr) => {
         // whisper.cpp prints details to stderr, and result to stdout (usually)
         // But if it fails, error will be set.
         // If code is 0, we take stdout.
@@ -404,7 +428,7 @@ export async function transcribeLocal(
           console.error('Error details:', error)
           reject(error)
         } else {
-          console.log('Whisper execution raw stdout:', stdout)
+          logger.log('Whisper execution raw stdout:', stdout)
           resolve(stdout)
         }
       })
@@ -429,16 +453,16 @@ export async function transcribeLocal(
       .join(' ')
       .trim()
 
-    console.log('Local transcription parsed result:', result)
+    logger.log('Local transcription parsed result:', result)
 
     // Basic hallucination filter
     if (/^\[?Music\]?$/i.test(result) || /^\[?Subtitle\]?$/i.test(result)) {
-      console.log('Filtered out hallucination')
+      logger.log('Filtered out hallucination')
       return ''
     }
 
     // If translation is requested, use OpenAI API to translate
-    console.log('Translation check:', {
+    logger.log('Translation check:', {
       translate: options.translate,
       translateType: typeof options.translate,
       hasApiKey: !!options.apiKey,
@@ -465,8 +489,8 @@ export async function transcribeLocal(
 
         const targetLangName = getLanguageName(options.targetLanguage)
 
-        console.log(`Translating to ${targetLangName} (source language auto-detected)...`)
-        console.log('Source text:', result)
+        logger.log(`Translating to ${targetLangName} (source language auto-detected)...`)
+        logger.log('Source text:', result)
 
         const translationResponse = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -495,7 +519,7 @@ Important guidelines:
         const translatedText = translationResponse.choices[0]?.message?.content || result
         const cleaned = cleanTranslationText(translatedText)
 
-        console.log('Translation completed:', cleaned)
+        logger.log('Translation completed:', cleaned)
         return cleaned || result
       } catch (error) {
         console.error('Translation failed, returning original text:', error)

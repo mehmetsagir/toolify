@@ -2,6 +2,7 @@ import { autoUpdater } from 'electron-updater'
 import { BrowserWindow, app } from 'electron'
 import { join } from 'path'
 import { showNotification } from './utils/system'
+import { logger } from './utils/logger'
 import type { UpdateStatus } from '../shared/types'
 
 let updateDownloaded = false
@@ -69,7 +70,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
       }
     })
 
-    showNotification('Toolify', 'You\'re on the latest version')
+    showNotification('Toolify', "You're on the latest version")
   })
 
   autoUpdater.on('error', (err) => {
@@ -98,8 +99,8 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null): void {
     updateDownloaded = true
     latestVersion = info.version
 
-    console.log('Update downloaded:', info.version)
-    console.log('Update file path:', info.path || 'N/A')
+    logger.log('Update downloaded:', info.version)
+    logger.log('Update file path:', info.path || 'N/A')
 
     allWindows.forEach((window) => {
       if (window && !window.isDestroyed()) {
@@ -141,7 +142,7 @@ export function quitAndInstall(): void {
     return
   }
 
-  console.log('Preparing to quit and install update...')
+  logger.log('Preparing to quit and install update...')
   isQuittingForUpdate = true
 
   // Close all windows gracefully and prevent them from blocking quit
@@ -158,7 +159,7 @@ export function quitAndInstall(): void {
   // In development mode or when app is not packaged, autoUpdater.quitAndInstall won't work
   // So we just quit the app normally
   if (!app.isPackaged) {
-    console.log('Development mode: Quitting app normally (no real update to install)...')
+    logger.log('Development mode: Quitting app normally (no real update to install)...')
     setTimeout(() => {
       app.quit()
     }, 500)
@@ -173,7 +174,7 @@ export function quitAndInstall(): void {
       // So we use a combination approach:
       // 1. Try quitAndInstall first
       // 2. Use app.relaunch() as immediate fallback to ensure restart
-      console.log('Calling quitAndInstall for macOS...')
+      logger.log('Calling quitAndInstall for macOS...')
 
       // Set relaunch before calling quitAndInstall
       // This ensures app restarts even if quitAndInstall fails
@@ -188,13 +189,13 @@ export function quitAndInstall(): void {
         // If quitAndInstall doesn't work, relaunch is already set
         // So app will restart anyway
         setTimeout(() => {
-          console.log('quitAndInstall completed or timed out, quitting...')
+          logger.log('quitAndInstall completed or timed out, quitting...')
           app.exit(0)
         }, 1000)
       } catch (error) {
         console.error('Error calling quitAndInstall:', error)
         // Relaunch is already set, just quit
-        console.log('quitAndInstall failed, using relaunch fallback...')
+        logger.log('quitAndInstall failed, using relaunch fallback...')
         app.exit(0)
       }
     }, 1000) // Increased timeout for macOS
