@@ -22,6 +22,9 @@ npm run typecheck:node         # Type-check main process only
 npm run typecheck:web          # Type-check renderer only
 npm run lint                   # Run ESLint
 npm run format                 # Format code with Prettier
+npm test                       # Run vitest in watch mode
+npm run test:ui                # Run vitest with UI
+npm run test:run               # Run vitest once (CI mode)
 ```
 
 ### Building
@@ -71,6 +74,8 @@ ToolifySwift/       # Native Swift menu-bar helper
 5. Result copied to clipboard, notification sent, history updated
 
 **Settings Auto-Save**: No explicit "Save" button. Changes propagate immediately via `window.api.saveSettings()` and persist to `~/Library/Application Support/Toolify/config.json`.
+
+**API Key Security**: API keys are encrypted using Electron's `safeStorage` module before being persisted. Keys are stored securely in the system keychain and decrypted on-demand.
 
 **Local Model Management**:
 
@@ -122,23 +127,26 @@ ToolifySwift/       # Native Swift menu-bar helper
 
 ## Critical Conventions
 
-1. **Never bundle Whisper models** - Always downloaded post-install to keep bundle small
+1. **Never bundle Whisper models** - Always downloaded post-install to keep bundle small (critical for distribution)
 2. **Settings auto-save** - No save button, changes are immediate via `window.api.saveSettings()`
-3. **Type-safe IPC** - Always keep `src/shared/types` in sync with preload layer
+3. **Type-safe IPC** - Always keep `src/shared/types` in sync with preload layer (`src/preload/index.ts`)
 4. **macOS-only** - Uses AppleScript/osascript for media control
 5. **Accessibility permission critical** - Media pausing fails without it
-6. **Context isolation enforced** - Renderer cannot access Node directly
+6. **Context isolation enforced** - Renderer cannot access Node directly (security requirement)
 7. **Swift helper bundled** - ToolifySwift project built alongside Electron
-8. **Global shortcut cooldown** - 1-second cooldown between recordings
+8. **Global shortcut cooldown** - 1-second cooldown between recordings, 1.5-second penalty for rapid presses
 9. **Whisper executables path** - Different in dev vs production (handled in `local-whisper.ts`)
+10. **Metal GPU acceleration** - `ggml-metal.metal` library bundled for local model performance on Apple Silicon
+11. **API key encryption** - All API keys encrypted with `safeStorage` before persistence
 
 ## Coding Standards
 
 - **TypeScript**: Strict mode enforced
-- **Formatting**: Prettier with two-space indentation
+- **Formatting**: Prettier with specific config (singleQuote: true, semi: false, printWidth: 100, trailingComma: none)
 - **React**: Components use PascalCase; hooks/utilities use camelCase
 - **Tailwind**: Class lists composed with `clsx` + `tailwind-merge`
 - **Enums**: Use shared enums from `src/shared/types/settings.types.ts` instead of magic numbers
+- **Path Aliases**: Use `@renderer` or `@` for renderer imports (configured in vitest.config.ts)
 
 ## Git Workflow
 
@@ -147,17 +155,50 @@ ToolifySwift/       # Native Swift menu-bar helper
 
 ## Testing
 
-**No automated test suite exists**. Manual QA required:
+**Vitest configured** but minimal test coverage exists. Test setup at `src/renderer/src/test/setup.ts` with jsdom environment for React component testing.
+
+**Manual QA required**:
 
 1. Test OpenAI ↔ Local Whisper switching
 2. Verify Local Model download/re-download actions
 3. Confirm "Pause Media While Recording" stops/resumes Safari/Chrome/Spotify
 4. Validate clipboard + notification handling
-5. Always run `npm run typecheck` and `npm run lint` before commits
+5. Test Metal GPU acceleration for local models (macOS)
+6. Verify API key encryption/decryption flow
+7. Always run `npm run typecheck` and `npm run lint` before commits
 
 ## Distribution
 
-- GitHub releases as update source
-- Homebrew tap: `homebrew/toolify` formula
+- GitHub releases as update source (auto-updater via `electron-updater`)
+- Homebrew tap: `mehmetsagir/toolify` formula
 - DMG and ZIP artifacts for macOS arm64/x64
-- Not code-signed (user must bypass Gatekeeper)
+- Not code-signed (user must bypass Gatekeeper with right-click > Open)
+- Version display and GitHub link shown in settings UI
+
+## Important Development Notes
+
+### Electron Builder Configuration
+
+The `electron-builder.yml` file contains critical exclusion patterns to keep bundle size small:
+
+- Excludes ALL model files (`*.bin`, `*.ggml`, etc.) - models downloaded post-install only
+- Excludes whisper-node dev dependencies - only dist files and executables copied via prebuild script
+- Unpacks `resources/**`, `build/whisper-node-dist/**`, and `build/whisper-executables/**` from ASAR
+
+### Recent Architectural Changes
+
+- **Dock Icon Feature Removed** (commit 3de81e6): The `showDockIcon` setting was removed from the codebase. Don't re-implement unless explicitly requested.
+- **API Key Security Enhancement** (commit c69d49d): API keys now encrypted with Electron `safeStorage` instead of plain text storage
+- **Metal GPU Acceleration** (commit b85cb65): Added `ggml-metal.metal` library for Apple Silicon GPU acceleration on local models
+- **Tailwind Design Tokens** (commit 484660d): Extended design system with custom tokens - follow existing patterns in `tailwind.config.js`
+
+### IPC Communication Pattern
+
+All renderer → main communication follows this pattern:
+
+1. Define types in `src/shared/types/`
+2. Expose methods in `src/preload/index.ts` via `contextBridge`
+3. Implement handlers in `src/main/index.ts` via `ipcMain.on()` or `ipcMain.handle()`
+4. Call from renderer via `window.api.[method]()`
+
+Never bypass this pattern or directly access Node.js APIs from renderer.
