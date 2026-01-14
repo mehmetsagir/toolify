@@ -13,3 +13,4 @@ build
 *.key
 config.json
 secrets.json
+.claude
