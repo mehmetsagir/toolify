@@ -44,6 +44,7 @@ export function createMainWindow(): BrowserWindow {
     transparent: true,
     skipTaskbar: true,
     alwaysOnTop: false,
+    focusable: false, // Prevent window from stealing focus
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

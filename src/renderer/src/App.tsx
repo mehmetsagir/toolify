@@ -505,7 +505,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -525,7 +524,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -545,7 +543,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -565,7 +562,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -585,7 +581,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -605,7 +600,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -625,7 +619,6 @@ function App(): React.JSX.Element {
               val,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -645,7 +638,6 @@ function App(): React.JSX.Element {
               soundAlert,
               val,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -665,7 +657,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               val,
-
               showRecordingOverlay,
               overlayStyle,
               useLocalModel,
@@ -685,7 +676,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               val,
               overlayStyle,
               useLocalModel,
