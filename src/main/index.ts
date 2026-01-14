@@ -54,6 +54,19 @@ import {
 } from './auto-updater'
 import { uIOhook } from 'uiohook-napi'
 
+// Set app name and process title immediately for macOS dock label
+// CRITICAL: Must be set before any Electron events to override default "Electron" name
+if (process.platform === 'darwin') {
+  app.setName('Toolify')
+  process.title = 'Toolify'
+
+  // Force set name in will-finish-launching event (earliest possible moment)
+  app.on('will-finish-launching', () => {
+    app.setName('Toolify')
+    process.title = 'Toolify'
+  })
+}
+
 let tray: Tray | null = null
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
@@ -153,6 +166,11 @@ function updateTrayIcon(
         }
 
         createRecordingOverlay()
+      } else {
+        // Even without overlay, hide app to prevent focus stealing on macOS
+        if (process.platform === 'darwin' && app.dock) {
+          app.hide()
+        }
       }
       break
     }
@@ -390,16 +408,25 @@ function createRecordingOverlay(): void {
     recordingOverlay = null
   })
 
-  // Set highest window level for macOS to ensure overlay stays on top
+  // Set window level for macOS - use floating instead of screen-saver to avoid stealing focus
   if (process.platform === 'darwin') {
     recordingOverlay.setWindowButtonVisibility(false)
-    // Use screen-saver level to stay above everything
+    // Use floating level - stays on top but doesn't steal focus
     // @ts-ignore - macOS specific API
-    recordingOverlay.setAlwaysOnTop(true, 'screen-saver')
+    recordingOverlay.setAlwaysOnTop(true, 'floating', 1)
   }
 
-  recordingOverlay.show()
+  // Show without activating to avoid stealing focus
+  recordingOverlay.showInactive()
+  // Make visible on all workspaces after showing to avoid focus issues
   recordingOverlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  // CRITICAL: Hide the app to prevent focus stealing on macOS
+  // The overlay remains visible because it has alwaysOnTop: true
+  // This prevents the settings window or any other window from coming to foreground
+  if (process.platform === 'darwin' && app.dock) {
+    app.hide()
+  }
 }
 
 function updateRecordingOverlayAudioLevel(data: OverlayAudioPayload | number): void {
@@ -523,7 +550,13 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.toolify.app')
 
   if (process.platform === 'darwin') {
+    // Set app name for macOS menu bar
     app.setName('Toolify')
+
+    // Set dock icon (used for About panel even when dock is hidden)
+    if (app.dock) {
+      app.dock.setIcon(icon)
+    }
 
     // Determine icon path for About panel
     let iconPathForAbout: string | undefined
@@ -563,6 +596,14 @@ app.whenReady().then(() => {
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
+
+  // Hide dock icon on startup - app runs in menu bar only
+  if (process.platform === 'darwin') {
+    const dock = app.dock
+    if (dock) {
+      dock.hide()
+    }
+  }
 
   setupAutoUpdater(mainWindow)
 
@@ -655,6 +696,12 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('stop-recording')
       }
     } else {
+      // CRITICAL: Hide app immediately to prevent focus stealing on macOS
+      // This must happen before any window operations
+      if (process.platform === 'darwin' && app.dock) {
+        app.hide()
+      }
+
       // Start recording
       if (!mainWindow || mainWindow.isDestroyed()) {
         createWindow()
