@@ -105,8 +105,8 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
               <div>
                 <p className="text-white text-sm font-medium">Processing Mode</p>
                 <p className="text-xs text-zinc-500">
-                  Seçtiğin moda göre ya cihazındaki Whisper modelini ya da OpenAI bulut servislerini
-                  kullanırız.
+                  Based on your choice, we use either the Whisper model on your device or OpenAI
+                  cloud services.
                 </p>
               </div>
             </div>
@@ -128,10 +128,10 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">Lokal Whisper</p>
+                  <p className="text-sm font-medium text-white">Local Whisper</p>
                   <p className="text-xs text-zinc-500">
-                    İnternete ihtiyaç duymadan cihazında çalışır. Bir model indirip hazır tutman
-                    gerekir.
+                    Works on your device without internet. You need to download and keep a model
+                    ready.
                   </p>
                 </div>
               </button>
@@ -152,10 +152,10 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">OpenAI Bulut</p>
+                  <p className="text-sm font-medium text-white">OpenAI Cloud</p>
                   <p className="text-xs text-zinc-500">
-                    OpenAI Whisper API&rsquo;sini kullanır. API Key gerekli ve veriler bulutta
-                    işlenir.
+                    Uses the OpenAI Whisper API. API Key required and data is processed in the
+                    cloud.
                   </p>
                 </div>
               </button>
@@ -165,27 +165,28 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
           {localUseLocalModel && (
             <div className="pt-4 mt-4 border-t border-white/5 space-y-4">
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-blue-300 text-xs font-medium mb-1">Yerel model hazırlığı</p>
+                <p className="text-blue-300 text-xs font-medium mb-1">Local Model Setup</p>
                 <p className="text-blue-200/80 text-xs leading-relaxed">
-                  Modelleri bir kez indirir ve `~/Library/Application Support/Toolify/models`
-                  dizininde saklarız. Aşağıdan kullanmak istediğin modeli seçip gerekirse indir.
+                  Models are downloaded once and stored in `~/Library/Application
+                  Support/Toolify/models`. Select the model you want to use below and download it if
+                  needed.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-                <span>Model seç, indir ve istersen önbellekten sil.</span>
+                <span>Select, download, or delete models from cache.</span>
                 <button
                   onClick={onOpenModelsFolder}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded-lg border border-white/10 text-zinc-300 hover:border-white/30 transition-colors"
                 >
-                  <FolderOpen size={12} /> Finder&rsquo;da Aç
+                  <FolderOpen size={12} /> Open in Finder
                 </button>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 {localModelsInfo.length === 0 && (
                   <p className="text-xs text-zinc-500">
-                    Modeller yükleniyor... Lütfen birazdan tekrar deneyin.
+                    Loading models... Please try again in a moment.
                   </p>
                 )}
                 {localModelsInfo.map((model) => {
@@ -217,8 +218,8 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                             <p className="text-sm text-white font-medium">{model.displayName}</p>
                             <p className="text-[11px] text-zinc-500">
                               {isReady
-                                ? `İndirildi • ${displaySize} MB`
-                                : `İndirilmeli • ${model.expectedSizeMB.toFixed(1)} MB`}
+                                ? `Downloaded • ${displaySize} MB`
+                                : `Not Downloaded • ${model.expectedSizeMB.toFixed(1)} MB`}
                             </p>
                           </div>
                         </label>
@@ -228,7 +229,7 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                             onClick={async () => {
                               if (
                                 confirm(
-                                  `${model.displayName} modelini silmek istiyor musun? Tekrar kullanmak için yeniden indirmen gerekir.`
+                                  `Delete ${model.displayName} model? You'll need to download it again to use it.`
                                 )
                               ) {
                                 await onDeleteModel(model.type)
@@ -245,7 +246,7 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[11px] text-blue-300">
                             <span className="flex items-center gap-1">
-                              <Loader2 size={11} className="animate-spin" /> İndiriliyor
+                              <Loader2 size={11} className="animate-spin" /> Downloading
                             </span>
                             <span>{progress.percent}%</span>
                           </div>
@@ -271,12 +272,12 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
                               onClick={() => onDownloadModel(model.type)}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/20 transition-colors"
                             >
-                              <Download size={12} /> Modeli İndir
+                              <Download size={12} /> Download Model
                             </button>
                           )}
                           {isReady ? (
                             <span className="flex items-center gap-1 text-green-400">
-                              <Check size={12} /> Hazır
+                              <Check size={12} /> Ready
                             </span>
                           ) : (
                             <span className="text-zinc-500">
