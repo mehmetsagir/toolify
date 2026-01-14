@@ -55,7 +55,10 @@ function getApiKey(): string {
       const buffer = Buffer.from(encryptedKey, 'base64')
       return safeStorage.decryptString(buffer)
     } catch (error) {
-      console.warn('Failed to decrypt API key:', error)
+      // Decryption failed - clear corrupted key and return empty string
+      // User will need to re-enter their API key
+      console.warn('Failed to decrypt API key, clearing corrupted key:', error)
+      store.delete(ENCRYPTED_API_KEY_KEY)
     }
   }
 
