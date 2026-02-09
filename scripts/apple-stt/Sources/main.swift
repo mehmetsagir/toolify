@@ -209,6 +209,7 @@ if streamMode {
     }
 
     do {
+        audioEngine.reset()
         audioEngine.prepare()
         try audioEngine.start()
     } catch {
