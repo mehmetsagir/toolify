@@ -12,7 +12,8 @@ let package = Package(
             path: "Sources",
             linkerSettings: [
                 .linkedFramework("Speech"),
-                .linkedFramework("Foundation")
+                .linkedFramework("Foundation"),
+                .linkedFramework("AVFoundation")
             ]
         )
     ]
