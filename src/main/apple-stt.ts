@@ -13,7 +13,7 @@ const isProductionBuild = (): boolean => {
   )
 }
 
-const getAppleSttPath = (): string => {
+export const getAppleSttPath = (): string => {
   const projectRoot = process.cwd()
   const buildPath = path.join(projectRoot, 'build', 'apple-stt', 'apple-stt')
 
@@ -53,7 +53,7 @@ const LANGUAGE_TO_LOCALE: Record<string, string> = {
   ar: 'ar-SA'
 }
 
-function getLocaleForLanguage(language?: string): string | undefined {
+export function getLocaleForLanguage(language?: string): string | undefined {
   if (!language || language === 'auto') return undefined
   return LANGUAGE_TO_LOCALE[language] || undefined
 }

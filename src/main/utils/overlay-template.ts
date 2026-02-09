@@ -548,7 +548,7 @@ export function getLargeOverlayHTML(): string {
       width: 100%;
       height: 100%;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
       background: transparent;
@@ -660,6 +660,30 @@ export function getLargeOverlayHTML(): string {
     }
     #waveformCanvas.hidden {
       display: none;
+    }
+
+    /* Transcription Section */
+    .transcription-section {
+      padding: 8px 16px;
+      max-height: 72px;
+      background: rgba(10, 11, 17, 0.88);
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .transcription-section::-webkit-scrollbar {
+      display: none;
+    }
+    .transcription-section.hidden {
+      display: none;
+    }
+    .transcription-text {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     /* Bottom Info Bar */
@@ -805,6 +829,10 @@ export function getLargeOverlayHTML(): string {
       </div>
     </div>
 
+    <div class="transcription-section hidden" id="transcriptionSection">
+      <span class="transcription-text" id="transcriptionText"></span>
+    </div>
+
     <div class="info-bar">
       <div class="status">
         <div class="status-dot" id="statusDot"></div>
@@ -831,6 +859,8 @@ export function getLargeOverlayHTML(): string {
       const statusDuration = document.getElementById('statusDuration');
       const loader = document.getElementById('loader');
       const successIndicator = document.getElementById('successIndicator');
+      const transcriptionSection = document.getElementById('transcriptionSection');
+      const transcriptionText = document.getElementById('transcriptionText');
       if (!canvas || !container || !statusDot || !statusText || !loader || !successIndicator) return;
       if (statusDuration) {
         statusDuration.textContent = '(00:00)';
@@ -1075,6 +1105,14 @@ export function getLargeOverlayHTML(): string {
         if (data && data.processing !== undefined) {
           isProcessing = data.processing;
           if (isProcessing) {
+            // Hide transcription when processing starts
+            if (transcriptionSection) {
+              transcriptionSection.classList.add('hidden');
+              requestAnimationFrame(function() {
+                var h = container.getBoundingClientRect().height;
+                ipcRenderer.send('overlay-resize-height', Math.ceil(h));
+              });
+            }
             // Only transition to processing if not in success state
             if (!isSuccessState) {
               setOverlayState('processing');
@@ -1100,6 +1138,11 @@ export function getLargeOverlayHTML(): string {
         successIndicator.classList.add('visible');
         resetSpectrum(0);
 
+        // Hide transcription on success
+        if (transcriptionSection) {
+          transcriptionSection.classList.add('hidden');
+        }
+
         // Cancel any pending fade-out when success is shown
         if (fadeOutTimeout) {
           clearTimeout(fadeOutTimeout);
@@ -1111,6 +1154,22 @@ export function getLargeOverlayHTML(): string {
           fadeOutTimeout = null;
           startFadeOut();
         }, SUCCESS_HOLD_MS);
+      });
+
+      ipcRenderer.on('transcription-update', (event, data) => {
+        if (!transcriptionSection || !transcriptionText) return;
+        if (data && typeof data.text === 'string' && data.text.length > 0) {
+          var wasHidden = transcriptionSection.classList.contains('hidden');
+          transcriptionSection.classList.remove('hidden');
+          transcriptionText.textContent = data.text;
+          // Auto-scroll to bottom
+          transcriptionSection.scrollTop = transcriptionSection.scrollHeight;
+          // Request window resize to fit content
+          requestAnimationFrame(function() {
+            var h = container.getBoundingClientRect().height;
+            ipcRenderer.send('overlay-resize-height', Math.ceil(h));
+          });
+        }
       });
 
       let fadeOutTimeout = null;

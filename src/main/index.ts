@@ -28,6 +28,12 @@ import {
   getModelsDir
 } from './local-whisper'
 import { transcribeAppleStt, checkAppleSttAvailability } from './apple-stt'
+import {
+  startAppleSttStream,
+  stopAppleSttStream,
+  killAppleSttStream,
+  getStreamResult
+} from './apple-stt-stream'
 import { Settings } from './types'
 import type { LocalModelType } from '../shared/types/local-models.types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
@@ -76,6 +82,7 @@ let overlayCloseTimeout: NodeJS.Timeout | null = null
 let overlayCloseDelayTimer: NodeJS.Timeout | null = null
 let overlaySuccessTimestamp: number | null = null
 let isRecording = false
+let appleSttStreamActive = false
 let keyboardHookEnabled = false
 const RECORDING_COOLDOWN_MS = 1000 // 1 second cooldown between recordings
 const RAPID_PRESS_PENALTY_MS = 1500 // 1.5 second penalty for rapid key presses
@@ -167,6 +174,23 @@ function updateTrayIcon(
         }
 
         createRecordingOverlay()
+
+        // Start live streaming if Apple STT + large overlay
+        if (
+          overlaySettings.transcriptionProvider === 'apple-stt' &&
+          overlaySettings.overlayStyle === 'large'
+        ) {
+          startAppleSttStream({ language: overlaySettings.sourceLanguage }, (text, isFinal) => {
+            if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+              try {
+                recordingOverlay.webContents.send('transcription-update', { text, isFinal })
+              } catch {
+                // Overlay might not be ready
+              }
+            }
+          })
+          appleSttStreamActive = true
+        }
       } else {
         // Even without overlay, hide app to prevent focus stealing on macOS
         if (process.platform === 'darwin' && app.dock) {
@@ -751,6 +775,12 @@ app.whenReady().then(() => {
         isInCooldown = false
       }, RECORDING_COOLDOWN_MS)
 
+      // Kill Apple STT stream if active
+      if (appleSttStreamActive) {
+        killAppleSttStream()
+        appleSttStreamActive = false
+      }
+
       // Unmute system
       unmuteSystem()
 
@@ -952,6 +982,22 @@ app.whenReady().then(() => {
     }
   })
 
+  // Dynamic overlay resize from transcription content
+  ipcMain.on('overlay-resize-height', (_, height: number) => {
+    if (recordingOverlay && !recordingOverlay.isDestroyed()) {
+      const bounds = recordingOverlay.getBounds()
+      const newHeight = Math.min(Math.max(Math.ceil(height), 96), 220)
+      if (bounds.height !== newHeight) {
+        recordingOverlay.setBounds({
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: newHeight
+        })
+      }
+    }
+  })
+
   // Send shortcut to overlay
   ipcMain.on('get-shortcut', () => {
     const settings = getSettings()
@@ -1133,6 +1179,22 @@ app.whenReady().then(() => {
 
       let text = ''
 
+      // If Apple STT stream was active, finalize it and use its result
+      let usedStreamResult = false
+      if (appleSttStreamActive && provider === 'apple-stt') {
+        try {
+          await stopAppleSttStream()
+          const streamResult = getStreamResult()
+          if (streamResult && streamResult.length > 0) {
+            text = streamResult
+            usedStreamResult = true
+          }
+        } catch (err) {
+          console.error('Failed to stop Apple STT stream:', err)
+        }
+        appleSttStreamActive = false
+      }
+
       switch (provider) {
         case 'local-whisper': {
           // For local model: translation requires API key
@@ -1175,13 +1237,40 @@ app.whenReady().then(() => {
         case 'apple-stt': {
           const shouldTranslate = settings.translate && !!settings.apiKey
 
-          text = await transcribeAppleStt(Buffer.from(buffer), {
-            translate: shouldTranslate,
-            language: settings.sourceLanguage,
-            sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage ?? 'en',
-            apiKey: settings.apiKey
-          })
+          if (!usedStreamResult) {
+            // Fall back to file-based transcription (stream not used or failed)
+            text = await transcribeAppleStt(Buffer.from(buffer), {
+              translate: shouldTranslate,
+              language: settings.sourceLanguage,
+              sourceLanguage: settings.sourceLanguage,
+              targetLanguage: settings.targetLanguage ?? 'en',
+              apiKey: settings.apiKey
+            })
+          } else if (shouldTranslate && text) {
+            // Stream provided raw text — still need to translate via GPT
+            const { getLanguageName, cleanTranslationText } =
+              await import('./utils/transcription-helpers')
+            const OpenAI = (await import('openai')).default
+            try {
+              const openai = new OpenAI({ apiKey: settings.apiKey })
+              const targetLangName = getLanguageName(settings.targetLanguage ?? 'en')
+              const translationResponse = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are a professional translator. Translate the following text to ${targetLangName}. The source language will be automatically detected from the text.\n\nImportant guidelines:\n- Understand the full meaning and context of what is being said\n- Provide a natural, fluent translation that sounds like it was originally written in ${targetLangName}\n- Do NOT translate word-for-word - translate meaning-for-meaning\n- Preserve the tone, style, and intent of the original\n- Do not add, remove, or change the meaning\n- Do not add any commentary, explanations, or metadata\n- Only return the translation itself, nothing else`
+                  },
+                  { role: 'user', content: text }
+                ],
+                temperature: 0.3
+              })
+              const translatedText = translationResponse.choices[0]?.message?.content || text
+              text = cleanTranslationText(translatedText) || text
+            } catch (error) {
+              console.error('Translation failed, returning original text:', error)
+            }
+          }
           break
         }
 
@@ -1419,6 +1508,10 @@ app.on('before-quit', () => {
   // If quitting for update, don't prevent default behavior
   if (getIsQuittingForUpdate()) {
     // Still clean up resources but don't prevent quit
+    if (appleSttStreamActive) {
+      killAppleSttStream()
+      appleSttStreamActive = false
+    }
     closeRecordingOverlay()
     globalShortcut.unregisterAll()
     // Stop keyboard hook if running
@@ -1432,6 +1525,10 @@ app.on('before-quit', () => {
   }
 
   // Normal quit - clean up everything
+  if (appleSttStreamActive) {
+    killAppleSttStream()
+    appleSttStreamActive = false
+  }
   closeRecordingOverlay()
 
   if (tray) {
