@@ -1,0 +1,455 @@
+---
+triple: 'arm64-apple-darwin'
+binary-path: '/Users/mehmetsagir/Developer/macos-apps/toolify/scripts/apple-stt/.build/arm64-apple-macosx/release/apple-stt'
+relocations:
+  - {
+      offset: 0xF19A4,
+      size: 0x8,
+      addend: 0x0,
+      symName: _apple_stt_main,
+      symObjAddr: 0x0,
+      symBinAddr: 0x100000E98,
+      symSize: 0x1430
+    }
+  - {
+      offset: 0xF19C8,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt17EXIT_SUCCESS_CODEs5Int32Vvp',
+      symObjAddr: 0xD5B0,
+      symBinAddr: 0x10000C0D8,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF19E2,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt18EXIT_GENERAL_ERRORs5Int32Vvp',
+      symObjAddr: 0xD5B4,
+      symBinAddr: 0x10000C0DC,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF19FC,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt22EXIT_PERMISSION_DENIEDs5Int32Vvp',
+      symObjAddr: 0xD5B8,
+      symBinAddr: 0x10000C0E0,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1A16,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt27EXIT_RECOGNIZER_UNAVAILABLEs5Int32Vvp',
+      symObjAddr: 0xD5BC,
+      symBinAddr: 0x10000C0E4,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1A30,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt19EXIT_FILE_NOT_FOUNDs5Int32Vvp',
+      symObjAddr: 0xD5C0,
+      symBinAddr: 0x10000C0E8,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1A4A,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt8filePathSSSgvp',
+      symObjAddr: 0xD5C8,
+      symBinAddr: 0x10000C0F0,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1A64,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt8languageSSSgvp',
+      symObjAddr: 0xD5D8,
+      symBinAddr: 0x10000C100,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1A7E,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt9checkModeSbvp',
+      symObjAddr: 0xD5E8,
+      symBinAddr: 0x10000C110,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1A98,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt4argss10ArraySliceVySSGvp',
+      symObjAddr: 0xD5F0,
+      symBinAddr: 0x10000C118,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1AB2,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt6locale10Foundation6LocaleVvp',
+      symObjAddr: 0xD610,
+      symBinAddr: 0x10000C138,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1ACC,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt10authStatusSo031SFSpeechRecognizerAuthorizationD0Vvp',
+      symObjAddr: 0xD628,
+      symBinAddr: 0x10000C150,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1AE6,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt7fileURL10Foundation0D0Vvp',
+      symObjAddr: 0xD630,
+      symBinAddr: 0x10000C158,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1B00,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt7requestSo29SFSpeechURLRecognitionRequestCvp',
+      symObjAddr: 0xD648,
+      symBinAddr: 0x10000C170,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1B1A,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt20recognitionSemaphoreSo21OS_dispatch_semaphoreCvp',
+      symObjAddr: 0xD650,
+      symBinAddr: 0x10000C178,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1B34,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt19transcriptionResultSSSgvp',
+      symObjAddr: 0xD658,
+      symBinAddr: 0x10000C180,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1B4E,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt16recognitionErrors0D0_pSgvp',
+      symObjAddr: 0xD668,
+      symBinAddr: 0x10000C190,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1B68,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt18recognitionTimeout8Dispatch0E4TimeVvp',
+      symObjAddr: 0xD670,
+      symBinAddr: 0x10000C198,
+      symSize: 0x0
+    }
+  - {
+      offset: 0xF1D36,
+      size: 0x8,
+      addend: 0x0,
+      symName: _apple_stt_main,
+      symObjAddr: 0x0,
+      symBinAddr: 0x100000E98,
+      symSize: 0x1430
+    }
+  - {
+      offset: 0xF2A4E,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_stt10printUsageyyF',
+      symObjAddr: 0x1430,
+      symBinAddr: 0x1000022C8,
+      symSize: 0x338
+    }
+  - {
+      offset: 0xF2B16,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s9apple_sttySo25SFSpeechRecognitionResultCSg_s5Error_pSgtcfU_',
+      symObjAddr: 0x1768,
+      symBinAddr: 0x100002600,
+      symSize: 0x110
+    }
+  - {
+      offset: 0xF2B64,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$sSo25SFSpeechRecognitionResultCSgs5Error_pSgIeggg_ACSo7NSErrorCSgIeyByy_TR',
+      symObjAddr: 0x1878,
+      symBinAddr: 0x100002710,
+      symSize: 0x78
+    }
+  - {
+      offset: 0xF2C6B,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV15_RepresentationOWOe',
+      symObjAddr: 0x1DE4,
+      symBinAddr: 0x100002C7C,
+      symSize: 0x40
+    }
+  - {
+      offset: 0xF2C7F,
+      size: 0x8,
+      addend: 0x0,
+      symName: ___swift_allocate_value_buffer,
+      symObjAddr: 0x1E24,
+      symBinAddr: 0x100002CBC,
+      symSize: 0x40
+    }
+  - {
+      offset: 0xF2C93,
+      size: 0x8,
+      addend: 0x0,
+      symName: ___swift_project_value_buffer,
+      symObjAddr: 0x1E64,
+      symBinAddr: 0x100002CFC,
+      symSize: 0x18
+    }
+  - {
+      offset: 0xF2CA7,
+      size: 0x8,
+      addend: 0x0,
+      symName: ___swift_instantiateConcreteTypeFromMangledNameV2,
+      symObjAddr: 0x1E7C,
+      symBinAddr: 0x100002D14,
+      symSize: 0x44
+    }
+  - {
+      offset: 0xF2CBB,
+      size: 0x8,
+      addend: 0x0,
+      symName: _block_copy_helper,
+      symObjAddr: 0x1EC0,
+      symBinAddr: 0x100002D58,
+      symSize: 0x10
+    }
+  - {
+      offset: 0xF2CCF,
+      size: 0x8,
+      addend: 0x0,
+      symName: _block_destroy_helper,
+      symObjAddr: 0x1ED0,
+      symBinAddr: 0x100002D68,
+      symSize: 0x8
+    }
+  - {
+      offset: 0xF2CE3,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$sS2SSysWl',
+      symObjAddr: 0x1ED8,
+      symBinAddr: 0x100002D70,
+      symSize: 0x40
+    }
+  - {
+      offset: 0xF2CF7,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s8Dispatch0A4TimeVACSLAAWl',
+      symObjAddr: 0x1F18,
+      symBinAddr: 0x100002DB0,
+      symSize: 0x44
+    }
+  - {
+      offset: 0xF2D0B,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation15ContiguousBytes_pSgWOh',
+      symObjAddr: 0x1F5C,
+      symBinAddr: 0x100002DF4,
+      symSize: 0x48
+    }
+  - {
+      offset: 0xF2D96,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV15_RepresentationO22withUnsafeMutableBytesyxxSwKXEKlFs16IndexingIteratorVySS8UTF8ViewVG_Sit_Tg5',
+      symObjAddr: 0x1FA4,
+      symBinAddr: 0x100002E3C,
+      symSize: 0x398
+    }
+  - {
+      offset: 0xF2EC9,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataVyACxcSTRzs5UInt8V7ElementRtzlufcAC15_RepresentationOSWXEfU_',
+      symObjAddr: 0x233C,
+      symBinAddr: 0x1000031D4,
+      symSize: 0x8C
+    }
+  - {
+      offset: 0xF2F3E,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$sSw17withMemoryRebound2to_q0_xm_q0_SryxGq_YKXEtq_YKs5ErrorR_Ri_zRi_0_r1_lFs5UInt8V_s5NeverOs16IndexingIteratorVySS8UTF8ViewVG_SitTt1g5',
+      symObjAddr: 0x23C8,
+      symBinAddr: 0x100003260,
+      symSize: 0x60
+    }
+  - {
+      offset: 0xF2F71,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation13__DataStorageC22withUnsafeMutableBytes2in5applyxSnySiG_xSwKXEtKlFs16IndexingIteratorVySS8UTF8ViewVG_Sit_Tg5',
+      symObjAddr: 0x2428,
+      symBinAddr: 0x1000032C0,
+      symSize: 0xAC
+    }
+  - {
+      offset: 0xF2FB0,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$ss11_StringGutsV27_slowEnsureMatchingEncodingySS5IndexVAEF',
+      symObjAddr: 0x24D4,
+      symBinAddr: 0x10000336C,
+      symSize: 0x78
+    }
+  - {
+      offset: 0xF2FE5,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataVyACxcSTRzs5UInt8V7ElementRtzlufc8IteratorQz_SitSwXEfU1_AI_SitSryAEGXEfU_SS8UTF8ViewV_TG5',
+      symObjAddr: 0x254C,
+      symBinAddr: 0x1000033E4,
+      symSize: 0x4C
+    }
+  - {
+      offset: 0xF3072,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV06InlineB0VyAESWcfCTf4nd_n',
+      symObjAddr: 0x2598,
+      symBinAddr: 0x100003430,
+      symSize: 0xB4
+    }
+  - {
+      offset: 0xF30F5,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV10LargeSliceVyAESWcfCTf4nd_n',
+      symObjAddr: 0x264C,
+      symBinAddr: 0x1000034E4,
+      symSize: 0x78
+    }
+  - {
+      offset: 0xF3122,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV11InlineSliceVyAESWcfCTf4nd_n',
+      symObjAddr: 0x26C4,
+      symBinAddr: 0x10000355C,
+      symSize: 0x80
+    }
+  - {
+      offset: 0xF3177,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV15_RepresentationOyAESWcfCTf4nd_n',
+      symObjAddr: 0x2744,
+      symBinAddr: 0x1000035DC,
+      symSize: 0x64
+    }
+  - {
+      offset: 0xF31C8,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV15_RepresentationO5countAESi_tcfCTf4nd_n',
+      symObjAddr: 0x27A8,
+      symBinAddr: 0x100003640,
+      symSize: 0x9C
+    }
+  - {
+      offset: 0xF3233,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataVyACxcSTRzs5UInt8V7ElementRtzlufc8IteratorQz_SitSwXEfU1_SS8UTF8ViewV_TG5TA',
+      symObjAddr: 0x2844,
+      symBinAddr: 0x1000036DC,
+      symSize: 0x58
+    }
+  - {
+      offset: 0xF3271,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV15_RepresentationOWOy',
+      symObjAddr: 0x289C,
+      symBinAddr: 0x100003734,
+      symSize: 0x40
+    }
+  - {
+      offset: 0xF3285,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataV15_RepresentationOSgWOe',
+      symObjAddr: 0x28DC,
+      symBinAddr: 0x100003774,
+      symSize: 0x14
+    }
+  - {
+      offset: 0xF3299,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation15ContiguousBytes_pWOb',
+      symObjAddr: 0x28F0,
+      symBinAddr: 0x100003788,
+      symSize: 0x18
+    }
+  - {
+      offset: 0xF32AD,
+      size: 0x8,
+      addend: 0x0,
+      symName: ___swift_project_boxed_opaque_existential_1,
+      symObjAddr: 0x2908,
+      symBinAddr: 0x1000037A0,
+      symSize: 0x24
+    }
+  - {
+      offset: 0xF32C1,
+      size: 0x8,
+      addend: 0x0,
+      symName: ___swift_destroy_boxed_opaque_existential_1,
+      symObjAddr: 0x292C,
+      symBinAddr: 0x1000037C4,
+      symSize: 0x20
+    }
+  - {
+      offset: 0xF32D5,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataVyACxcSTRzs5UInt8V7ElementRtzlufc8IteratorQz_SitSwXEfU1_AI_SitSryAEGXEfU_SS8UTF8ViewV_TG5TA',
+      symObjAddr: 0x294C,
+      symBinAddr: 0x1000037E4,
+      symSize: 0x1C
+    }
+  - {
+      offset: 0xF3715,
+      size: 0x8,
+      addend: 0x0,
+      symName: '_$s10Foundation4DataVyACxcSTRzs5UInt8V7ElementRtzlufCSS8UTF8ViewV_Tt0g5',
+      symObjAddr: 0x18F0,
+      symBinAddr: 0x100002788,
+      symSize: 0x4F4
+    }
+...
