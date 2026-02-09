@@ -34,7 +34,7 @@ export function getCompactOverlayHTML(): string {
       align-items: center;
       justify-content: center;
       opacity: 0;
-      animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      animation: fadeIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       -webkit-app-region: drag;
       cursor: grab;
@@ -53,25 +53,25 @@ export function getCompactOverlayHTML(): string {
     @keyframes fadeIn {
       0% {
         opacity: 0;
-        transform: translateY(-10px) scale(0.95);
+        transform: scale(0);
       }
       100% {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: scale(1);
       }
     }
     @keyframes fadeOut {
       0% {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: scale(1);
       }
       100% {
         opacity: 0;
-        transform: translateY(-10px) scale(0.95);
+        transform: scale(0);
       }
     }
     .waveform-container.fade-out {
-      animation: fadeOut 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      animation: fadeOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
     }
     canvas {
       width: 100%;
@@ -562,7 +562,7 @@ export function getLargeOverlayHTML(): string {
       border-radius: 18px;
       box-shadow: 0 22px 58px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.015);
       opacity: 0;
-      animation: slideUp 0.3s ease-out forwards;
+      animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
       -webkit-app-region: drag;
       user-select: none;
       position: relative;
@@ -611,21 +611,21 @@ export function getLargeOverlayHTML(): string {
     @keyframes slideUp {
       0% {
         opacity: 0;
-        transform: translateY(10px);
+        transform: scale(0);
       }
       100% {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1);
       }
     }
     @keyframes fadeOut {
       to {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: scale(0);
       }
     }
     .overlay-container.fade-out {
-      animation: fadeOut 0.3s ease-out forwards;
+      animation: fadeOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
     }
 
     /* Waveform Section */

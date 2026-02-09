@@ -313,7 +313,7 @@ function createRecordingOverlay(): void {
   let x = displayX + screenWidth - overlayWidth - rightPadding
   let y = displayY + topPadding
 
-  // For large overlay, center it at top instead of right-aligned
+  // For large/dynamic overlay, center it at top instead of right-aligned
   if (isLarge) {
     x = displayX + (screenWidth - overlayWidth) / 2
   }
