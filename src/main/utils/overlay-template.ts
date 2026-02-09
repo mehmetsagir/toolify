@@ -61,11 +61,11 @@ export function getCompactOverlayHTML(): string {
       }
     }
     @keyframes fadeOut {
-      0% {
+      from {
         opacity: 1;
         transform: scale(1);
       }
-      100% {
+      to {
         opacity: 0;
         transform: scale(0);
       }
@@ -619,6 +619,10 @@ export function getLargeOverlayHTML(): string {
       }
     }
     @keyframes fadeOut {
+      from {
+        opacity: 1;
+        transform: scale(1);
+      }
       to {
         opacity: 0;
         transform: scale(0);
