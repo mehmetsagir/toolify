@@ -1138,9 +1138,13 @@ export function getLargeOverlayHTML(): string {
         successIndicator.classList.add('visible');
         resetSpectrum(0);
 
-        // Hide transcription on success
+        // Hide transcription on success and shrink overlay back
         if (transcriptionSection) {
           transcriptionSection.classList.add('hidden');
+          requestAnimationFrame(function() {
+            var h = container.getBoundingClientRect().height;
+            ipcRenderer.send('overlay-resize-height', Math.ceil(h));
+          });
         }
 
         // Cancel any pending fade-out when success is shown
