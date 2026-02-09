@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Key,
   Languages,
@@ -11,9 +11,14 @@ import {
   Loader2,
   FolderOpen,
   Cpu,
-  Cloud
+  Cloud,
+  Mic
 } from 'lucide-react'
-import type { LocalModelInfo, LocalModelType } from '../../../../shared/types'
+import type {
+  LocalModelInfo,
+  LocalModelType,
+  TranscriptionProvider
+} from '../../../../shared/types'
 
 type ModelDownloadStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'missing'
 
@@ -42,8 +47,8 @@ interface DictationSettingsProps {
   setLocalShowRecordingOverlay: (val: boolean) => void
   localOverlayStyle: 'compact' | 'large'
   setLocalOverlayStyle: (val: 'compact' | 'large') => void
-  localUseLocalModel: boolean
-  setLocalUseLocalModel: (val: boolean) => void
+  localTranscriptionProvider: TranscriptionProvider
+  setLocalTranscriptionProvider: (val: TranscriptionProvider) => void
   localLocalModelType: LocalModelType
 }
 
@@ -69,10 +74,33 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
   setLocalShowRecordingOverlay,
   localOverlayStyle,
   setLocalOverlayStyle,
-  localUseLocalModel,
-  setLocalUseLocalModel,
+  localTranscriptionProvider,
+  setLocalTranscriptionProvider,
   localLocalModelType
 }) => {
+  const [appleSttStatus, setAppleSttStatus] = useState<{
+    available: boolean
+    permissionGranted: boolean
+    checking: boolean
+  }>({ available: false, permissionGranted: false, checking: false })
+
+  useEffect(() => {
+    if (localTranscriptionProvider === 'apple-stt') {
+      setAppleSttStatus((prev) => ({ ...prev, checking: true }))
+      window.api
+        ?.checkAppleStt?.()
+        .then((result) => {
+          setAppleSttStatus({
+            available: result?.available ?? false,
+            permissionGranted: result?.permissionGranted ?? false,
+            checking: false
+          })
+        })
+        .catch(() => {
+          setAppleSttStatus({ available: false, permissionGranted: false, checking: false })
+        })
+    }
+  }, [localTranscriptionProvider])
   const overlayStyleOptions: Array<{
     value: 'compact' | 'large'
     label: string
@@ -105,64 +133,92 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
               <div>
                 <p className="text-white text-sm font-medium">Processing Mode</p>
                 <p className="text-xs text-zinc-500">
-                  Based on your choice, we use either the Whisper model on your device or OpenAI
-                  cloud services.
+                  Choose how your voice recordings are transcribed.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
               <button
-                onClick={() => setLocalUseLocalModel(true)}
+                onClick={() => setLocalTranscriptionProvider('local-whisper')}
                 className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-all text-left ${
-                  localUseLocalModel
+                  localTranscriptionProvider === 'local-whisper'
                     ? 'border-blue-400/60 bg-blue-500/10'
                     : 'border-white/10 bg-black/20 hover:border-white/30'
                 }`}
               >
                 <div
-                  className={`p-2 rounded-full ${localUseLocalModel ? 'bg-blue-500/20' : 'bg-white/10'}`}
+                  className={`p-2 rounded-full ${localTranscriptionProvider === 'local-whisper' ? 'bg-blue-500/20' : 'bg-white/10'}`}
                 >
                   <Cpu
                     size={16}
-                    className={localUseLocalModel ? 'text-blue-300' : 'text-zinc-400'}
+                    className={
+                      localTranscriptionProvider === 'local-whisper'
+                        ? 'text-blue-300'
+                        : 'text-zinc-400'
+                    }
                   />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-white">Local Whisper</p>
                   <p className="text-xs text-zinc-500">
-                    Works on your device without internet. You need to download and keep a model
-                    ready.
+                    Works on your device without internet. Requires a model download.
                   </p>
                 </div>
               </button>
               <button
-                onClick={() => setLocalUseLocalModel(false)}
+                onClick={() => setLocalTranscriptionProvider('openai')}
                 className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-all text-left ${
-                  !localUseLocalModel
+                  localTranscriptionProvider === 'openai'
                     ? 'border-blue-400/60 bg-blue-500/10'
                     : 'border-white/10 bg-black/20 hover:border-white/30'
                 }`}
               >
                 <div
-                  className={`p-2 rounded-full ${!localUseLocalModel ? 'bg-blue-500/20' : 'bg-white/10'}`}
+                  className={`p-2 rounded-full ${localTranscriptionProvider === 'openai' ? 'bg-blue-500/20' : 'bg-white/10'}`}
                 >
                   <Cloud
                     size={16}
-                    className={!localUseLocalModel ? 'text-blue-300' : 'text-zinc-400'}
+                    className={
+                      localTranscriptionProvider === 'openai' ? 'text-blue-300' : 'text-zinc-400'
+                    }
                   />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-white">OpenAI Cloud</p>
                   <p className="text-xs text-zinc-500">
-                    Uses the OpenAI Whisper API. API Key required and data is processed in the
-                    cloud.
+                    Uses the OpenAI Whisper API. API Key required.
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => setLocalTranscriptionProvider('apple-stt')}
+                className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-all text-left ${
+                  localTranscriptionProvider === 'apple-stt'
+                    ? 'border-blue-400/60 bg-blue-500/10'
+                    : 'border-white/10 bg-black/20 hover:border-white/30'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-full ${localTranscriptionProvider === 'apple-stt' ? 'bg-blue-500/20' : 'bg-white/10'}`}
+                >
+                  <Mic
+                    size={16}
+                    className={
+                      localTranscriptionProvider === 'apple-stt' ? 'text-blue-300' : 'text-zinc-400'
+                    }
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">Apple Speech</p>
+                  <p className="text-xs text-zinc-500">
+                    Uses macOS built-in speech recognition. No API key or model download needed.
                   </p>
                 </div>
               </button>
             </div>
           </div>
 
-          {localUseLocalModel && (
+          {localTranscriptionProvider === 'local-whisper' && (
             <div className="pt-4 mt-4 border-t border-white/5 space-y-4">
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                 <p className="text-blue-300 text-xs font-medium mb-1">Local Model Setup</p>
@@ -292,10 +348,42 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
               </div>
             </div>
           )}
+
+          {localTranscriptionProvider === 'apple-stt' && (
+            <div className="pt-4 mt-4 border-t border-white/5 space-y-3">
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-blue-300 text-xs font-medium mb-1">Apple Speech Recognition</p>
+                <p className="text-blue-200/80 text-xs leading-relaxed">
+                  Uses macOS built-in on-device speech recognition (SFSpeechRecognizer). No API key
+                  or model download required. Speech Recognition permission is needed.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                {appleSttStatus.checking ? (
+                  <span className="flex items-center gap-1 text-zinc-400">
+                    <Loader2 size={12} className="animate-spin" /> Checking status...
+                  </span>
+                ) : appleSttStatus.permissionGranted && appleSttStatus.available ? (
+                  <span className="flex items-center gap-1 text-green-400">
+                    <Check size={12} /> Ready
+                  </span>
+                ) : !appleSttStatus.permissionGranted ? (
+                  <span className="text-amber-400">
+                    Speech Recognition permission required. It will be requested on first use.
+                  </span>
+                ) : (
+                  <span className="text-amber-400">
+                    Speech recognizer not available for the current language.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* API Key (Only if not using local model) */}
-        {!localUseLocalModel && (
+        {/* API Key - show for OpenAI, or when translation is enabled (any provider needs it for GPT-4o-mini) */}
+        {(localTranscriptionProvider === 'openai' || localTranslate) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
               <Key size={12} />
@@ -311,7 +399,9 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
               />
             </div>
             <p className="text-[10px] text-zinc-600 px-1">
-              Required for speech transcription and translation
+              {localTranscriptionProvider === 'openai'
+                ? 'Required for speech transcription and translation'
+                : 'Required for translation (GPT-4o-mini)'}
             </p>
           </div>
         )}
@@ -379,7 +469,7 @@ export const DictationSettings: React.FC<DictationSettingsProps> = ({
         </div>
 
         {/* Spoken Language */}
-        {(!localUseLocalModel || localTranslate) && (
+        {(localTranscriptionProvider !== 'local-whisper' || localTranslate) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
               <Languages size={12} />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Status } from './components/Status'
 import { Settings } from './components/Settings'
-import type { LocalModelType } from '../../shared/types'
+import type { LocalModelType, TranscriptionProvider } from '../../shared/types'
 
 function App(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'recording' | 'processing'>('idle')
@@ -18,7 +18,8 @@ function App(): React.JSX.Element {
   const [autoStart, setAutoStart] = useState(true)
   const [showRecordingOverlay, setShowRecordingOverlay] = useState(true)
   const [overlayStyle, setOverlayStyle] = useState<'compact' | 'large'>('compact')
-  const [useLocalModel, setUseLocalModel] = useState(false)
+  const [transcriptionProvider, setTranscriptionProvider] =
+    useState<TranscriptionProvider>('openai')
   const [localModelType, setLocalModelType] = useState<LocalModelType>('base')
 
   const [audioLevel, setAudioLevel] = useState(0)
@@ -59,7 +60,7 @@ function App(): React.JSX.Element {
           setAutoStart(settings.autoStart !== false)
           setShowRecordingOverlay(settings.showRecordingOverlay !== false)
           setOverlayStyle(settings.overlayStyle || 'compact')
-          setUseLocalModel(settings.useLocalModel || false)
+          setTranscriptionProvider(settings.transcriptionProvider || 'openai')
           setLocalModelType((settings.localModelType as LocalModelType) || 'base')
         })
         .catch((error) => {
@@ -73,7 +74,7 @@ function App(): React.JSX.Element {
           setAutoStart(true)
           setShowRecordingOverlay(true)
           setOverlayStyle('compact')
-          setUseLocalModel(false)
+          setTranscriptionProvider('openai')
           setLocalModelType('base')
         })
     }
@@ -149,7 +150,7 @@ function App(): React.JSX.Element {
     newAutoStart: boolean,
     newShowRecordingOverlay: boolean,
     newOverlayStyle: 'compact' | 'large',
-    newUseLocalModel: boolean,
+    newTranscriptionProvider: TranscriptionProvider,
     newLocalModelType: LocalModelType
   ): void => {
     setApiKey(newKey)
@@ -164,7 +165,7 @@ function App(): React.JSX.Element {
     setAutoStart(newAutoStart)
     setShowRecordingOverlay(newShowRecordingOverlay)
     setOverlayStyle(newOverlayStyle)
-    setUseLocalModel(newUseLocalModel)
+    setTranscriptionProvider(newTranscriptionProvider)
     setLocalModelType(newLocalModelType)
     window.api.saveSettings({
       apiKey: newKey,
@@ -180,7 +181,7 @@ function App(): React.JSX.Element {
       autoStart: newAutoStart,
       showRecordingOverlay: newShowRecordingOverlay,
       overlayStyle: newOverlayStyle,
-      useLocalModel: newUseLocalModel,
+      transcriptionProvider: newTranscriptionProvider,
       localModelType: newLocalModelType
     })
   }
@@ -274,7 +275,7 @@ function App(): React.JSX.Element {
     try {
       // Check if API key is required and present
       const settings = await window.api.getSettings()
-      if (!settings.useLocalModel && !settings.apiKey) {
+      if (settings.transcriptionProvider === 'openai' && !settings.apiKey) {
         new Notification('Toolify Error', { body: 'API Key required for cloud transcription' })
         return
       }
@@ -507,7 +508,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -526,7 +527,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -545,7 +546,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -564,7 +565,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -583,7 +584,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -602,7 +603,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -621,7 +622,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -640,7 +641,7 @@ function App(): React.JSX.Element {
               autoStart,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -659,7 +660,7 @@ function App(): React.JSX.Element {
               val,
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
@@ -678,12 +679,12 @@ function App(): React.JSX.Element {
               autoStart,
               val,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }
-          useLocalModel={useLocalModel}
-          setUseLocalModel={(val) =>
+          transcriptionProvider={transcriptionProvider}
+          setTranscriptionProvider={(val) =>
             saveSettings(
               apiKey,
               translate,
@@ -695,7 +696,6 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
               val,
@@ -715,10 +715,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               overlayStyle,
-              useLocalModel,
+              transcriptionProvider,
               val
             )
           }
@@ -735,10 +734,9 @@ function App(): React.JSX.Element {
               soundAlert,
               soundType,
               autoStart,
-
               showRecordingOverlay,
               val,
-              useLocalModel,
+              transcriptionProvider,
               localModelType
             )
           }

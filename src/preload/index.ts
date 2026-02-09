@@ -112,6 +112,10 @@ const api = {
     ipcRenderer.invoke('delete-local-model', modelType),
   getLocalModelsInfo: (): Promise<LocalModelInfo[]> => ipcRenderer.invoke('get-local-models-info'),
   openModelsFolder: (): Promise<string> => ipcRenderer.invoke('open-models-folder'),
+  checkAppleStt: (
+    language?: string
+  ): Promise<{ available: boolean; permissionGranted: boolean; supportsOnDevice?: boolean }> =>
+    ipcRenderer.invoke('check-apple-stt', language),
   getVersion: (): Promise<string> => ipcRenderer.invoke('get-version'),
   openExternal: (url: string): void => ipcRenderer.send('open-external', url),
   onModelDownloadProgress: (

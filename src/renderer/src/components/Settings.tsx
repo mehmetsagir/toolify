@@ -6,7 +6,7 @@ import { GeneralSettings } from './settings/GeneralSettings'
 import { DictationSettings } from './settings/DictationSettings'
 import { AudioSettings } from './settings/AudioSettings'
 import appIcon from '../assets/app-icon.png'
-import type { LocalModelInfo, LocalModelType } from '../../../shared/types'
+import type { LocalModelInfo, LocalModelType, TranscriptionProvider } from '../../../shared/types'
 
 type ModelDownloadStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'missing'
 
@@ -59,8 +59,8 @@ interface SettingsProps {
   setShowRecordingOverlay: (val: boolean) => void
   overlayStyle: 'compact' | 'large'
   setOverlayStyle: (val: 'compact' | 'large') => void
-  useLocalModel: boolean
-  setUseLocalModel: (val: boolean) => void
+  transcriptionProvider: TranscriptionProvider
+  setTranscriptionProvider: (val: TranscriptionProvider) => void
   localModelType: LocalModelType
   setLocalModelType: (val: LocalModelType) => void
 }
@@ -88,8 +88,8 @@ export const Settings: React.FC<SettingsProps> = ({
   setShowRecordingOverlay,
   overlayStyle: initialOverlayStyle,
   setOverlayStyle,
-  useLocalModel: initialUseLocalModel,
-  setUseLocalModel,
+  transcriptionProvider: initialTranscriptionProvider,
+  setTranscriptionProvider,
   localModelType: initialLocalModelType,
   setLocalModelType
 }) => {
@@ -110,7 +110,8 @@ export const Settings: React.FC<SettingsProps> = ({
   const [localOverlayStyle, setLocalOverlayStyle] = useState<'compact' | 'large'>(
     initialOverlayStyle || 'compact'
   )
-  const [localUseLocalModel, setLocalUseLocalModel] = useState(initialUseLocalModel || false)
+  const [localTranscriptionProvider, setLocalTranscriptionProvider] =
+    useState<TranscriptionProvider>(initialTranscriptionProvider || 'openai')
   const [localLocalModelType, setLocalLocalModelType] = useState<LocalModelType>(
     initialLocalModelType || 'base'
   )
@@ -262,16 +263,16 @@ export const Settings: React.FC<SettingsProps> = ({
     }
   }, [])
 
-  const handleSetUseLocalModel = useCallback(
-    (value: boolean) => {
-      setLocalUseLocalModel(value)
-      setUseLocalModel(value)
+  const handleSetTranscriptionProvider = useCallback(
+    (value: TranscriptionProvider) => {
+      setLocalTranscriptionProvider(value)
+      setTranscriptionProvider(value)
       // When switching to local model, refresh model info to update status
-      if (value) {
+      if (value === 'local-whisper') {
         refreshLocalModelsInfo()
       }
     },
-    [setUseLocalModel, refreshLocalModelsInfo]
+    [setTranscriptionProvider, refreshLocalModelsInfo]
   )
 
   const handleSetLocalModelType = useCallback(
@@ -402,15 +403,13 @@ export const Settings: React.FC<SettingsProps> = ({
     return removeListener
   }, [refreshLocalModelsInfo, setProgressForModel, setStatusForModel])
 
-  // Check model status when toggle is on or model type changes
+  // Check model status when local-whisper is selected or model type changes
   useEffect(() => {
-    if (localUseLocalModel) {
-      // Check selected model
+    if (localTranscriptionProvider === 'local-whisper') {
       checkModelStatus(localLocalModelType)
-      // Also refresh all models info to update status map
       refreshLocalModelsInfo()
     }
-  }, [checkModelStatus, localLocalModelType, localUseLocalModel, refreshLocalModelsInfo])
+  }, [checkModelStatus, localLocalModelType, localTranscriptionProvider, refreshLocalModelsInfo])
 
   useEffect(() => {
     setLocalKey(initialKey)
@@ -424,7 +423,7 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalAutoStart(initialAutoStart !== false)
     setLocalShowRecordingOverlay(initialShowRecordingOverlay !== false)
     setLocalOverlayStyle(initialOverlayStyle || 'compact')
-    setLocalUseLocalModel(initialUseLocalModel || false)
+    setLocalTranscriptionProvider(initialTranscriptionProvider || 'openai')
     setLocalLocalModelType(initialLocalModelType || 'base')
   }, [
     initialKey,
@@ -438,7 +437,7 @@ export const Settings: React.FC<SettingsProps> = ({
     initialAutoStart,
     initialShowRecordingOverlay,
     initialOverlayStyle,
-    initialUseLocalModel,
+    initialTranscriptionProvider,
     initialLocalModelType
   ])
 
@@ -752,8 +751,8 @@ export const Settings: React.FC<SettingsProps> = ({
                   setLocalShowRecordingOverlay={handleSetShowRecordingOverlay}
                   localOverlayStyle={localOverlayStyle}
                   setLocalOverlayStyle={handleSetOverlayStyle}
-                  localUseLocalModel={localUseLocalModel}
-                  setLocalUseLocalModel={handleSetUseLocalModel}
+                  localTranscriptionProvider={localTranscriptionProvider}
+                  setLocalTranscriptionProvider={handleSetTranscriptionProvider}
                   localLocalModelType={localLocalModelType}
                 />
               )}

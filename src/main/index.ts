@@ -27,6 +27,7 @@ import {
   getLocalModelsInfo,
   getModelsDir
 } from './local-whisper'
+import { transcribeAppleStt, checkAppleSttAvailability } from './apple-stt'
 import { Settings } from './types'
 import type { LocalModelType } from '../shared/types/local-models.types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
@@ -1090,6 +1091,10 @@ app.whenReady().then(() => {
     return dir
   })
 
+  ipcMain.handle('check-apple-stt', async (_, language?: string) => {
+    return checkAppleSttAvailability(language)
+  })
+
   ipcMain.handle('get-version', () => {
     return app.getVersion()
   })
@@ -1104,8 +1109,9 @@ app.whenReady().then(() => {
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
 
-    // Only require API key if using online model OR if translation is enabled (which needs API key)
-    if (!settings.useLocalModel && !settings.apiKey) {
+    // Only require API key if using OpenAI provider
+    const provider = settings.transcriptionProvider || 'openai'
+    if (provider === 'openai' && !settings.apiKey) {
       showNotification('Toolify Error', 'API Key required for online transcription.')
       updateTrayIcon('idle', settings.trayAnimations)
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1113,10 +1119,6 @@ app.whenReady().then(() => {
       }
       return
     }
-
-    // If using local model, API key is only required if translation is enabled
-    // Local model transcription works without API key
-    // We'll handle translation check inside transcribeLocal call
 
     updateTrayIcon('processing', settings.trayAnimations)
     if (settings.processNotifications) {
@@ -1131,60 +1133,79 @@ app.whenReady().then(() => {
 
       let text = ''
 
-      if (settings.useLocalModel) {
-        // For local model: translation requires API key
-        // If translation is enabled but no API key, disable translation and continue with transcription only
-        const shouldTranslate = settings.translate && !!settings.apiKey
+      switch (provider) {
+        case 'local-whisper': {
+          // For local model: translation requires API key
+          const shouldTranslate = settings.translate && !!settings.apiKey
 
-        // Verify model exists before attempting transcription
-        const modelType = settings.localModelType || 'medium'
-        console.log(
-          `Current settings - useLocalModel: ${settings.useLocalModel}, localModelType: ${settings.localModelType}`
-        )
-
-        const modelExists = await checkLocalModelExists(modelType)
-
-        if (!modelExists) {
-          const modelsDir = path.join(app.getPath('userData'), 'models')
-          console.error(
-            `Model not found. Expected path: ${path.join(modelsDir, `ggml-${modelType}.bin`)}`
+          // Verify model exists before attempting transcription
+          const modelType = settings.localModelType || 'medium'
+          console.log(
+            `Current settings - provider: ${provider}, localModelType: ${settings.localModelType}`
           )
 
-          const errorMsg = `Local model (${modelType}) not found. Please download the model in Settings.`
-          console.error(errorMsg)
-          showNotification('Toolify Error', errorMsg, true)
-          updateTrayIcon('idle', settings.trayAnimations)
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('processing-complete')
+          const modelExists = await checkLocalModelExists(modelType)
+
+          if (!modelExists) {
+            const modelsDir = path.join(app.getPath('userData'), 'models')
+            console.error(
+              `Model not found. Expected path: ${path.join(modelsDir, `ggml-${modelType}.bin`)}`
+            )
+
+            const errorMsg = `Local model (${modelType}) not found. Please download the model in Settings.`
+            console.error(errorMsg)
+            showNotification('Toolify Error', errorMsg, true)
+            updateTrayIcon('idle', settings.trayAnimations)
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('processing-complete')
+            }
+            return
           }
-          return
+
+          text = await transcribeLocal(Buffer.from(buffer), modelType, {
+            translate: shouldTranslate,
+            language: 'auto',
+            sourceLanguage: 'auto',
+            targetLanguage: settings.targetLanguage ?? 'en',
+            apiKey: settings.apiKey
+          })
+          break
         }
 
-        text = await transcribeLocal(Buffer.from(buffer), modelType, {
-          translate: shouldTranslate,
-          language: 'auto', // Force auto-detection for mixed language support
-          sourceLanguage: 'auto', // Always auto-detect source language when translating
-          targetLanguage: settings.targetLanguage ?? 'en',
-          apiKey: settings.apiKey // Only used if translation is enabled
-        })
-      } else {
-        if (!settings.apiKey) {
-          showNotification('Toolify Error', 'API Key missing for online transcription.')
-          updateTrayIcon('idle', settings.trayAnimations)
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('processing-complete')
-          }
-          return
+        case 'apple-stt': {
+          const shouldTranslate = settings.translate && !!settings.apiKey
+
+          text = await transcribeAppleStt(Buffer.from(buffer), {
+            translate: shouldTranslate,
+            language: settings.sourceLanguage,
+            sourceLanguage: settings.sourceLanguage,
+            targetLanguage: settings.targetLanguage ?? 'en',
+            apiKey: settings.apiKey
+          })
+          break
         }
 
-        text = await transcribe(
-          settings.apiKey,
-          Buffer.from(buffer),
-          settings.translate ?? false,
-          languageToUse,
-          settings.translate ? 'auto' : (settings.sourceLanguage ?? 'auto'), // Auto-detect when translating
-          settings.targetLanguage ?? 'tr'
-        )
+        case 'openai':
+        default: {
+          if (!settings.apiKey) {
+            showNotification('Toolify Error', 'API Key missing for online transcription.')
+            updateTrayIcon('idle', settings.trayAnimations)
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('processing-complete')
+            }
+            return
+          }
+
+          text = await transcribe(
+            settings.apiKey,
+            Buffer.from(buffer),
+            settings.translate ?? false,
+            languageToUse,
+            settings.translate ? 'auto' : (settings.sourceLanguage ?? 'auto'),
+            settings.targetLanguage ?? 'tr'
+          )
+          break
+        }
       }
 
       // Save audio file
@@ -1245,9 +1266,12 @@ app.whenReady().then(() => {
             translated: settings.translate ?? false,
             sourceLanguage: settings.sourceLanguage,
             targetLanguage: settings.targetLanguage,
-            provider: settings.useLocalModel
-              ? `Whisper ${settings.localModelType === 'large-v3' ? 'Large V3' : 'Medium'} (GGML)`
-              : 'OpenAI Whisper-1',
+            provider:
+              provider === 'local-whisper'
+                ? `Whisper ${settings.localModelType === 'large-v3' ? 'Large V3' : 'Medium'} (GGML)`
+                : provider === 'apple-stt'
+                  ? 'Apple Speech to Text'
+                  : 'OpenAI Whisper-1',
             audioPath,
             duration
           })
@@ -1287,8 +1311,7 @@ app.whenReady().then(() => {
       // Provide more specific error messages based on the error type and settings
       let errorMessage = 'Transcription failed.'
 
-      if (settings.useLocalModel) {
-        // Local model specific errors
+      if (provider === 'local-whisper') {
         const errorStr =
           error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
 
@@ -1299,8 +1322,9 @@ app.whenReady().then(() => {
         } else {
           errorMessage = `Local transcription failed: ${error instanceof Error ? error.message : String(error)}`
         }
+      } else if (provider === 'apple-stt') {
+        errorMessage = `Apple STT failed: ${error instanceof Error ? error.message : String(error)}`
       } else {
-        // Online model specific errors
         if (!settings.apiKey) {
           errorMessage = 'API Key missing for online transcription.'
         } else {

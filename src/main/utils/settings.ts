@@ -21,7 +21,7 @@ const defaultSettings: Settings = {
   showRecordingOverlay: true,
   historyAutoDeleteDays: 30,
   historyMaxItems: 0,
-  useLocalModel: false,
+  transcriptionProvider: 'openai',
   localModelType: 'medium'
 }
 
@@ -76,6 +76,15 @@ function getApiKey(): string {
 
 export function getSettings(): Settings {
   const settings = store.get('settings', defaultSettings) as Settings
+
+  // Migrate useLocalModel → transcriptionProvider
+  if (!settings.transcriptionProvider && settings.useLocalModel !== undefined) {
+    settings.transcriptionProvider = settings.useLocalModel ? 'local-whisper' : 'openai'
+    delete settings.useLocalModel
+  }
+  if (!settings.transcriptionProvider) {
+    settings.transcriptionProvider = 'openai'
+  }
 
   // Override apiKey with decrypted value
   return {

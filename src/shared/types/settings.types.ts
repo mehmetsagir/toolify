@@ -1,5 +1,7 @@
 import type { LocalModelType } from './local-models.types'
 
+export type TranscriptionProvider = 'openai' | 'local-whisper' | 'apple-stt'
+
 export interface Settings {
   apiKey?: string
   language?: string
@@ -16,7 +18,8 @@ export interface Settings {
   overlayStyle?: 'compact' | 'large' // Overlay display style
   historyAutoDeleteDays?: number // 0 = never delete
   historyMaxItems?: number // 0 = unlimited
-  useLocalModel?: boolean
+  transcriptionProvider?: TranscriptionProvider
+  useLocalModel?: boolean // deprecated, kept for migration
   localModelType?: LocalModelType
   overlayPosition?: { x: number; y: number } // Custom overlay position
   settingsWindowLayout?: {
