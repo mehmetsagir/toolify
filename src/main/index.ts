@@ -5,7 +5,6 @@ import {
   ipcMain,
   Tray,
   Menu,
-  nativeImage,
   globalShortcut,
   clipboard,
   Notification,
@@ -40,6 +39,17 @@ import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/s
 import { createMainWindow, createSettingsWindow } from './utils/windows'
 import { getCompactOverlayHTML, getLargeOverlayHTML } from './utils/overlay-template'
 import { getSettings, saveSettings as saveSettingsUtil } from './utils/settings'
+import {
+  createTrayIcon,
+  createRecordingTrayIcon,
+  createProcessingTrayIcon,
+  createIdleTransitionFrame,
+  resetTrayAnimation,
+  prewarmTrayIconCache,
+  getLastProcessingLevels,
+  COPIED_COLOR,
+  ERROR_COLOR
+} from './utils/tray-icon'
 import {
   getAllHistory,
   addHistoryItem,
@@ -89,6 +99,9 @@ const RAPID_PRESS_PENALTY_MS = 1500 // 1.5 second penalty for rapid key presses
 const OVERLAY_SUCCESS_HOLD_MS = 1200
 let idleTransitionTimeout: NodeJS.Timeout | null = null // Timeout for transitioning to idle state
 let isInCooldown = false // Flag to track if we're in cooldown period
+let lastTrayAnimUpdate = 0 // Throttle tray icon animation
+let processingAnimInterval: NodeJS.Timeout | null = null // Processing wave animation timer
+let idleTransitionAnim: NodeJS.Timeout | null = null // Color fade to idle animation
 let isProcessingToggle = false // Flag to prevent rapid toggle actions
 let isInPenaltyLockout = false // Flag for penalty lockout after rapid presses
 let penaltyTimeout: NodeJS.Timeout | null = null // Timeout for penalty period
@@ -101,7 +114,7 @@ type OverlayAudioPayload = {
 }
 
 function updateTrayIcon(
-  state: 'idle' | 'recording' | 'processing' | 'copied',
+  state: 'idle' | 'recording' | 'processing' | 'copied' | 'error',
   trayAnimations?: boolean
 ): void {
   if (!tray) return
@@ -110,10 +123,10 @@ function updateTrayIcon(
   const useAnimations =
     trayAnimations !== undefined ? trayAnimations : settings.trayAnimations !== false
 
-  const baseIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
+  const stateIcon = createTrayIcon(state)
 
   if (!useAnimations) {
-    tray.setImage(baseIcon)
+    tray.setImage(createTrayIcon('idle'))
     if (process.platform === 'darwin') {
       // @ts-ignore - macOS specific API
       tray.setTitle('')
@@ -135,14 +148,25 @@ function updateTrayIcon(
     return
   }
 
+  // Stop any running tray animations when switching state
+  if (processingAnimInterval) {
+    clearInterval(processingAnimInterval)
+    processingAnimInterval = null
+  }
+  if (idleTransitionAnim) {
+    clearInterval(idleTransitionAnim)
+    idleTransitionAnim = null
+  }
+
   switch (state) {
     case 'recording': {
+      // Set image FIRST to avoid lag
+      tray.setImage(stateIcon)
       tray.setToolTip('Toolify - Recording...')
       if (process.platform === 'darwin') {
         // @ts-ignore - macOS specific API
         tray.setTitle('')
       }
-      tray.setImage(baseIcon)
       const overlaySettings = getSettings()
 
       // Cancel any pending timeouts when starting new recording
@@ -201,21 +225,28 @@ function updateTrayIcon(
     }
 
     case 'processing':
+      resetTrayAnimation()
+      // Start wave animation for processing state (~12fps)
+      tray.setImage(createProcessingTrayIcon(Date.now()))
       tray.setToolTip('Toolify - Processing...')
       updateRecordingOverlayProcessingState(true)
       if (process.platform === 'darwin') {
         // @ts-ignore - macOS specific API
         tray.setTitle('')
       }
-      tray.setImage(baseIcon)
+      processingAnimInterval = setInterval(() => {
+        if (tray) tray.setImage(createProcessingTrayIcon(Date.now()))
+      }, 80)
       break
 
-    case 'copied':
+    case 'copied': {
+      // Capture where the processing animation bars were
+      const copiedFromLevels = getLastProcessingLevels()
+      // Show green immediately at those exact bar positions
+      tray.setImage(createIdleTransitionFrame(0, COPIED_COLOR, copiedFromLevels))
       tray.setToolTip('Toolify - Text copied!')
       closeRecordingOverlay(OVERLAY_SUCCESS_HOLD_MS)
-      // Activate cooldown flag
       isInCooldown = true
-      // Clear cooldown flag after the cooldown period
       setTimeout(() => {
         isInCooldown = false
       }, RECORDING_COOLDOWN_MS)
@@ -223,16 +254,60 @@ function updateTrayIcon(
         // @ts-ignore - macOS specific API
         tray.setTitle('')
       }
-      tray.setImage(baseIcon)
-      // Clear any existing idle timeout before setting a new one
+      // Hold green briefly, then bars settle to idle center-out
       if (idleTransitionTimeout) {
         clearTimeout(idleTransitionTimeout)
       }
       idleTransitionTimeout = setTimeout(() => {
-        updateTrayIcon('idle', true)
         idleTransitionTimeout = null
-      }, 2000)
+        const startTime = Date.now()
+        const duration = 800
+        idleTransitionAnim = setInterval(() => {
+          const progress = Math.min(1, (Date.now() - startTime) / duration)
+          if (tray)
+            tray.setImage(createIdleTransitionFrame(progress, COPIED_COLOR, copiedFromLevels))
+          if (progress >= 1) {
+            clearInterval(idleTransitionAnim!)
+            idleTransitionAnim = null
+            if (tray) tray.setImage(createTrayIcon('idle'))
+          }
+        }, 33)
+      }, 800)
       break
+    }
+
+    case 'error': {
+      resetTrayAnimation()
+      // Capture where the processing animation bars were
+      const errorFromLevels = getLastProcessingLevels()
+      // Show red immediately at those exact bar positions
+      tray.setImage(createIdleTransitionFrame(0, ERROR_COLOR, errorFromLevels))
+      tray.setToolTip('Toolify - Error')
+      closeRecordingOverlay()
+      if (process.platform === 'darwin') {
+        // @ts-ignore - macOS specific API
+        tray.setTitle('')
+      }
+      // Hold red briefly, then bars settle to idle center-out
+      if (idleTransitionTimeout) {
+        clearTimeout(idleTransitionTimeout)
+      }
+      idleTransitionTimeout = setTimeout(() => {
+        idleTransitionTimeout = null
+        const startTime = Date.now()
+        const duration = 800
+        idleTransitionAnim = setInterval(() => {
+          const progress = Math.min(1, (Date.now() - startTime) / duration)
+          if (tray) tray.setImage(createIdleTransitionFrame(progress, ERROR_COLOR, errorFromLevels))
+          if (progress >= 1) {
+            clearInterval(idleTransitionAnim!)
+            idleTransitionAnim = null
+            if (tray) tray.setImage(createTrayIcon('idle'))
+          }
+        }, 33)
+      }, 800)
+      break
+    }
 
     case 'idle':
     default:
@@ -242,7 +317,7 @@ function updateTrayIcon(
         // @ts-ignore - macOS specific API
         tray.setTitle('')
       }
-      tray.setImage(baseIcon)
+      tray.setImage(stateIcon)
       break
   }
 }
@@ -455,21 +530,30 @@ function createRecordingOverlay(): void {
 }
 
 function updateRecordingOverlayAudioLevel(data: OverlayAudioPayload | number): void {
+  const payload: OverlayAudioPayload =
+    typeof data === 'number'
+      ? { level: data }
+      : {
+          level: typeof data.level === 'number' ? data.level : 0,
+          spectrum: Array.isArray(data.spectrum) ? data.spectrum : undefined,
+          durationMs: typeof data.durationMs === 'number' ? Math.max(0, data.durationMs) : undefined
+        }
+
   if (recordingOverlay && !recordingOverlay.isDestroyed()) {
     try {
-      const payload: OverlayAudioPayload =
-        typeof data === 'number'
-          ? { level: data }
-          : {
-              level: typeof data.level === 'number' ? data.level : 0,
-              spectrum: Array.isArray(data.spectrum) ? data.spectrum : undefined,
-              durationMs:
-                typeof data.durationMs === 'number' ? Math.max(0, data.durationMs) : undefined
-            }
-
       recordingOverlay.webContents.send('audio-level-update', payload)
     } catch {
       // Overlay might not be ready yet, ignore
+    }
+  }
+
+  // Animate tray icon bars (~12 fps)
+  if (tray && isRecording) {
+    const now = Date.now()
+    if (now - lastTrayAnimUpdate >= 80) {
+      lastTrayAnimUpdate = now
+      const spectrum = payload.spectrum ?? new Array(5).fill(payload.level / 100)
+      tray.setImage(createRecordingTrayIcon(spectrum))
     }
   }
 }
@@ -1395,7 +1479,7 @@ app.whenReady().then(() => {
       }
     } catch (error) {
       console.error('Transcription failed', error)
-      updateTrayIcon('idle', settings.trayAnimations)
+      updateTrayIcon('error', settings.trayAnimations)
 
       // Provide more specific error messages based on the error type and settings
       let errorMessage = 'Transcription failed.'
@@ -1428,8 +1512,8 @@ app.whenReady().then(() => {
     }
   })
 
-  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
-  tray = new Tray(trayIcon)
+  prewarmTrayIconCache()
+  tray = new Tray(createTrayIcon('idle'))
   tray.setToolTip('Toolify')
 
   const updateContextMenu = (): void => {
