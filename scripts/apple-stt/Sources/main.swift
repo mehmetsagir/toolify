@@ -302,25 +302,58 @@ let request = SFSpeechURLRecognitionRequest(url: fileURL)
 request.requiresOnDeviceRecognition = true
 request.shouldReportPartialResults = true
 
-// Perform recognition
+// Perform recognition with segment accumulation.
+// When the user pauses mid-speech, bestTranscription.formattedString resets and
+// only contains post-pause text. We detect the reset (text length drops below 80%
+// of the segment peak) and commit pre-pause text before tracking the new segment.
 let recognitionSemaphore = DispatchSemaphore(value: 0)
-var transcriptionResult: String?
+var accumulated = ""
+var currentSegmentText = ""
+var currentSegmentPeakLen = 0
 var recognitionError: Error?
+var signaled = false
+
+func commitSegment(_ text: String) {
+    if !text.isEmpty {
+        accumulated = accumulated.isEmpty ? text : accumulated + " " + text
+    }
+    currentSegmentText = ""
+    currentSegmentPeakLen = 0
+}
 
 recognizer.recognitionTask(with: request) { result, error in
-    // Always capture the latest result text — even when an error also fires.
-    // This preserves speech recognised before a mid-file pause/error.
     if let result = result {
-        transcriptionResult = result.bestTranscription.formattedString
+        let text = result.bestTranscription.formattedString
+
+        // Detect reset: text length dropped significantly from peak.
+        // Within a single segment, text only grows (or changes slightly due to
+        // corrections). A significant drop means the recognizer restarted after a pause.
+        if currentSegmentPeakLen > 3 && !text.isEmpty
+            && text.count < Int(Double(currentSegmentPeakLen) * 0.8) {
+            commitSegment(currentSegmentText)
+        }
+
+        currentSegmentText = text
+        currentSegmentPeakLen = max(currentSegmentPeakLen, text.count)
+
         if result.isFinal {
-            recognitionSemaphore.signal()
+            commitSegment(text)
+            if !signaled {
+                signaled = true
+                recognitionSemaphore.signal()
+            }
             return
         }
     }
 
     if let error = error {
+        // Commit whatever partial text we had before the error
+        commitSegment(currentSegmentText)
         recognitionError = error
-        recognitionSemaphore.signal()
+        if !signaled {
+            signaled = true
+            recognitionSemaphore.signal()
+        }
     }
 }
 
@@ -336,14 +369,12 @@ while recognitionSemaphore.wait(timeout: .now()) == .timedOut {
 
 if let error = recognitionError {
     let nsError = error as NSError
-    // If we accumulated text before the error, use it (e.g. pause triggered a
-    // task error but speech before the pause was already recognised).
-    if let text = transcriptionResult, !text.isEmpty {
-        print(text)
+    // If we accumulated text across segments before the error, use it
+    if !accumulated.isEmpty {
+        print(accumulated)
         exit(EXIT_SUCCESS_CODE)
     }
     // "No speech detected" / "no result" errors are normal outcomes — exit 0
-    // Use error code instead of localized string (Apple localizes error messages)
     // kAFAssistantErrorDomain code 1101 = no speech, code 1110 = no result
     if nsError.domain == "kAFAssistantErrorDomain" && (nsError.code == 1101 || nsError.code == 1110) {
         exit(EXIT_SUCCESS_CODE)
@@ -352,8 +383,8 @@ if let error = recognitionError {
     exit(EXIT_GENERAL_ERROR)
 }
 
-if let text = transcriptionResult, !text.isEmpty {
-    print(text)
+if !accumulated.isEmpty {
+    print(accumulated)
     exit(EXIT_SUCCESS_CODE)
 } else {
     // No transcription but no error either — just silence
