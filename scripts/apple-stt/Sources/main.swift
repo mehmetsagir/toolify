@@ -300,7 +300,7 @@ guard recognizer.isAvailable else {
 // Create recognition request
 let request = SFSpeechURLRecognitionRequest(url: fileURL)
 request.requiresOnDeviceRecognition = true
-request.shouldReportPartialResults = false
+request.shouldReportPartialResults = true
 
 // Perform recognition
 let recognitionSemaphore = DispatchSemaphore(value: 0)
@@ -308,16 +308,18 @@ var transcriptionResult: String?
 var recognitionError: Error?
 
 recognizer.recognitionTask(with: request) { result, error in
-    if let error = error {
-        recognitionError = error
-        recognitionSemaphore.signal()
-        return
+    // Always capture the latest result text — even when an error also fires.
+    // This preserves speech recognised before a mid-file pause/error.
+    if let result = result {
+        transcriptionResult = result.bestTranscription.formattedString
+        if result.isFinal {
+            recognitionSemaphore.signal()
+            return
+        }
     }
 
-    guard let result = result else { return }
-
-    if result.isFinal {
-        transcriptionResult = result.bestTranscription.formattedString
+    if let error = error {
+        recognitionError = error
         recognitionSemaphore.signal()
     }
 }
@@ -334,14 +336,16 @@ while recognitionSemaphore.wait(timeout: .now()) == .timedOut {
 
 if let error = recognitionError {
     let nsError = error as NSError
+    // If we accumulated text before the error, use it (e.g. pause triggered a
+    // task error but speech before the pause was already recognised).
+    if let text = transcriptionResult, !text.isEmpty {
+        print(text)
+        exit(EXIT_SUCCESS_CODE)
+    }
     // "No speech detected" / "no result" errors are normal outcomes — exit 0
     // Use error code instead of localized string (Apple localizes error messages)
     // kAFAssistantErrorDomain code 1101 = no speech, code 1110 = no result
     if nsError.domain == "kAFAssistantErrorDomain" && (nsError.code == 1101 || nsError.code == 1110) {
-        exit(EXIT_SUCCESS_CODE)
-    }
-    // Also treat empty transcription result with any error as "no speech"
-    if transcriptionResult == nil || transcriptionResult?.isEmpty == true {
         exit(EXIT_SUCCESS_CODE)
     }
     printError("Error: Recognition failed: [\(nsError.domain)] code=\(nsError.code) \(error.localizedDescription)")
