@@ -10,6 +10,7 @@ let package = Package(
         .executableTarget(
             name: "apple-stt",
             path: "Sources",
+            exclude: ["Info.plist"],
             linkerSettings: [
                 .linkedFramework("Speech"),
                 .linkedFramework("Foundation"),
