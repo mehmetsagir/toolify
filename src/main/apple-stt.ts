@@ -6,6 +6,31 @@ import { app } from 'electron'
 import OpenAI from 'openai'
 import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
 import { logger } from './utils/logger'
+import { getFfmpegPath } from './utils/ffmpeg'
+
+// Persistent flag for speech recognition permission state.
+// authorizationStatus() returns notDetermined for directly-executed binaries even after
+// permission was granted via the .app bundle (different LaunchServices context).
+// We cache the granted state in the app's userData directory.
+function getSpeechPermissionFlagPath(): string {
+  return path.join(app.getPath('userData'), '.speech-recognition-granted')
+}
+
+function isSpeechPermissionCached(): boolean {
+  try {
+    return fs.existsSync(getSpeechPermissionFlagPath())
+  } catch {
+    return false
+  }
+}
+
+function cacheSpeechPermissionGranted(): void {
+  try {
+    fs.writeFileSync(getSpeechPermissionFlagPath(), '1')
+  } catch {
+    // ignore
+  }
+}
 
 const isProductionBuild = (): boolean => {
   return (
@@ -14,27 +39,39 @@ const isProductionBuild = (): boolean => {
 }
 
 export const getAppleSttPath = (): string => {
-  const projectRoot = process.cwd()
-  const buildPath = path.join(projectRoot, 'build', 'apple-stt', 'apple-stt')
-
-  if (fs.existsSync(buildPath)) {
-    return buildPath
-  }
-
+  // In production: extraResources copies build/apple-stt → Contents/Resources/apple-stt
   if (isProductionBuild()) {
     const resourcesPath = process.resourcesPath || app.getAppPath()
-    const possiblePaths = [
-      path.join(resourcesPath, 'app.asar.unpacked', 'build', 'apple-stt', 'apple-stt')
-    ]
-
-    for (const possiblePath of possiblePaths) {
-      if (fs.existsSync(possiblePath)) {
-        return possiblePath
-      }
+    const prodPath = path.join(resourcesPath, 'apple-stt', 'apple-stt')
+    if (fs.existsSync(prodPath)) {
+      return prodPath
     }
   }
 
+  // In development: use build directory
+  const buildPath = path.join(process.cwd(), 'build', 'apple-stt', 'apple-stt')
   return buildPath
+}
+
+/**
+ * Returns the path to the apple-stt binary inside the .app bundle.
+ * The .app bundle is needed for requestAuthorization() to work,
+ * because macOS requires a proper bundle with Info.plist for permission dialogs.
+ */
+export const getAppleSttAppBundlePath = (): string => {
+  const subPath = path.join('apple-stt', 'apple-stt.app', 'Contents', 'MacOS', 'apple-stt')
+
+  // In production: extraResources copies build/apple-stt → Contents/Resources/apple-stt
+  if (isProductionBuild()) {
+    const resourcesPath = process.resourcesPath || app.getAppPath()
+    const prodPath = path.join(resourcesPath, subPath)
+    if (fs.existsSync(prodPath)) {
+      return prodPath
+    }
+  }
+
+  // In development: use build directory
+  return path.join(process.cwd(), 'build', subPath)
 }
 
 // Map ISO 639-1 language codes to locale identifiers for SFSpeechRecognizer
@@ -85,15 +122,82 @@ export async function checkAppleSttAvailability(language?: string): Promise<Appl
 
       try {
         const result = JSON.parse(stdout.trim())
+        // authorizationStatus() returns notDetermined for directly-executed binaries
+        // even after permission was granted via the .app bundle. Fall back to cached state.
+        const permissionGranted = (result.permissionGranted ?? false) || isSpeechPermissionCached()
         resolve({
           available: result.available ?? false,
-          permissionGranted: result.permissionGranted ?? false,
+          permissionGranted,
           supportsOnDevice: result.supportsOnDevice
         })
       } catch {
         logger.log('Apple STT check parse error:', stdout)
         resolve({ available: false, permissionGranted: false })
       }
+    })
+  })
+}
+
+export async function requestAppleSttPermission(): Promise<{
+  granted: boolean
+  alreadyDenied?: boolean
+}> {
+  // Launch the apple-stt .app bundle to trigger macOS speech recognition permission dialog.
+  // The .app bundle is needed because requestAuthorization() requires LaunchServices context
+  // with a proper Info.plist containing NSSpeechRecognitionUsageDescription.
+  const appBundleBinary = getAppleSttAppBundlePath()
+  const appBundleDir = path.resolve(appBundleBinary, '..', '..', '..')
+
+  if (!fs.existsSync(appBundleBinary)) {
+    logger.log('Apple STT app bundle not found at:', appBundleDir)
+    return { granted: false }
+  }
+
+  const resultPath = path.join(os.tmpdir(), 'apple-stt-permission-result.json')
+  const sentinelPath = path.join(os.tmpdir(), 'apple-stt-request-permission')
+
+  // Clean up any stale result file
+  try {
+    if (fs.existsSync(resultPath)) fs.unlinkSync(resultPath)
+  } catch {
+    // ignore
+  }
+
+  // Write sentinel file so the app knows to enter request-permission mode.
+  // `open` doesn't reliably pass --args to the launched binary, so we use a temp file instead.
+  try {
+    fs.writeFileSync(sentinelPath, '1')
+  } catch {
+    return { granted: false }
+  }
+
+  // Launch the .app bundle via `open -n -W` so macOS sets up the full LaunchServices context.
+  // Direct binary execution crashes (SIGABRT) because requestAuthorization() requires it.
+  const cmd = `open -n -W "${appBundleDir}"`
+
+  return new Promise((resolve) => {
+    exec(cmd, { timeout: 65000 }, (error) => {
+      if (error) {
+        logger.log('Apple STT permission request failed:', error.message)
+      }
+
+      // Read result from temp file
+      try {
+        if (fs.existsSync(resultPath)) {
+          const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'))
+          fs.unlinkSync(resultPath)
+          const granted = result.granted ?? false
+          if (granted) {
+            cacheSpeechPermissionGranted()
+          }
+          resolve({ granted, alreadyDenied: result.alreadyDenied })
+          return
+        }
+      } catch (e) {
+        logger.log('Apple STT permission result read error:', e)
+      }
+
+      resolve({ granted: false })
     })
   })
 }
@@ -117,7 +221,7 @@ export async function transcribeAppleStt(
     // Convert to 16kHz WAV for SFSpeechRecognizer
     await new Promise<void>((resolve, reject) => {
       exec(
-        `ffmpeg -i "${tempInputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${tempWavPath}"`,
+        `"${getFfmpegPath()}" -i "${tempInputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${tempWavPath}"`,
         (error) => {
           if (error) {
             console.error('FFmpeg conversion failed:', error)

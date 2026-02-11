@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Mic, Settings as SettingsIcon, History as HistoryIcon, Bell } from 'lucide-react'
+import { Mic, Settings as SettingsIcon, History as HistoryIcon, Shield } from 'lucide-react'
 import { History } from './History'
 import { UpdateBanner } from './settings/UpdateBanner'
 import { GeneralSettings } from './settings/GeneralSettings'
 import { DictationSettings } from './settings/DictationSettings'
-import { AudioSettings } from './settings/AudioSettings'
+import { PermissionsSettings } from './settings/PermissionsSettings'
 import appIcon from '../assets/app-icon.png'
 import type { LocalModelInfo, LocalModelType, TranscriptionProvider } from '../../../shared/types'
 
@@ -39,6 +39,8 @@ const createProgressMap = (): Record<LocalModelType, ModelDownloadProgress | nul
 interface SettingsProps {
   apiKey: string
   setApiKey: (key: string) => void
+  googleApiKey: string
+  setGoogleApiKey: (key: string) => void
   sourceLanguage: string
   setSourceLanguage: (lang: string) => void
   targetLanguage: string
@@ -68,6 +70,8 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({
   apiKey: initialKey,
   setApiKey,
+  googleApiKey: initialGoogleApiKey,
+  setGoogleApiKey,
   sourceLanguage: initialSourceLanguage,
   setSourceLanguage,
   targetLanguage: initialTargetLanguage,
@@ -94,6 +98,7 @@ export const Settings: React.FC<SettingsProps> = ({
   setLocalModelType
 }) => {
   const [localKey, setLocalKey] = useState(initialKey)
+  const [localGoogleApiKey, setLocalGoogleApiKey] = useState(initialGoogleApiKey || '')
   const [localSourceLanguage, setLocalSourceLanguage] = useState(initialSourceLanguage || 'en')
   const [localTargetLanguage, setLocalTargetLanguage] = useState(initialTargetLanguage || 'tr')
   const [localShortcut, setLocalShortcut] = useState(initialShortcut || 'Command+Space')
@@ -116,8 +121,7 @@ export const Settings: React.FC<SettingsProps> = ({
     initialLocalModelType || 'base'
   )
 
-  const [accessibilityGranted, setAccessibilityGranted] = useState<boolean | null>(null)
-  const [accessibilityRequired, setAccessibilityRequired] = useState(false)
+  const [hasPermissionIssue, setHasPermissionIssue] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [latestVersion, setLatestVersion] = useState<string | null>(null)
@@ -163,6 +167,14 @@ export const Settings: React.FC<SettingsProps> = ({
       setApiKey(value)
     },
     [setApiKey]
+  )
+
+  const handleSetGoogleApiKey = useCallback(
+    (value: string) => {
+      setLocalGoogleApiKey(value)
+      setGoogleApiKey(value)
+    },
+    [setGoogleApiKey]
   )
 
   const handleSetSourceLanguage = useCallback(
@@ -271,8 +283,13 @@ export const Settings: React.FC<SettingsProps> = ({
       if (value === 'local-whisper') {
         refreshLocalModelsInfo()
       }
+      // Apple Speech doesn't support translation — disable it
+      if (value === 'apple-stt' && localTranslate) {
+        setLocalTranslate(false)
+        setTranslate(false)
+      }
     },
-    [setTranscriptionProvider, refreshLocalModelsInfo]
+    [setTranscriptionProvider, refreshLocalModelsInfo, localTranslate, setTranslate]
   )
 
   const handleSetLocalModelType = useCallback(
@@ -413,6 +430,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
   useEffect(() => {
     setLocalKey(initialKey)
+    setLocalGoogleApiKey(initialGoogleApiKey || '')
     setLocalSourceLanguage(initialSourceLanguage || 'en')
     setLocalTargetLanguage(initialTargetLanguage || 'tr')
     setLocalShortcut(initialShortcut || 'Command+Space')
@@ -427,6 +445,7 @@ export const Settings: React.FC<SettingsProps> = ({
     setLocalLocalModelType(initialLocalModelType || 'base')
   }, [
     initialKey,
+    initialGoogleApiKey,
     initialSourceLanguage,
     initialTargetLanguage,
     initialShortcut,
@@ -446,19 +465,6 @@ export const Settings: React.FC<SettingsProps> = ({
   }, [refreshLocalModelsInfo])
 
   useEffect(() => {
-    const checkPermission = async (): Promise<void> => {
-      if (window.api?.checkAccessibilityPermission) {
-        try {
-          const result = await window.api.checkAccessibilityPermission()
-          setAccessibilityGranted(result.granted)
-          setAccessibilityRequired(result.required)
-        } catch (error) {
-          console.error('Failed to check accessibility permission:', error)
-        }
-      }
-    }
-    checkPermission()
-
     const checkUpdates = async (): Promise<void> => {
       if (window.api?.getUpdateStatus) {
         try {
@@ -486,7 +492,6 @@ export const Settings: React.FC<SettingsProps> = ({
     }
     loadHistorySettings()
 
-    const interval = setInterval(checkPermission, 5000)
     const updateCheckInterval = setInterval(checkUpdates, 3000)
 
     if (window.api?.onUpdateAvailable) {
@@ -512,13 +517,11 @@ export const Settings: React.FC<SettingsProps> = ({
         unsubscribe1()
         unsubscribe2()
         unsubscribe3()
-        clearInterval(interval)
         clearInterval(updateCheckInterval)
       }
     }
 
     return () => {
-      clearInterval(interval)
       clearInterval(updateCheckInterval)
     }
   }, [])
@@ -548,6 +551,34 @@ export const Settings: React.FC<SettingsProps> = ({
     }
     loadVersion()
   }, [])
+
+  // Lightweight permission check for sidebar red dot
+  useEffect(() => {
+    const checkPermissions = async (): Promise<void> => {
+      let hasIssue = false
+      try {
+        if (window.api?.checkAccessibilityPermission) {
+          const acc = await window.api.checkAccessibilityPermission()
+          if (!acc.granted) hasIssue = true
+        }
+        if (window.api?.checkMicrophonePermission) {
+          const mic = await window.api.checkMicrophonePermission()
+          if (mic !== 'granted') hasIssue = true
+        }
+        // Only check speech recognition when Apple STT is active
+        if (localTranscriptionProvider === 'apple-stt' && window.api?.checkAppleStt) {
+          const stt = await window.api.checkAppleStt()
+          if (!stt.permissionGranted) hasIssue = true
+        }
+      } catch {
+        // ignore
+      }
+      setHasPermissionIssue(hasIssue)
+    }
+    checkPermissions()
+    const interval = setInterval(checkPermissions, 5000)
+    return () => clearInterval(interval)
+  }, [localTranscriptionProvider])
 
   const handleDownloadUpdate = async (): Promise<void> => {
     if (window.api?.downloadUpdate) {
@@ -585,15 +616,15 @@ export const Settings: React.FC<SettingsProps> = ({
       category: 'main'
     },
     {
-      id: 'dictation',
-      label: 'Dictation',
+      id: 'transcription',
+      label: 'Transcription',
       icon: Mic,
       category: 'main'
     },
     {
-      id: 'audio',
-      label: 'Audio & Notifications',
-      icon: Bell,
+      id: 'permissions',
+      label: 'Permissions',
+      icon: Shield,
       category: 'main'
     },
     {
@@ -655,7 +686,10 @@ export const Settings: React.FC<SettingsProps> = ({
                 }`}
               >
                 <Icon size={16} className={isActive ? 'text-white' : 'text-zinc-500'} />
-                <span>{section.label}</span>
+                <span className="flex-1 text-left">{section.label}</span>
+                {section.id === 'permissions' && hasPermissionIssue && (
+                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                )}
               </button>
             )
           })}
@@ -709,8 +743,6 @@ export const Settings: React.FC<SettingsProps> = ({
                 latestVersion={latestVersion}
                 downloading={downloading}
                 updateDownloadProgress={updateDownloadProgress}
-                accessibilityGranted={accessibilityGranted}
-                accessibilityRequired={accessibilityRequired}
                 onDownloadUpdate={handleDownloadUpdate}
                 onQuitAndInstall={handleQuitAndInstall}
               />
@@ -720,6 +752,18 @@ export const Settings: React.FC<SettingsProps> = ({
                 <GeneralSettings
                   autoStart={localAutoStart}
                   setAutoStart={handleSetAutoStart}
+                  shortcut={localShortcut}
+                  setShortcut={handleSetShortcut}
+                  showRecordingOverlay={localShowRecordingOverlay}
+                  setShowRecordingOverlay={handleSetShowRecordingOverlay}
+                  overlayStyle={localOverlayStyle}
+                  setOverlayStyle={handleSetOverlayStyle}
+                  soundAlert={localSoundAlert}
+                  setSoundAlert={handleSetSoundAlert}
+                  soundType={localSoundType}
+                  setSoundType={handleSetSoundType}
+                  processNotifications={localProcessNotifications}
+                  setProcessNotifications={handleSetProcessNotifications}
                   historyAutoDeleteDays={historyAutoDeleteDays}
                   setHistoryAutoDeleteDays={handleSetHistoryAutoDeleteDays}
                   historyMaxItems={historyMaxItems}
@@ -727,8 +771,8 @@ export const Settings: React.FC<SettingsProps> = ({
                 />
               )}
 
-              {/* Dictation Settings Section */}
-              {activeSection === 'dictation' && (
+              {/* Transcription Settings Section */}
+              {activeSection === 'transcription' && (
                 <DictationSettings
                   modelDownloadStatusMap={modelDownloadStatusMap}
                   downloadProgressMap={downloadProgressMap}
@@ -739,33 +783,25 @@ export const Settings: React.FC<SettingsProps> = ({
                   onOpenModelsFolder={handleOpenModelsFolder}
                   localKey={localKey}
                   setLocalKey={handleSetApiKey}
+                  localGoogleApiKey={localGoogleApiKey}
+                  setLocalGoogleApiKey={handleSetGoogleApiKey}
                   localSourceLanguage={localSourceLanguage}
                   setLocalSourceLanguage={handleSetSourceLanguage}
                   localTargetLanguage={localTargetLanguage}
                   setLocalTargetLanguage={handleSetTargetLanguage}
-                  localShortcut={localShortcut}
-                  setLocalShortcut={handleSetShortcut}
                   localTranslate={localTranslate}
                   setLocalTranslate={handleSetTranslate}
-                  localShowRecordingOverlay={localShowRecordingOverlay}
-                  setLocalShowRecordingOverlay={handleSetShowRecordingOverlay}
-                  localOverlayStyle={localOverlayStyle}
-                  setLocalOverlayStyle={handleSetOverlayStyle}
                   localTranscriptionProvider={localTranscriptionProvider}
                   setLocalTranscriptionProvider={handleSetTranscriptionProvider}
                   localLocalModelType={localLocalModelType}
                 />
               )}
 
-              {/* Audio & Notifications Settings Section */}
-              {activeSection === 'audio' && (
-                <AudioSettings
-                  processNotifications={localProcessNotifications}
-                  setProcessNotifications={handleSetProcessNotifications}
-                  soundAlert={localSoundAlert}
-                  setSoundAlert={handleSetSoundAlert}
-                  soundType={localSoundType}
-                  setSoundType={handleSetSoundType}
+              {/* Permissions Settings Section */}
+              {activeSection === 'permissions' && (
+                <PermissionsSettings
+                  transcriptionProvider={localTranscriptionProvider}
+                  onPermissionStatusChange={setHasPermissionIssue}
                 />
               )}
             </div>
