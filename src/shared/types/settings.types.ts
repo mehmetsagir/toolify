@@ -1,9 +1,10 @@
 import type { LocalModelType } from './local-models.types'
 
-export type TranscriptionProvider = 'openai' | 'local-whisper' | 'apple-stt'
+export type TranscriptionProvider = 'openai' | 'local-whisper' | 'apple-stt' | 'google-cloud'
 
 export interface Settings {
   apiKey?: string
+  googleApiKey?: string
   language?: string
   sourceLanguage?: string
   targetLanguage?: string
