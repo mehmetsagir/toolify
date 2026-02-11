@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   Settings,
+  Statistics,
   UpdateInfo,
   UpdateDownloadProgress,
   UpdateStatus,
@@ -23,6 +24,7 @@ declare global {
       processAudio: (buffer: ArrayBuffer, duration: number) => void
       saveSettings: (settings: Settings) => void
       getSettings: () => Promise<Settings>
+      getStatistics: () => Promise<Statistics | undefined>
       hideWindow: () => void
       openSettings: () => void
       openHistory: () => void

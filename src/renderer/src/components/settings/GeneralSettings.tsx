@@ -1,6 +1,7 @@
 import React from 'react'
 import { Power, Keyboard, Radio, Volume2, Bell } from 'lucide-react'
 import { HistorySettings } from './HistorySettings'
+import { Statistics } from '../Statistics'
 
 const overlayStyleOptions: Array<{
   value: 'compact' | 'large'
@@ -66,6 +67,12 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         <h2 className="text-2xl font-semibold text-white mb-1.5 tracking-tight">General</h2>
         <p className="text-sm text-zinc-500">Basic application preferences</p>
       </div>
+
+      {/* Statistics Section */}
+      <div className="bg-white/5 rounded-lg p-6 border border-white/5">
+        <Statistics />
+      </div>
+
       <div className="space-y-4">
         {/* Auto Start */}
         <div className="bg-white/5 rounded-lg p-4 border border-white/5">

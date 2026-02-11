@@ -30,9 +30,24 @@ export interface Settings {
     offsetY: number
     displayId?: number
   }
+  statistics?: Statistics
 }
 
 export interface AccessibilityPermission {
   granted: boolean
   required: boolean
+}
+
+export interface Statistics {
+  totalRecordings: number
+  totalCharacters: number
+  totalDuration: number // in seconds
+  successfulTranscriptions: number
+  failedTranscriptions: number
+  providerUsage: {
+    openai: number
+    'local-whisper': number
+    'apple-stt': number
+    'google-cloud': number
+  }
 }

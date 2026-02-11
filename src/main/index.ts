@@ -43,7 +43,7 @@ import type { LocalModelType } from '../shared/types/local-models.types'
 import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/system'
 import { createMainWindow, createSettingsWindow } from './utils/windows'
 import { getCompactOverlayHTML, getLargeOverlayHTML } from './utils/overlay-template'
-import { getSettings, saveSettings as saveSettingsUtil } from './utils/settings'
+import { getSettings, saveSettings as saveSettingsUtil, updateStatistics } from './utils/settings'
 import { getFfmpegPath } from './utils/ffmpeg'
 import {
   createTrayIcon,
@@ -985,6 +985,11 @@ app.whenReady().then(() => {
     return getSettings()
   })
 
+  ipcMain.handle('get-statistics', () => {
+    const settings = getSettings()
+    return settings.statistics
+  })
+
   ipcMain.handle('check-accessibility-permission', () => {
     if (process.platform !== 'darwin') {
       return { granted: true, required: false }
@@ -1536,10 +1541,18 @@ app.whenReady().then(() => {
                     ? 'Google Cloud STT'
                     : 'OpenAI Whisper-1',
             audioPath,
-            duration
+            duration,
+            success: true
           })
         } catch (error) {
           console.error('Failed to save history:', error)
+        }
+
+        // Update statistics
+        try {
+          updateStatistics(true, provider, duration || 0, text.length)
+        } catch (error) {
+          console.error('Failed to update statistics:', error)
         }
 
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1602,6 +1615,14 @@ app.whenReady().then(() => {
       }
 
       showNotification('Toolify Error', errorMessage, true)
+
+      // Update statistics for failed transcription
+      try {
+        updateStatistics(false, provider, duration || 0, 0)
+      } catch (statsError) {
+        console.error('Failed to update statistics:', statsError)
+      }
+
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('processing-complete')
       }

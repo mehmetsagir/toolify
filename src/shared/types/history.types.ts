@@ -9,6 +9,7 @@ export interface HistoryItem {
   duration?: number // Recording duration in seconds
   provider?: string
   audioPath?: string
+  success?: boolean // Whether transcription was successful
 }
 
 export interface HistorySettings {

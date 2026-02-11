@@ -1,11 +1,25 @@
 import Store from 'electron-store'
 import { safeStorage } from 'electron'
-import type { Settings } from '../../shared/types'
+import type { Settings, Statistics, TranscriptionProvider } from '../../shared/types'
 
 const store = new Store()
 
 const ENCRYPTED_API_KEY_KEY = 'encryptedApiKey'
 const ENCRYPTED_GOOGLE_API_KEY_KEY = 'encryptedGoogleApiKey'
+
+const defaultStatistics: Statistics = {
+  totalRecordings: 0,
+  totalCharacters: 0,
+  totalDuration: 0,
+  successfulTranscriptions: 0,
+  failedTranscriptions: 0,
+  providerUsage: {
+    openai: 0,
+    'local-whisper': 0,
+    'apple-stt': 0,
+    'google-cloud': 0
+  }
+}
 
 const defaultSettings: Settings = {
   apiKey: '',
@@ -23,7 +37,8 @@ const defaultSettings: Settings = {
   historyAutoDeleteDays: 30,
   historyMaxItems: 0,
   transcriptionProvider: 'openai',
-  localModelType: 'medium'
+  localModelType: 'medium',
+  statistics: defaultStatistics
 }
 
 /**
@@ -154,4 +169,47 @@ export function saveSettings(settings: Settings): void {
  */
 export function hasApiKey(): boolean {
   return !!(store.get(ENCRYPTED_API_KEY_KEY) || store.get('apiKey'))
+}
+
+/**
+ * Update statistics after a transcription
+ */
+export function updateStatistics(
+  success: boolean,
+  provider: TranscriptionProvider,
+  duration: number,
+  characterCount: number
+): void {
+  const settings = getSettings()
+  const stats = settings.statistics || defaultStatistics
+
+  const updatedStats: Statistics = {
+    totalRecordings: stats.totalRecordings + 1,
+    totalCharacters: stats.totalCharacters + characterCount,
+    totalDuration: stats.totalDuration + duration,
+    successfulTranscriptions: success
+      ? stats.successfulTranscriptions + 1
+      : stats.successfulTranscriptions,
+    failedTranscriptions: success ? stats.failedTranscriptions : stats.failedTranscriptions + 1,
+    providerUsage: {
+      ...stats.providerUsage,
+      [provider]: (stats.providerUsage[provider] || 0) + 1
+    }
+  }
+
+  saveSettings({
+    ...settings,
+    statistics: updatedStats
+  })
+}
+
+/**
+ * Reset statistics
+ */
+export function resetStatistics(): void {
+  const settings = getSettings()
+  saveSettings({
+    ...settings,
+    statistics: defaultStatistics
+  })
 }
