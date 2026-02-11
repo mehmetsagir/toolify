@@ -6,6 +6,7 @@ import { app } from 'electron'
 import OpenAI from 'openai'
 import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
 import { logger } from './utils/logger'
+import { getFfmpegPath } from './utils/ffmpeg'
 import type { LocalModelInfo, LocalModelType } from '../shared/types'
 
 // Note: We no longer use whisper-node's createCppCommand due to path quoting issues
@@ -330,7 +331,7 @@ export async function transcribeLocal(
     // -c:a pcm_s16le: Set audio codec to PCM signed 16-bit little-endian
     await new Promise<void>((resolve, reject) => {
       exec(
-        `ffmpeg -i "${tempInputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${tempWavPath}"`,
+        `"${getFfmpegPath()}" -i "${tempInputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${tempWavPath}"`,
         (error) => {
           if (error) {
             console.error('FFmpeg conversion failed:', error)
