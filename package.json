@@ -5,6 +5,7 @@
     "appId": "com.toolify.app",
     "productName": "Toolify",
     "icon": "resources/icon.png",
+    "afterPack": "scripts/afterPack.js",
     "mac": {
       "category": "public.app-category.utilities"
     }
