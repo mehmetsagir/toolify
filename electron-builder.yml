@@ -8,15 +8,39 @@ publish:
   owner: mehmetsagir
   repo: toolify
 files:
+  # Explicitly include only what's needed for production
+  - 'out/**/*'
+  - 'node_modules/**/*'
+  - 'resources/**/*'
+  - 'package.json'
+  # Include build artifacts from prebuild scripts
+  - 'build/whisper-node-dist/**/*'
+  - 'build/whisper-executables/**/*'
+  - 'build/apple-stt/**/*'
+  # Exclude everything else
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  # Exclude development tools and scripts
-  - '!scripts/**'
-  - '!claudedocs/**'
+  - '!scripts'
+  - '!claudedocs'
+  - '!docs'
+  - '!native'
+  - '!ToolifySwift'
+  - '!homebrew'
+  - '!.claude'
+  - '!.auto-claude'
+  - '!.auto-claude-security.json'
+  - '!.claude_settings.json'
+  - '!.lintstagedrc.json'
+  - '!.npmrc'
+  - '!.prettierignore'
+  - '!.prettierrc.yaml'
+  - '!eslint.config.mjs'
+  - '!postcss.config.js'
+  - '!tailwind.config.js'
   # CRITICAL: Exclude ALL devDependencies from node_modules
   - '!**/node_modules/whisper-node/**'
   - '!**/node_modules/electron/**'
@@ -34,6 +58,44 @@ files:
   - '!**/node_modules/postcss/**'
   - '!**/node_modules/@electron-toolkit/eslint-*/**'
   - '!**/node_modules/@electron-toolkit/tsconfig/**'
+  # Exclude build-time CSS dependencies (moved to devDependencies)
+  - '!**/node_modules/tailwindcss/**'
+  - '!**/node_modules/@tailwindcss/**'
+  - '!**/node_modules/lightningcss/**'
+  - '!**/node_modules/lightningcss-*/**'
+  # Exclude development and testing libraries
+  - '!**/node_modules/vitest/**'
+  - '!**/node_modules/@vitest/**'
+  - '!**/node_modules/jsdom/**'
+  - '!**/node_modules/@testing-library/**'
+  - '!**/node_modules/husky/**'
+  - '!**/node_modules/lint-staged/**'
+  # Exclude source mapping and magic-string (build-time only)
+  - '!**/node_modules/@jridgewell/**'
+  - '!**/node_modules/magic-string/**'
+  - '!**/node_modules/source-map-js/**'
+  # Exclude renderer-only dependencies (already bundled by Vite in renderer output)
+  - '!**/node_modules/lucide-react/**'
+  - '!**/node_modules/clsx/**'
+  - '!**/node_modules/tailwind-merge/**'
+  - '!**/node_modules/react/**'
+  - '!**/node_modules/react-dom/**'
+  - '!**/node_modules/scheduler/**'
+  # Exclude nested node_modules from dependencies (reduce duplication)
+  - '!**/node_modules/**/node_modules/@types/**'
+  - '!**/node_modules/**/node_modules/typescript/**'
+  - '!**/node_modules/**/node_modules/semver/**'
+  - '!**/node_modules/**/node_modules/ajv/**'
+  # Aggressive pruning of conf nested dependencies (keep only essentials)
+  - '!**/node_modules/conf/node_modules/semver/**'
+  - '!**/node_modules/conf/node_modules/ajv/**'
+  - '!**/node_modules/conf/node_modules/json-schema-traverse/**'
+  # Aggressive pruning of ajv-formats nested dependencies
+  - '!**/node_modules/ajv-formats/node_modules/ajv/**'
+  # Exclude OpenAI SDK source files (keep only compiled lib/)
+  - '!**/node_modules/openai/src/**'
+  - '!**/node_modules/openai/.tsconfig.json'
+  - '!**/node_modules/openai/tsconfig*'
   # Include whisper-node dist files from build directory (copied by prebuild script)
   - 'build/whisper-node-dist/**/*'
   # Include whisper.cpp executables from build directory (copied by prebuild script)
