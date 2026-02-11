@@ -128,6 +128,8 @@ export const Settings: React.FC<SettingsProps> = ({
   const [appVersion, setAppVersion] = useState<string>('0.0.0')
   const [downloading, setDownloading] = useState(false)
   const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0)
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
   const [historyAutoDeleteDays, setHistoryAutoDeleteDays] = useState(30)
   const [historyMaxItems, setHistoryMaxItems] = useState(0)
   const [activeTab, setActiveTab] = useState<'settings' | 'history'>('settings')
@@ -465,7 +467,8 @@ export const Settings: React.FC<SettingsProps> = ({
   }, [refreshLocalModelsInfo])
 
   useEffect(() => {
-    const checkUpdates = async (): Promise<void> => {
+    // Load cached update status first
+    const loadCachedStatus = async (): Promise<void> => {
       if (window.api?.getUpdateStatus) {
         try {
           const status = await window.api.getUpdateStatus()
@@ -477,7 +480,17 @@ export const Settings: React.FC<SettingsProps> = ({
         }
       }
     }
-    checkUpdates()
+    loadCachedStatus()
+
+    // Trigger a real update check when settings opens
+    if (window.api?.checkForUpdates) {
+      setCheckingForUpdates(true)
+      setUpdateError(null)
+      window.api.checkForUpdates().finally(() => {
+        // checkingForUpdates will be cleared by event listeners
+        setTimeout(() => setCheckingForUpdates(false), 10000) // fallback timeout
+      })
+    }
 
     const loadHistorySettings = async (): Promise<void> => {
       if (window.api?.getHistorySettings) {
@@ -492,37 +505,64 @@ export const Settings: React.FC<SettingsProps> = ({
     }
     loadHistorySettings()
 
-    const updateCheckInterval = setInterval(checkUpdates, 3000)
+    const cleanups: (() => void)[] = []
 
     if (window.api?.onUpdateAvailable) {
-      const unsubscribe1 = window.api.onUpdateAvailable((info) => {
-        setUpdateAvailable(true)
-        setLatestVersion(info.version)
-        setUpdateDownloaded(false)
-        setDownloading(false)
-      })
+      cleanups.push(
+        window.api.onUpdateAvailable((info) => {
+          setUpdateAvailable(true)
+          setLatestVersion(info.version)
+          setUpdateDownloaded(false)
+          setDownloading(false)
+          setCheckingForUpdates(false)
+          setUpdateError(null)
+        })
+      )
+    }
 
-      const unsubscribe2 = window.api.onUpdateDownloaded((info) => {
-        setUpdateDownloaded(true)
-        setDownloading(false)
-        setLatestVersion(info.version)
-      })
+    if (window.api?.onUpdateDownloaded) {
+      cleanups.push(
+        window.api.onUpdateDownloaded((info) => {
+          setUpdateDownloaded(true)
+          setDownloading(false)
+          setLatestVersion(info.version)
+          setCheckingForUpdates(false)
+        })
+      )
+    }
 
-      const unsubscribe3 = window.api.onUpdateDownloadProgress((progress) => {
-        setDownloading(true)
-        setUpdateDownloadProgress(Math.round(progress.percent))
-      })
+    if (window.api?.onUpdateDownloadProgress) {
+      cleanups.push(
+        window.api.onUpdateDownloadProgress((progress) => {
+          setDownloading(true)
+          setUpdateDownloadProgress(Math.round(progress.percent))
+        })
+      )
+    }
 
-      return () => {
-        unsubscribe1()
-        unsubscribe2()
-        unsubscribe3()
-        clearInterval(updateCheckInterval)
-      }
+    // Listen for update-not-available
+    if (window.api?.onUpdateNotAvailable) {
+      cleanups.push(
+        window.api.onUpdateNotAvailable(() => {
+          setCheckingForUpdates(false)
+          setUpdateAvailable(false)
+          setUpdateError(null)
+        })
+      )
+    }
+
+    // Listen for update errors
+    if (window.api?.onUpdateError) {
+      cleanups.push(
+        window.api.onUpdateError((message) => {
+          setCheckingForUpdates(false)
+          setUpdateError(message)
+        })
+      )
     }
 
     return () => {
-      clearInterval(updateCheckInterval)
+      cleanups.forEach((fn) => fn())
     }
   }, [])
 
@@ -580,15 +620,31 @@ export const Settings: React.FC<SettingsProps> = ({
     return () => clearInterval(interval)
   }, [localTranscriptionProvider])
 
+  const handleCheckForUpdates = async (): Promise<void> => {
+    if (window.api?.checkForUpdates) {
+      setCheckingForUpdates(true)
+      setUpdateError(null)
+      try {
+        await window.api.checkForUpdates()
+      } catch (error) {
+        console.error('Failed to check for updates:', error)
+        setCheckingForUpdates(false)
+        setUpdateError('Failed to check for updates')
+      }
+    }
+  }
+
   const handleDownloadUpdate = async (): Promise<void> => {
     if (window.api?.downloadUpdate) {
       setDownloading(true)
       setUpdateDownloadProgress(0)
+      setUpdateError(null)
       try {
         await window.api.downloadUpdate()
       } catch (error) {
         console.error('Failed to download update:', error)
         setDownloading(false)
+        setUpdateError('Failed to download update')
       }
     }
   }
@@ -743,6 +799,10 @@ export const Settings: React.FC<SettingsProps> = ({
                 latestVersion={latestVersion}
                 downloading={downloading}
                 updateDownloadProgress={updateDownloadProgress}
+                checkingForUpdates={checkingForUpdates}
+                updateError={updateError}
+                appVersion={appVersion}
+                onCheckForUpdates={handleCheckForUpdates}
                 onDownloadUpdate={handleDownloadUpdate}
                 onQuitAndInstall={handleQuitAndInstall}
               />

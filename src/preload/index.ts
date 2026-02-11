@@ -148,6 +148,20 @@ const api = {
     return (): void => {
       ipcRenderer.removeListener('model-download-progress', handler)
     }
+  },
+  onUpdateNotAvailable: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('update-not-available', handler)
+    return (): void => {
+      ipcRenderer.removeListener('update-not-available', handler)
+    }
+  },
+  onUpdateError: (callback: (message: string) => void): (() => void) => {
+    const handler = (_: unknown, message: string): void => callback(message)
+    ipcRenderer.on('update-error', handler)
+    return (): void => {
+      ipcRenderer.removeListener('update-error', handler)
+    }
   }
 }
 

@@ -47,6 +47,8 @@ declare global {
       onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
       onUpdateDownloaded: (callback: (info: Pick<UpdateInfo, 'version'>) => void) => () => void
       onUpdateDownloadProgress: (callback: (progress: UpdateDownloadProgress) => void) => () => void
+      onUpdateNotAvailable: (callback: () => void) => () => void
+      onUpdateError: (callback: (message: string) => void) => () => void
       // History API
       getAllHistory: () => Promise<HistoryItem[]>
       getHistoryItem: (id: string) => Promise<HistoryItem | null>
