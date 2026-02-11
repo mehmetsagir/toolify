@@ -2,6 +2,7 @@ node_modules
 dist
 out
 build
+native
 .DS_Store
 .eslintcache
 *.log*
@@ -14,6 +15,12 @@ build
 config.json
 secrets.json
 .claude
+
+# Swift build artifacts
+scripts/apple-stt/.build/
+*.dSYM
+*.pcm
+*.o
 
 # Auto Claude data directory
 .auto-claude/
