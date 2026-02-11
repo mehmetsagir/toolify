@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.toolify.apple-stt</string>
+	<key>CFBundleName</key>
+	<string>apple-stt</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Toolify needs access to Speech Recognition to transcribe your voice recordings using Apple Speech.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Toolify needs microphone access for voice recording and live transcription.</string>
+</dict>
+</plist>
