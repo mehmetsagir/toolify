@@ -7,6 +7,7 @@ function App(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'recording' | 'processing'>('idle')
   const [showSettings, setShowSettings] = useState(false)
   const [apiKey, setApiKey] = useState('')
+  const [googleApiKey, setGoogleApiKey] = useState('')
   const [translate, setTranslate] = useState(false)
   const [sourceLanguage, setSourceLanguage] = useState('en')
   const [targetLanguage, setTargetLanguage] = useState('tr')
@@ -47,6 +48,7 @@ function App(): React.JSX.Element {
         .getSettings()
         .then((settings) => {
           setApiKey(settings.apiKey || '')
+          setGoogleApiKey(settings.googleApiKey || '')
           setTranslate(settings.translate || false)
           setSourceLanguage(settings.sourceLanguage || 'en')
           setTargetLanguage(settings.targetLanguage || 'tr')
@@ -139,6 +141,7 @@ function App(): React.JSX.Element {
 
   const saveSettings = (
     newKey: string,
+    newGoogleApiKey: string,
     newTranslate: boolean,
     newSourceLanguage: string,
     newTargetLanguage: string,
@@ -154,6 +157,7 @@ function App(): React.JSX.Element {
     newLocalModelType: LocalModelType
   ): void => {
     setApiKey(newKey)
+    setGoogleApiKey(newGoogleApiKey)
     setTranslate(newTranslate)
     setSourceLanguage(newSourceLanguage)
     setTargetLanguage(newTargetLanguage)
@@ -169,6 +173,7 @@ function App(): React.JSX.Element {
     setLocalModelType(newLocalModelType)
     window.api.saveSettings({
       apiKey: newKey,
+      googleApiKey: newGoogleApiKey,
       translate: newTranslate,
       language: '',
       sourceLanguage: newSourceLanguage,
@@ -277,6 +282,12 @@ function App(): React.JSX.Element {
       const settings = await window.api.getSettings()
       if (settings.transcriptionProvider === 'openai' && !settings.apiKey) {
         new Notification('Toolify Error', { body: 'API Key required for cloud transcription' })
+        return
+      }
+      if (settings.transcriptionProvider === 'google-cloud' && !settings.googleApiKey) {
+        new Notification('Toolify Error', {
+          body: 'Google Cloud API Key required for transcription'
+        })
         return
       }
 
@@ -497,6 +508,27 @@ function App(): React.JSX.Element {
           setApiKey={(val) =>
             saveSettings(
               val,
+              googleApiKey,
+              translate,
+              sourceLanguage,
+              targetLanguage,
+              shortcut,
+              trayAnimations,
+              processNotifications,
+              soundAlert,
+              soundType,
+              autoStart,
+              showRecordingOverlay,
+              overlayStyle,
+              transcriptionProvider,
+              localModelType
+            )
+          }
+          googleApiKey={googleApiKey}
+          setGoogleApiKey={(val) =>
+            saveSettings(
+              apiKey,
+              val,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -516,6 +548,7 @@ function App(): React.JSX.Element {
           setTranslate={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               val,
               sourceLanguage,
               targetLanguage,
@@ -535,6 +568,7 @@ function App(): React.JSX.Element {
           setSourceLanguage={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               val,
               targetLanguage,
@@ -554,6 +588,7 @@ function App(): React.JSX.Element {
           setTargetLanguage={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               val,
@@ -573,6 +608,7 @@ function App(): React.JSX.Element {
           setShortcut={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -592,6 +628,7 @@ function App(): React.JSX.Element {
           setProcessNotifications={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -611,6 +648,7 @@ function App(): React.JSX.Element {
           setSoundAlert={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -630,6 +668,7 @@ function App(): React.JSX.Element {
           setSoundType={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -649,6 +688,7 @@ function App(): React.JSX.Element {
           setAutoStart={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -668,6 +708,7 @@ function App(): React.JSX.Element {
           setShowRecordingOverlay={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -687,6 +728,7 @@ function App(): React.JSX.Element {
           setTranscriptionProvider={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -706,6 +748,7 @@ function App(): React.JSX.Element {
           setLocalModelType={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,
@@ -725,6 +768,7 @@ function App(): React.JSX.Element {
           setOverlayStyle={(val) =>
             saveSettings(
               apiKey,
+              googleApiKey,
               translate,
               sourceLanguage,
               targetLanguage,

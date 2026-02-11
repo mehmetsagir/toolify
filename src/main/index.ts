@@ -26,7 +26,12 @@ import {
   getLocalModelsInfo,
   getModelsDir
 } from './local-whisper'
-import { transcribeAppleStt, checkAppleSttAvailability } from './apple-stt'
+import {
+  transcribeAppleStt,
+  checkAppleSttAvailability,
+  requestAppleSttPermission
+} from './apple-stt'
+import { transcribeGoogleCloud } from './google-cloud-stt'
 import {
   startAppleSttStream,
   stopAppleSttStream,
@@ -39,6 +44,7 @@ import { showNotification, playSound, muteSystem, unmuteSystem } from './utils/s
 import { createMainWindow, createSettingsWindow } from './utils/windows'
 import { getCompactOverlayHTML, getLargeOverlayHTML } from './utils/overlay-template'
 import { getSettings, saveSettings as saveSettingsUtil } from './utils/settings'
+import { getFfmpegPath } from './utils/ffmpeg'
 import {
   createTrayIcon,
   createRecordingTrayIcon,
@@ -996,6 +1002,31 @@ app.whenReady().then(() => {
     )
   })
 
+  ipcMain.handle('check-microphone-permission', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { systemPreferences: sp } = require('electron')
+    return sp.getMediaAccessStatus('microphone')
+  })
+
+  ipcMain.handle('request-microphone-permission', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { systemPreferences: sp } = require('electron')
+    return sp.askForMediaAccess('microphone')
+  })
+
+  ipcMain.on('open-system-preferences', (_, panel: string) => {
+    const panels: Record<string, string> = {
+      accessibility:
+        'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+      microphone: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+      speechRecognition:
+        'x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition'
+    }
+    if (panels[panel]) {
+      shell.openExternal(panels[panel])
+    }
+  })
+
   ipcMain.on('save-settings', (_, settings: Settings) => {
     const previousSettings = getSettings()
     saveSettingsUtil(settings)
@@ -1225,6 +1256,10 @@ app.whenReady().then(() => {
     return checkAppleSttAvailability(language)
   })
 
+  ipcMain.handle('request-speech-recognition-permission', async () => {
+    return requestAppleSttPermission()
+  })
+
   ipcMain.handle('get-version', () => {
     return app.getVersion()
   })
@@ -1239,10 +1274,18 @@ app.whenReady().then(() => {
   ipcMain.on('process-audio', async (_, buffer, duration: number) => {
     const settings = getSettings()
 
-    // Only require API key if using OpenAI provider
+    // Only require API key if using cloud providers
     const provider = settings.transcriptionProvider || 'openai'
     if (provider === 'openai' && !settings.apiKey) {
       showNotification('Toolify Error', 'API Key required for online transcription.')
+      updateTrayIcon('idle', settings.trayAnimations)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('processing-complete')
+      }
+      return
+    }
+    if (provider === 'google-cloud' && !settings.googleApiKey) {
+      showNotification('Toolify Error', 'Google Cloud API Key required for transcription.')
       updateTrayIcon('idle', settings.trayAnimations)
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('processing-complete')
@@ -1358,6 +1401,51 @@ app.whenReady().then(() => {
           break
         }
 
+        case 'google-cloud': {
+          if (!settings.googleApiKey) {
+            showNotification('Toolify Error', 'Google Cloud API Key missing.')
+            updateTrayIcon('idle', settings.trayAnimations)
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('processing-complete')
+            }
+            return
+          }
+
+          text = await transcribeGoogleCloud(
+            settings.googleApiKey,
+            Buffer.from(buffer),
+            languageToUse
+          )
+
+          // Translation via GPT (same as apple-stt pattern)
+          const shouldTranslateGoogle = settings.translate && !!settings.apiKey
+          if (shouldTranslateGoogle && text) {
+            const { getLanguageName, cleanTranslationText } =
+              await import('./utils/transcription-helpers')
+            const OpenAI = (await import('openai')).default
+            try {
+              const openai = new OpenAI({ apiKey: settings.apiKey })
+              const targetLangName = getLanguageName(settings.targetLanguage ?? 'en')
+              const translationResponse = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are a professional translator. Translate the following text to ${targetLangName}. The source language will be automatically detected from the text.\n\nImportant guidelines:\n- Understand the full meaning and context of what is being said\n- Provide a natural, fluent translation that sounds like it was originally written in ${targetLangName}\n- Do NOT translate word-for-word - translate meaning-for-meaning\n- Preserve the tone, style, and intent of the original\n- Do not add, remove, or change the meaning\n- Do not add any commentary, explanations, or metadata\n- Only return the translation itself, nothing else`
+                  },
+                  { role: 'user', content: text }
+                ],
+                temperature: 0.3
+              })
+              const translatedText = translationResponse.choices[0]?.message?.content || text
+              text = cleanTranslationText(translatedText) || text
+            } catch (error) {
+              console.error('Translation failed, returning original text:', error)
+            }
+          }
+          break
+        }
+
         case 'openai':
         default: {
           if (!settings.apiKey) {
@@ -1398,7 +1486,7 @@ app.whenReady().then(() => {
 
         await new Promise<void>((resolve, reject) => {
           exec(
-            `ffmpeg -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`,
+            `"${getFfmpegPath()}" -i "${webmPath}" -vn -ar 44100 -ac 2 -b:a 192k "${mp3Path}"`,
             (error, _stdout, stderr) => {
               if (error) {
                 console.error('FFmpeg conversion failed:', stderr || error)
@@ -1444,7 +1532,9 @@ app.whenReady().then(() => {
                 ? `Whisper ${settings.localModelType === 'large-v3' ? 'Large V3' : 'Medium'} (GGML)`
                 : provider === 'apple-stt'
                   ? 'Apple Speech to Text'
-                  : 'OpenAI Whisper-1',
+                  : provider === 'google-cloud'
+                    ? 'Google Cloud STT'
+                    : 'OpenAI Whisper-1',
             audioPath,
             duration
           })
@@ -1497,6 +1587,12 @@ app.whenReady().then(() => {
         }
       } else if (provider === 'apple-stt') {
         errorMessage = `Apple STT failed: ${error instanceof Error ? error.message : String(error)}`
+      } else if (provider === 'google-cloud') {
+        if (!settings.googleApiKey) {
+          errorMessage = 'Google Cloud API Key missing for transcription.'
+        } else {
+          errorMessage = `Google Cloud STT failed: ${error instanceof Error ? error.message : String(error)}`
+        }
       } else {
         if (!settings.apiKey) {
           errorMessage = 'API Key missing for online transcription.'

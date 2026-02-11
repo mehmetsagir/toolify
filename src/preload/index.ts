@@ -114,10 +114,22 @@ const api = {
   openModelsFolder: (): Promise<string> => ipcRenderer.invoke('open-models-folder'),
   checkAppleStt: (
     language?: string
-  ): Promise<{ available: boolean; permissionGranted: boolean; supportsOnDevice?: boolean }> =>
-    ipcRenderer.invoke('check-apple-stt', language),
+  ): Promise<{
+    available: boolean
+    permissionGranted: boolean
+    supportsOnDevice?: boolean
+    authStatus?: string
+  }> => ipcRenderer.invoke('check-apple-stt', language),
   getVersion: (): Promise<string> => ipcRenderer.invoke('get-version'),
   openExternal: (url: string): void => ipcRenderer.send('open-external', url),
+  checkMicrophonePermission: (): Promise<string> =>
+    ipcRenderer.invoke('check-microphone-permission'),
+  requestMicrophonePermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('request-microphone-permission'),
+  openSystemPreferences: (panel: string): void =>
+    ipcRenderer.send('open-system-preferences', panel),
+  requestSpeechRecognitionPermission: (): Promise<{ granted: boolean; alreadyDenied?: boolean }> =>
+    ipcRenderer.invoke('request-speech-recognition-permission'),
   onModelDownloadProgress: (
     callback: (progress: {
       modelType: LocalModelType
