@@ -5,6 +5,7 @@ import type { Settings } from '../../shared/types'
 const store = new Store()
 
 const ENCRYPTED_API_KEY_KEY = 'encryptedApiKey'
+const ENCRYPTED_GOOGLE_API_KEY_KEY = 'encryptedGoogleApiKey'
 
 const defaultSettings: Settings = {
   apiKey: '',
@@ -74,6 +75,49 @@ function getApiKey(): string {
   return ''
 }
 
+/**
+ * Encrypt and store Google API key using Electron's safeStorage
+ */
+function setGoogleApiKey(apiKey: string): void {
+  if (!apiKey || apiKey.trim() === '') {
+    store.delete(ENCRYPTED_GOOGLE_API_KEY_KEY)
+    return
+  }
+
+  try {
+    const encryptedBuffer = safeStorage.encryptString(apiKey)
+    store.set(ENCRYPTED_GOOGLE_API_KEY_KEY, encryptedBuffer.toString('base64'))
+  } catch (error) {
+    console.warn('Failed to encrypt Google API key, falling back to plain text:', error)
+    store.set('googleApiKey', apiKey)
+  }
+}
+
+/**
+ * Retrieve and decrypt Google API key from storage
+ */
+function getGoogleApiKey(): string {
+  const encryptedKey = store.get(ENCRYPTED_GOOGLE_API_KEY_KEY) as string | undefined
+  if (encryptedKey) {
+    try {
+      const buffer = Buffer.from(encryptedKey, 'base64')
+      return safeStorage.decryptString(buffer)
+    } catch (error) {
+      console.warn('Failed to decrypt Google API key, clearing corrupted key:', error)
+      store.delete(ENCRYPTED_GOOGLE_API_KEY_KEY)
+    }
+  }
+
+  const plainKey = store.get('googleApiKey') as string | undefined
+  if (plainKey) {
+    setGoogleApiKey(plainKey)
+    store.delete('googleApiKey')
+    return plainKey
+  }
+
+  return ''
+}
+
 export function getSettings(): Settings {
   const settings = store.get('settings', defaultSettings) as Settings
 
@@ -86,21 +130,23 @@ export function getSettings(): Settings {
     settings.transcriptionProvider = 'openai'
   }
 
-  // Override apiKey with decrypted value
+  // Override apiKey and googleApiKey with decrypted values
   return {
     ...settings,
-    apiKey: getApiKey()
+    apiKey: getApiKey(),
+    googleApiKey: getGoogleApiKey()
   }
 }
 
 export function saveSettings(settings: Settings): void {
-  const { apiKey, ...settingsWithoutApiKey } = settings
+  const { apiKey, googleApiKey, ...settingsWithoutKeys } = settings
 
-  // Store API key separately with encryption
+  // Store API keys separately with encryption
   setApiKey(apiKey ?? '')
+  setGoogleApiKey(googleApiKey ?? '')
 
   // Store rest of settings normally
-  store.set('settings', settingsWithoutApiKey)
+  store.set('settings', settingsWithoutKeys)
 }
 
 /**
