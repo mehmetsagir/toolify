@@ -1,0 +1,31 @@
+# Electron Builder Ignore File
+# These files/directories will NOT be included in the app bundle
+
+scripts/
+docs/
+native/
+ToolifySwift/
+homebrew/
+claudedocs/
+.claude/
+.auto-claude/
+.vscode/
+src/
+
+# Config files
+.auto-claude-security.json
+.claude_settings.json
+.lintstagedrc.json
+.npmrc
+.prettierignore
+.prettierrc.yaml
+eslint.config.mjs
+electron.vite.config.ts
+postcss.config.js
+tailwind.config.js
+vitest.config.ts
+tsconfig*.json
+todo.md
+CHANGELOG.md
+README.md
+LICENSE
