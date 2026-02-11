@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import AppKit
 
 // Exit codes
 let EXIT_SUCCESS_CODE: Int32 = 0
@@ -17,12 +18,14 @@ func printUsage() {
     printError("Usage: apple-stt --file <path> [--language <locale>]")
     printError("       apple-stt --stream [--language <locale>]")
     printError("       apple-stt --check [--language <locale>]")
+    printError("       apple-stt --request-permission")
     printError("")
     printError("Options:")
     printError("  --file <path>      Audio file to transcribe (WAV format)")
     printError("  --stream           Stream live microphone audio, output JSON lines to stdout")
     printError("  --language <locale> Locale identifier (e.g. en-US, tr-TR). Default: system locale")
     printError("  --check            Check availability and permission status")
+    printError("  --request-permission  Request speech recognition permission from macOS")
 }
 
 // Parse arguments
@@ -30,6 +33,14 @@ var filePath: String?
 var language: String?
 var checkMode = false
 var streamMode = false
+var requestPermissionMode = false
+
+// Check for sentinel file first (used when launched via `open` which can't pass args reliably)
+let sentinelPath = NSTemporaryDirectory() + "apple-stt-request-permission"
+if FileManager.default.fileExists(atPath: sentinelPath) {
+    try? FileManager.default.removeItem(atPath: sentinelPath)
+    requestPermissionMode = true
+}
 
 var args = CommandLine.arguments.dropFirst()
 while let arg = args.first {
@@ -53,6 +64,8 @@ while let arg = args.first {
         checkMode = true
     case "--stream":
         streamMode = true
+    case "--request-permission":
+        requestPermissionMode = true
     case "--help", "-h":
         printUsage()
         exit(EXIT_SUCCESS_CODE)
@@ -91,7 +104,62 @@ if checkMode {
     let available = recognizer.isAvailable
     let supportsOnDevice = recognizer.supportsOnDeviceRecognition
     let granted = (authStatus == .authorized)
-    print("{\"available\":\(available),\"permissionGranted\":\(granted),\"supportsOnDevice\":\(supportsOnDevice)}")
+    let statusString: String
+    switch authStatus {
+    case .authorized: statusString = "authorized"
+    case .denied: statusString = "denied"
+    case .restricted: statusString = "restricted"
+    case .notDetermined: statusString = "notDetermined"
+    @unknown default: statusString = "unknown"
+    }
+    print("{\"available\":\(available),\"permissionGranted\":\(granted),\"supportsOnDevice\":\(supportsOnDevice),\"authStatus\":\"\(statusString)\"}")
+    exit(EXIT_SUCCESS_CODE)
+}
+
+// Request permission mode - trigger macOS permission dialog via requestAuthorization()
+// Requires NSApplication event loop and a proper .app bundle with Info.plist
+// containing NSSpeechRecognitionUsageDescription.
+if requestPermissionMode {
+    let resultPath = NSTemporaryDirectory() + "apple-stt-permission-result.json"
+
+    func writeResult(_ json: String) {
+        try? json.write(toFile: resultPath, atomically: true, encoding: .utf8)
+    }
+
+    if authStatus == .authorized {
+        writeResult("{\"granted\":true}")
+        exit(EXIT_SUCCESS_CODE)
+    }
+    if authStatus == .denied || authStatus == .restricted {
+        writeResult("{\"granted\":false,\"alreadyDenied\":true}")
+        exit(EXIT_SUCCESS_CODE)
+    }
+
+    // Status is notDetermined — need NSApplication for the permission dialog.
+    // The binary must be launched via `open` from within a .app bundle so that
+    // LaunchServices provides the full bundle context and Info.plist is respected.
+    let app = NSApplication.shared
+    app.setActivationPolicy(.prohibited) // No dock icon, no menu bar
+
+    DispatchQueue.main.async {
+        SFSpeechRecognizer.requestAuthorization { status in
+            let granted = (status == .authorized)
+            writeResult("{\"granted\":\(granted)}")
+            DispatchQueue.main.async {
+                app.terminate(nil)
+            }
+        }
+    }
+
+    // Timeout: terminate after 60 seconds if user doesn't respond to dialog
+    DispatchQueue.global().asyncAfter(deadline: .now() + 60) {
+        writeResult("{\"granted\":false}")
+        DispatchQueue.main.async {
+            app.terminate(nil)
+        }
+    }
+
+    app.run()
     exit(EXIT_SUCCESS_CODE)
 }
 
