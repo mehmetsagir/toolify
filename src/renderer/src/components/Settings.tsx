@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Mic, Settings as SettingsIcon, History as HistoryIcon, Shield } from 'lucide-react'
+import {
+  Mic,
+  Settings as SettingsIcon,
+  History as HistoryIcon,
+  Shield,
+  AudioWaveform
+} from 'lucide-react'
 import { History } from './History'
 import { UpdateBanner } from './settings/UpdateBanner'
 import { GeneralSettings } from './settings/GeneralSettings'
 import { DictationSettings } from './settings/DictationSettings'
 import { PermissionsSettings } from './settings/PermissionsSettings'
+import { WakeWordSettings } from './settings/WakeWordSettings'
 import appIcon from '../assets/app-icon.png'
 import type { LocalModelInfo, LocalModelType, TranscriptionProvider } from '../../../shared/types'
 
@@ -678,6 +685,12 @@ export const Settings: React.FC<SettingsProps> = ({
       category: 'main'
     },
     {
+      id: 'wakeword',
+      label: 'Wake Word',
+      icon: AudioWaveform,
+      category: 'main'
+    },
+    {
       id: 'permissions',
       label: 'Permissions',
       icon: Shield,
@@ -856,6 +869,9 @@ export const Settings: React.FC<SettingsProps> = ({
                   localLocalModelType={localLocalModelType}
                 />
               )}
+
+              {/* Wake Word Settings Section */}
+              {activeSection === 'wakeword' && <WakeWordSettings />}
 
               {/* Permissions Settings Section */}
               {activeSection === 'permissions' && (

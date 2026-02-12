@@ -1,5 +1,4 @@
 import type { LocalModelType } from './local-models.types'
-
 export type TranscriptionProvider = 'openai' | 'local-whisper' | 'apple-stt' | 'google-cloud'
 
 export interface Settings {
@@ -31,6 +30,9 @@ export interface Settings {
     displayId?: number
   }
   statistics?: Statistics
+  // Wake Word
+  wakeWordEnabled?: boolean
+  wakeWord?: string
 }
 
 export interface AccessibilityPermission {
