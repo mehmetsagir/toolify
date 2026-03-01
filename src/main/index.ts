@@ -76,13 +76,6 @@ import {
   getIsQuittingForUpdate
 } from './auto-updater'
 import { uIOhook } from 'uiohook-napi'
-import {
-  startWakeWordListener,
-  stopWakeWordListener,
-  pauseWakeWordListener,
-  resumeWakeWordListener,
-  isWakeWordActive
-} from './wake-word'
 
 // Set app name and process title immediately for macOS dock label
 // CRITICAL: Must be set before any Electron events to override default "Electron" name
@@ -903,13 +896,6 @@ app.whenReady().then(() => {
         isProcessingToggle = false
       }, 500)
 
-      // Resume wake word listener after cancel (with delay)
-      if (isWakeWordActive()) {
-        setTimeout(() => {
-          resumeWakeWordListener()
-        }, 2000)
-      }
-
       // NO notification or sound on cancel - user already knows they cancelled
     }
   }
@@ -1007,17 +993,6 @@ app.whenReady().then(() => {
   const shortcut = initialSettings.shortcut || 'Command+Space'
   registerShortcut(shortcut)
 
-  // Initialize wake word listener
-  if (initialSettings.wakeWordEnabled) {
-    startWakeWordListener(
-      {
-        wakeWord: initialSettings.wakeWord ?? 'Hey Toolify',
-        language: initialSettings.sourceLanguage
-      },
-      handleRecordingToggle
-    )
-  }
-
   createWindow()
 
   ipcMain.handle('get-settings', () => {
@@ -1082,20 +1057,6 @@ app.whenReady().then(() => {
       if (shortcutChanged) {
         registerShortcut(settings.shortcut)
         showNotification('Toolify', `Shortcut updated to ${settings.shortcut}`)
-      }
-    }
-
-    // Handle wake word setting changes
-    const wakeWordEnabledChanged = previousSettings.wakeWordEnabled !== settings.wakeWordEnabled
-    const wakeWordChanged = previousSettings.wakeWord !== settings.wakeWord
-
-    if (wakeWordEnabledChanged || wakeWordChanged) {
-      stopWakeWordListener()
-      if (settings.wakeWordEnabled) {
-        startWakeWordListener(
-          { wakeWord: settings.wakeWord ?? 'Hey Toolify', language: settings.sourceLanguage },
-          handleRecordingToggle
-        )
       }
     }
 
@@ -1186,11 +1147,6 @@ app.whenReady().then(() => {
   ipcMain.on('set-recording-state', (_, state) => {
     isRecording = state
     if (state) {
-      // Pause wake word listener during recording (mic conflict)
-      if (isWakeWordActive()) {
-        pauseWakeWordListener()
-      }
-
       // Register ESC shortcut when recording starts
       try {
         globalShortcut.register('Escape', handleCancelRecording)
@@ -1212,13 +1168,6 @@ app.whenReady().then(() => {
       // The processAudio handler will set the correct state (processing)
       if (settings.processNotifications) {
         showNotification('Toolify', 'Processing...')
-      }
-
-      // Resume wake word listener after recording stops (with delay to avoid mic conflict)
-      if (isWakeWordActive()) {
-        setTimeout(() => {
-          resumeWakeWordListener()
-        }, 2000)
       }
     }
   })
@@ -1772,9 +1721,6 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
-  // Stop wake word listener
-  stopWakeWordListener()
-
   // If quitting for update, don't prevent default behavior
   if (getIsQuittingForUpdate()) {
     // Still clean up resources but don't prevent quit
