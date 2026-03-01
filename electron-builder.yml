@@ -140,10 +140,11 @@ nsis:
   createDesktopShortcut: always
 mac:
   icon: resources/icon.png
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  notarize: false
+  hardenedRuntime: true
   gatekeeperAssess: false
-  hardenedRuntime: false
+  notarize: true
   artifactName: ${name}-${version}-${arch}.${ext}
   target:
     - target: dmg
