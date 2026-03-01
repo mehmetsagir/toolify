@@ -38,9 +38,7 @@ const defaultSettings: Settings = {
   historyMaxItems: 0,
   transcriptionProvider: 'openai',
   localModelType: 'medium',
-  statistics: defaultStatistics,
-  wakeWordEnabled: false,
-  wakeWord: 'Hey Toolify'
+  statistics: defaultStatistics
 }
 
 /**
