@@ -30,9 +30,6 @@ export interface Settings {
     displayId?: number
   }
   statistics?: Statistics
-  // Wake Word
-  wakeWordEnabled?: boolean
-  wakeWord?: string
 }
 
 export interface AccessibilityPermission {
