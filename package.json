@@ -37,9 +37,9 @@
     "prebuild:dmg": "node scripts/copy-whisper-executables.js && node scripts/build-apple-stt.js",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac --publish never --config.mac.identity=null",
-    "build:mac:publish": "electron-vite build && electron-builder --mac --publish always --config.mac.identity=null",
-    "build:dmg": "npm run build:skip-check && npx electron-builder --mac dmg --publish never --config.mac.identity=null",
+    "build:mac": "electron-vite build && electron-builder --mac --publish never",
+    "build:mac:publish": "electron-vite build && electron-builder --mac --publish always",
+    "build:dmg": "npm run build:skip-check && npx electron-builder --mac dmg --publish never",
     "build:linux": "electron-vite build && electron-builder --linux",
     "prepare": "husky"
   },
