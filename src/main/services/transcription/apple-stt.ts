@@ -112,6 +112,7 @@ export interface AppleSttAvailability {
   available: boolean
   permissionGranted: boolean
   supportsOnDevice?: boolean
+  authStatus?: string
 }
 
 export async function checkAppleSttAvailability(language?: string): Promise<AppleSttAvailability> {
@@ -141,7 +142,8 @@ export async function checkAppleSttAvailability(language?: string): Promise<Appl
         resolve({
           available: result.available ?? false,
           permissionGranted,
-          supportsOnDevice: result.supportsOnDevice
+          supportsOnDevice: result.supportsOnDevice,
+          authStatus: result.authStatus
         })
       } catch {
         logger.log('Apple STT check parse error:', stdout)

@@ -20,6 +20,7 @@ export async function transcribe(
 ): Promise<string> {
   const openai = new OpenAI({ apiKey })
   const tempFilePath = path.join(os.tmpdir(), `recording-${Date.now()}.webm`)
+  const normalisedLanguage = !language || language === 'auto' ? undefined : language
   fs.writeFileSync(tempFilePath, audioBuffer)
 
   try {
@@ -69,7 +70,7 @@ Important guidelines:
       const response = await openai.audio.transcriptions.create({
         file: fileStream2,
         model: 'whisper-1',
-        language: language || undefined,
+        language: normalisedLanguage,
         prompt: transcriptionPrompt
       })
       text = cleanTranslationText(response.text)

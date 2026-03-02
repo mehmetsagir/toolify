@@ -4,6 +4,13 @@ import { transcribeLocal, checkLocalModelExists } from './local-whisper'
 import { transcribeAppleStt } from './apple-stt'
 import { transcribeGoogleCloud } from './google-cloud'
 
+function normaliseProviderLanguage(language?: string): string | undefined {
+  if (!language || language === 'auto') {
+    return undefined
+  }
+  return language
+}
+
 /**
  * Provider router: dispatches to the correct transcription provider based on settings.
  *
@@ -12,6 +19,7 @@ import { transcribeGoogleCloud } from './google-cloud'
  */
 export async function transcribe(audioBuffer: Buffer, settings: Settings): Promise<string> {
   const provider = settings.transcriptionProvider || 'openai'
+  const providerLanguage = normaliseProviderLanguage(settings.sourceLanguage || settings.language)
 
   switch (provider) {
     case 'openai': {
@@ -20,8 +28,7 @@ export async function transcribe(audioBuffer: Buffer, settings: Settings): Promi
         apiKey,
         audioBuffer,
         settings.translate ?? false,
-        // FIX: use sourceLanguage not language
-        settings.sourceLanguage || settings.language || undefined,
+        providerLanguage,
         settings.sourceLanguage,
         settings.targetLanguage
       )
@@ -37,8 +44,7 @@ export async function transcribe(audioBuffer: Buffer, settings: Settings): Promi
       }
       return transcribeLocal(audioBuffer, modelType, {
         translate: settings.translate,
-        // FIX: use sourceLanguage not language
-        language: settings.sourceLanguage || settings.language || undefined,
+        language: providerLanguage,
         sourceLanguage: settings.sourceLanguage,
         targetLanguage: settings.targetLanguage,
         apiKey: settings.apiKey
@@ -48,8 +54,7 @@ export async function transcribe(audioBuffer: Buffer, settings: Settings): Promi
     case 'apple-stt': {
       return transcribeAppleStt(audioBuffer, {
         translate: settings.translate,
-        // FIX: use sourceLanguage not language
-        language: settings.sourceLanguage || settings.language || undefined,
+        language: providerLanguage,
         sourceLanguage: settings.sourceLanguage,
         targetLanguage: settings.targetLanguage,
         apiKey: settings.apiKey
@@ -58,12 +63,7 @@ export async function transcribe(audioBuffer: Buffer, settings: Settings): Promi
 
     case 'google-cloud': {
       const googleApiKey = settings.googleApiKey || ''
-      // FIX: use sourceLanguage not language
-      const text = await transcribeGoogleCloud(
-        googleApiKey,
-        audioBuffer,
-        settings.sourceLanguage || settings.language || undefined
-      )
+      const text = await transcribeGoogleCloud(googleApiKey, audioBuffer, providerLanguage)
 
       // Handle optional translation via OpenAI after Google STT
       if (settings.translate && text && settings.apiKey) {
