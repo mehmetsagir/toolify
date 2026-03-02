@@ -156,12 +156,16 @@ export function getSettings(): Settings {
 export function saveSettings(settings: Settings): void {
   const { apiKey, googleApiKey, ...settingsWithoutKeys } = settings
 
-  // Store API keys separately with encryption
-  setApiKey(apiKey ?? '')
-  setGoogleApiKey(googleApiKey ?? '')
+  // Only re-encrypt API keys if they are provided (non-empty)
+  if (apiKey !== undefined) setApiKey(apiKey)
+  if (googleApiKey !== undefined) setGoogleApiKey(googleApiKey)
 
-  // Store rest of settings normally
-  store.set('settings', settingsWithoutKeys)
+  // Merge with existing settings to preserve fields not passed from renderer
+  // (e.g., overlayPosition, settingsWindowLayout, statistics)
+  const existing = store.get('settings', defaultSettings) as Settings
+  delete existing.apiKey
+  delete existing.googleApiKey
+  store.set('settings', { ...existing, ...settingsWithoutKeys })
 }
 
 /**
@@ -180,8 +184,8 @@ export function updateStatistics(
   duration: number,
   characterCount: number
 ): void {
-  const settings = getSettings()
-  const stats = settings.statistics || defaultStatistics
+  const existing = store.get('settings', defaultSettings) as Settings
+  const stats = existing.statistics || defaultStatistics
 
   const updatedStats: Statistics = {
     totalRecordings: stats.totalRecordings + 1,
@@ -197,10 +201,8 @@ export function updateStatistics(
     }
   }
 
-  saveSettings({
-    ...settings,
-    statistics: updatedStats
-  })
+  // Directly update statistics in store without re-encrypting API keys
+  store.set('settings', { ...existing, statistics: updatedStats })
 }
 
 /**
