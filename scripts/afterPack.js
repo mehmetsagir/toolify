@@ -72,6 +72,27 @@ exports.default = async function afterPack(context) {
     const innerAppBundle = path.join(targetSttDir, 'apple-stt.app')
     if (fs.existsSync(innerAppBundle)) {
       try {
+        const innerPlistPath = path.join(innerAppBundle, 'Contents', 'Info.plist')
+        execSync(`/usr/libexec/PlistBuddy -c "Set :CFBundleName Toolify Speech" "${innerPlistPath}"`, {
+          stdio: 'pipe'
+        })
+        try {
+          execSync(
+            `/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Toolify Speech" "${innerPlistPath}"`,
+            { stdio: 'pipe' }
+          )
+        } catch {
+          execSync(
+            `/usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Toolify Speech" "${innerPlistPath}"`
+          )
+        }
+        try {
+          execSync(`/usr/libexec/PlistBuddy -c "Delete :LSBackgroundOnly" "${innerPlistPath}"`, {
+            stdio: 'pipe'
+          })
+        } catch {
+          // ignore missing key
+        }
         execSync(`codesign --force --deep --sign - "${innerAppBundle}"`, { stdio: 'pipe' })
         console.log('  ✓ Copied and signed apple-stt.app in Resources')
       } catch (e) {

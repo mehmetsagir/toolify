@@ -63,12 +63,12 @@ const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
 	<string>com.toolify.apple-stt</string>
 	<key>CFBundleName</key>
 	<string>Toolify Speech</string>
+	<key>CFBundleDisplayName</key>
+	<string>Toolify Speech</string>
 	<key>CFBundleExecutable</key>
 	<string>${binaryName}</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>LSBackgroundOnly</key>
-	<true/>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Toolify needs access to Speech Recognition to transcribe your voice recordings using Apple Speech.</string>
 	<key>NSMicrophoneUsageDescription</key>
