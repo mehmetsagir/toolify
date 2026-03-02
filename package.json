@@ -1,6 +1,6 @@
 {
   "name": "toolify",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "build": {
     "appId": "com.toolify.app",
     "productName": "Toolify",
