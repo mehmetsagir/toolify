@@ -97,7 +97,10 @@ export default function OnboardingFlow({
       if (status === 'denied' || status === 'restricted') {
         window.api.openSystemPreferences('microphone')
       } else {
-        await window.api.requestMicrophonePermission()
+        const granted = await window.api.requestMicrophonePermission()
+        if (!granted) {
+          window.api.openSystemPreferences('microphone')
+        }
       }
       await checkPermissions()
     } finally {

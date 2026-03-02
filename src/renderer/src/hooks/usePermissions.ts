@@ -69,11 +69,26 @@ export function usePermissions(): {
 
     pollRef.current = setInterval(checkPermissions, POLL_INTERVAL_MS)
 
+    const handleFocus = (): void => {
+      void checkPermissions()
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        void checkPermissions()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       if (pollRef.current) {
         clearInterval(pollRef.current)
         pollRef.current = null
       }
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [checkPermissions])
 
