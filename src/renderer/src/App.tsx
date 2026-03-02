@@ -83,10 +83,6 @@ function App(): React.JSX.Element {
 
     loadSettings()
 
-    if (isSettingsMode) {
-      loadSettings()
-    }
-
     const removeStartListener = window.api.onStartRecording(() => {
       console.log('Renderer: Received start-recording IPC message')
       console.log('Renderer: Current status:', statusRef.current)
@@ -300,6 +296,18 @@ function App(): React.JSX.Element {
       }
 
       console.log('Requesting microphone access...')
+
+      // Check microphone permission before attempting to record
+      if (window.api?.checkMicrophonePermission) {
+        const micStatus = await window.api.checkMicrophonePermission()
+        if (micStatus === 'denied' || micStatus === 'restricted') {
+          new Notification('Toolify', {
+            body: 'Microphone permission denied. Please grant access in System Settings > Privacy & Security > Microphone.'
+          })
+          window.api.setRecordingState(false)
+          return
+        }
+      }
 
       // Ensure window is focused for microphone permission
       window.focus()

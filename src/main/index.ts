@@ -730,9 +730,13 @@ app.whenReady().then(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { systemPreferences } = require('electron')
 
-  const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(true)
+  // Check accessibility without prompting (false) - only show notification if not granted
+  const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(false)
 
   if (!hasAccessibility) {
+    // Prompt once via the API (shows macOS native dialog)
+    systemPreferences.isTrustedAccessibilityClient(true)
+
     setTimeout(() => {
       const notification = new Notification({
         title: 'Toolify Needs Permission',
@@ -1024,6 +1028,7 @@ app.whenReady().then(() => {
   ipcMain.handle('check-microphone-permission', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { systemPreferences: sp } = require('electron')
+    // Returns: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
     return sp.getMediaAccessStatus('microphone')
   })
 

@@ -592,7 +592,8 @@ export const Settings: React.FC<SettingsProps> = ({
     loadVersion()
   }, [])
 
-  // Lightweight permission check for sidebar red dot
+  // Permission status is tracked by PermissionsSettings via onPermissionStatusChange callback
+  // Initial check on mount to show sidebar red dot before user visits permissions tab
   useEffect(() => {
     const checkPermissions = async (): Promise<void> => {
       let hasIssue = false
@@ -603,9 +604,8 @@ export const Settings: React.FC<SettingsProps> = ({
         }
         if (window.api?.checkMicrophonePermission) {
           const mic = await window.api.checkMicrophonePermission()
-          if (mic !== 'granted') hasIssue = true
+          if (mic !== 'granted' && mic !== 'not-determined') hasIssue = true
         }
-        // Only check speech recognition when Apple STT is active
         if (localTranscriptionProvider === 'apple-stt' && window.api?.checkAppleStt) {
           const stt = await window.api.checkAppleStt()
           if (!stt.permissionGranted) hasIssue = true
@@ -616,8 +616,6 @@ export const Settings: React.FC<SettingsProps> = ({
       setHasPermissionIssue(hasIssue)
     }
     checkPermissions()
-    const interval = setInterval(checkPermissions, 5000)
-    return () => clearInterval(interval)
   }, [localTranscriptionProvider])
 
   const handleCheckForUpdates = async (): Promise<void> => {

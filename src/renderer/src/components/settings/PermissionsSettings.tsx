@@ -54,7 +54,13 @@ export const PermissionsSettings: React.FC<PermissionsSettingsProps> = ({
     if (window.api?.checkMicrophonePermission) {
       try {
         const result = await window.api.checkMicrophonePermission()
-        setMicrophoneStatus(result === 'granted' ? 'granted' : 'denied')
+        if (result === 'granted') {
+          setMicrophoneStatus('granted')
+        } else if (result === 'not-determined') {
+          setMicrophoneStatus('not_requested')
+        } else {
+          setMicrophoneStatus('denied')
+        }
       } catch {
         setMicrophoneStatus('denied')
       }
@@ -88,6 +94,7 @@ export const PermissionsSettings: React.FC<PermissionsSettingsProps> = ({
       return
     }
     let hasIssue = accessibilityStatus === 'denied' || microphoneStatus === 'denied'
+    // 'not_requested' for microphone is not an issue - macOS will prompt on first use
     // Only count speech recognition as an issue when Apple STT is active
     if (
       isAppleStt &&
@@ -160,7 +167,7 @@ export const PermissionsSettings: React.FC<PermissionsSettingsProps> = ({
       icon: Mic,
       status: microphoneStatus,
       panelKey: 'microphone',
-      canRequest: microphoneStatus === 'denied'
+      canRequest: microphoneStatus === 'not_requested' || microphoneStatus === 'denied'
     },
     {
       id: 'speechRecognition',
