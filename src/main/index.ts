@@ -779,14 +779,14 @@ app.whenReady().then(() => {
     const provider = currentSettings.transcriptionProvider || 'openai'
 
     if (provider === 'openai' && !currentSettings.apiKey) {
-      showNotification('Toolify Error', 'API Key required for online transcription.')
+      showNotification('Toolify Error', 'API Key required for online transcription.', true)
       updateTrayIcon('idle', currentSettings.trayAnimations)
       if (mainWindow && !mainWindow.isDestroyed())
         mainWindow.webContents.send('processing-complete')
       return
     }
     if (provider === 'google-cloud' && !currentSettings.googleApiKey) {
-      showNotification('Toolify Error', 'Google Cloud API Key required for transcription.')
+      showNotification('Toolify Error', 'Google Cloud API Key required for transcription.', true)
       updateTrayIcon('idle', currentSettings.trayAnimations)
       if (mainWindow && !mainWindow.isDestroyed())
         mainWindow.webContents.send('processing-complete')
@@ -960,6 +960,11 @@ app.whenReady().then(() => {
           )
         }
       } else {
+        showNotification(
+          'Toolify',
+          'No transcription result was produced. Check the selected provider, API key and microphone input.',
+          true
+        )
         updateTrayIcon('idle', currentSettings.trayAnimations)
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('processing-complete')
