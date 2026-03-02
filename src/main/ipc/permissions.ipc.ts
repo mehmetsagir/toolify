@@ -2,11 +2,14 @@ import { ipcMain, shell } from 'electron'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import {
+  APPLE_STT_BUNDLE_ID,
   checkAppleSttAvailability,
+  clearSpeechPermissionCache,
   requestAppleSttPermission
 } from '../services/transcription/apple-stt'
 
 const execFileAsync = promisify(execFile)
+const TCCUTIL_PATH = '/usr/bin/tccutil'
 
 export function registerPermissionsHandlers(): void {
   ipcMain.handle('check-accessibility-permission', () => {
@@ -74,13 +77,18 @@ export function registerPermissionsHandlers(): void {
   })
 
   ipcMain.handle('reset-permissions', async () => {
-    const bundleId = 'com.toolify.app'
+    const bundleIds = ['com.toolify.app', APPLE_STT_BUNDLE_ID]
+
     for (const service of ['Accessibility', 'Microphone', 'SpeechRecognition']) {
-      try {
-        await execFileAsync('tccutil', ['reset', service, bundleId])
-      } catch {
-        // ignore — some services may not have entries for this app
+      for (const bundleId of bundleIds) {
+        try {
+          await execFileAsync(TCCUTIL_PATH, ['reset', service, bundleId])
+        } catch {
+          // ignore — some services may not have entries for this app
+        }
       }
     }
+
+    clearSpeechPermissionCache()
   })
 }

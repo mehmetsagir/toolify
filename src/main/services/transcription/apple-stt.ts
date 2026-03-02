@@ -12,6 +12,8 @@ import { getFfmpegPath } from '../../utils/ffmpeg'
 // authorizationStatus() returns notDetermined for directly-executed binaries even after
 // permission was granted via the .app bundle (different LaunchServices context).
 // We cache the granted state in the app's userData directory.
+export const APPLE_STT_BUNDLE_ID = 'com.toolify.apple-stt'
+
 function getSpeechPermissionFlagPath(): string {
   return path.join(app.getPath('userData'), '.speech-recognition-granted')
 }
@@ -27,6 +29,17 @@ function isSpeechPermissionCached(): boolean {
 function cacheSpeechPermissionGranted(): void {
   try {
     fs.writeFileSync(getSpeechPermissionFlagPath(), '1')
+  } catch {
+    // ignore
+  }
+}
+
+export function clearSpeechPermissionCache(): void {
+  try {
+    const flagPath = getSpeechPermissionFlagPath()
+    if (fs.existsSync(flagPath)) {
+      fs.unlinkSync(flagPath)
+    }
   } catch {
     // ignore
   }
