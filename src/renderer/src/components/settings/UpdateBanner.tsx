@@ -1,165 +1,163 @@
-import React from 'react'
-import {
-  Sparkles,
-  Zap,
-  Download,
-  RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  Loader2
-} from 'lucide-react'
+import { useState, useEffect } from 'react'
+import type { ReactElement } from 'react'
+import { X, Download, RefreshCw, CheckCircle, AlertCircle, ArrowDownCircle } from 'lucide-react'
+import { Button } from '@renderer/components/ui/button'
+import { cn } from '@renderer/lib/utils'
+import type { UpdateInfo, UpdateDownloadProgress } from '../../../../shared/types'
 
-interface UpdateBannerProps {
-  updateAvailable: boolean
-  updateDownloaded: boolean
-  latestVersion: string | null
-  downloading: boolean
-  updateDownloadProgress: number
-  checkingForUpdates: boolean
-  updateError: string | null
-  appVersion: string
-  onCheckForUpdates: () => void
-  onDownloadUpdate: () => void
-  onQuitAndInstall: () => void
-}
+type UpdateState =
+  | { phase: 'idle' }
+  | { phase: 'checking' }
+  | { phase: 'available'; info: UpdateInfo }
+  | { phase: 'downloading'; progress: UpdateDownloadProgress; info: UpdateInfo }
+  | { phase: 'downloaded'; version: string }
+  | { phase: 'error'; message: string }
+  | { phase: 'up-to-date' }
 
-export const UpdateBanner: React.FC<UpdateBannerProps> = ({
-  updateAvailable,
-  updateDownloaded,
-  latestVersion,
-  downloading,
-  updateDownloadProgress,
-  checkingForUpdates,
-  updateError,
-  appVersion,
-  onCheckForUpdates,
-  onDownloadUpdate,
-  onQuitAndInstall
-}) => {
-  // Update Downloaded - ready to install
-  if (updateDownloaded) {
-    return (
-      <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-green-500/20 text-green-400 flex-shrink-0">
-            <Zap size={18} />
-          </div>
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-green-400 font-medium text-sm">Update Ready to Install</h3>
-              <span className="text-green-300 text-xs font-mono">{latestVersion}</span>
-            </div>
-            <p className="text-green-300/80 text-xs leading-relaxed">
-              The update has been downloaded. Click below to quit and install the new version.
-            </p>
-            <button
-              onClick={onQuitAndInstall}
-              className="w-full mt-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-lg px-4 py-2 text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <RefreshCw size={14} />
-              <span>Quit and Install</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+export default function UpdateBanner(): ReactElement | null {
+  const [state, setState] = useState<UpdateState>({ phase: 'idle' })
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    window.api.getUpdateStatus().then((status) => {
+      if (status.updateDownloaded && status.latestVersion) {
+        setState({ phase: 'downloaded', version: status.latestVersion })
+      } else if (status.updateAvailable && status.latestVersion) {
+        setState({ phase: 'available', info: { version: status.latestVersion } })
+      }
+    })
+
+    const cleanups = [
+      window.api.onUpdateAvailable((info) => {
+        setState({ phase: 'available', info })
+        setDismissed(false)
+      }),
+      window.api.onUpdateDownloadProgress((progress) => {
+        setState((prev) => {
+          const info: UpdateInfo =
+            prev.phase === 'available' || prev.phase === 'downloading'
+              ? (prev as { phase: 'available' | 'downloading'; info: UpdateInfo }).info
+              : { version: '' }
+          return { phase: 'downloading', progress, info }
+        })
+      }),
+      window.api.onUpdateDownloaded((info) => {
+        setState({ phase: 'downloaded', version: info.version })
+        setDismissed(false)
+      }),
+      window.api.onUpdateNotAvailable(() => {
+        setState({ phase: 'up-to-date' })
+      }),
+      window.api.onUpdateError((message) => {
+        setState({ phase: 'error', message })
+      })
+    ]
+
+    return () => cleanups.forEach((fn) => fn())
+  }, [])
+
+  if (dismissed || state.phase === 'idle' || state.phase === 'up-to-date') {
+    return null
   }
 
-  // Update Available - download it
-  if (updateAvailable) {
-    return (
-      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400 flex-shrink-0">
-            <Sparkles size={18} />
-          </div>
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-blue-400 font-medium text-sm">New Update Available</h3>
-              <span className="text-blue-300 text-xs font-mono">{latestVersion}</span>
-            </div>
-            <p className="text-blue-300/80 text-xs leading-relaxed">
-              A new version of Toolify is available. Download and install to get the latest features
-              and improvements.
-            </p>
-            {downloading ? (
-              <div className="space-y-2 mt-2">
-                <div className="flex items-center justify-between text-xs text-blue-300">
-                  <span>Downloading...</span>
-                  <span>{updateDownloadProgress}%</span>
-                </div>
-                <div className="w-full bg-blue-500/20 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-blue-500 h-full transition-all duration-300"
-                    style={{ width: `${updateDownloadProgress}%` }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={onDownloadUpdate}
-                className="w-full mt-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg px-4 py-2 text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Download size={14} />
-                <span>Download Update</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    )
+  const handleDownload = async (): Promise<void> => {
+    if (state.phase !== 'available') return
+    const info = state.info
+    setState({
+      phase: 'downloading',
+      progress: { percent: 0, transferred: 0, total: 0 },
+      info
+    })
+    await window.api.downloadUpdate()
   }
 
-  // Error state
-  if (updateError) {
-    return (
-      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-red-500/20 text-red-400 flex-shrink-0">
-            <AlertCircle size={18} />
-          </div>
-          <div className="flex-1 space-y-2">
-            <h3 className="text-red-400 font-medium text-sm">Update Check Failed</h3>
-            <p className="text-red-300/80 text-xs leading-relaxed">{updateError}</p>
-            <button
-              onClick={onCheckForUpdates}
-              className="w-full mt-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg px-4 py-2 text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <RefreshCw size={14} />
-              <span>Try Again</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  const handleInstall = async (): Promise<void> => {
+    await window.api.quitAndInstall()
   }
 
-  // Default state - check for updates / up to date
+  const bannerClasses = cn('relative flex items-center justify-between gap-3 px-4 py-2.5 text-sm', {
+    'bg-blue-950 border-b border-blue-800 text-blue-100':
+      state.phase === 'available' || state.phase === 'downloading',
+    'bg-emerald-950 border-b border-emerald-800 text-emerald-100': state.phase === 'downloaded',
+    'bg-red-950 border-b border-red-800 text-red-100': state.phase === 'error',
+    'bg-zinc-900 border-b border-zinc-800 text-zinc-400': state.phase === 'checking'
+  })
+
   return (
-    <div className="bg-white/5 border border-white/5 rounded-xl p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-white/5 text-zinc-400 flex-shrink-0">
-            {checkingForUpdates ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <CheckCircle2 size={18} />
-            )}
-          </div>
-          <div>
-            <h3 className="text-zinc-300 font-medium text-sm">
-              {checkingForUpdates ? 'Checking for updates...' : "You're up to date"}
-            </h3>
-            <p className="text-zinc-500 text-xs mt-0.5">Toolify v{appVersion}</p>
-          </div>
-        </div>
-        {!checkingForUpdates && (
-          <button
-            onClick={onCheckForUpdates}
-            className="bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+    <div className={bannerClasses}>
+      <div className="flex items-center gap-2 min-w-0">
+        {state.phase === 'checking' && (
+          <>
+            <RefreshCw className="h-4 w-4 shrink-0 animate-spin" />
+            <span>Checking for updates...</span>
+          </>
+        )}
+
+        {state.phase === 'available' && (
+          <>
+            <ArrowDownCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Update <strong>{state.info.version}</strong> is available
+            </span>
+          </>
+        )}
+
+        {state.phase === 'downloading' && (
+          <>
+            <Download className="h-4 w-4 shrink-0 animate-bounce" />
+            <div className="flex flex-1 items-center gap-2 min-w-0">
+              <span className="shrink-0">Downloading update...</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-blue-800 min-w-0">
+                <div
+                  className="h-full rounded-full bg-blue-300 transition-all duration-300"
+                  style={{ width: `${Math.min(100, state.progress.percent)}%` }}
+                />
+              </div>
+              <span className="shrink-0 tabular-nums text-xs">
+                {Math.round(state.progress.percent)}%
+              </span>
+            </div>
+          </>
+        )}
+
+        {state.phase === 'downloaded' && (
+          <>
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Update <strong>{state.version}</strong> ready to install
+            </span>
+          </>
+        )}
+
+        {state.phase === 'error' && (
+          <>
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="truncate">Update error: {state.message}</span>
+          </>
+        )}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        {state.phase === 'available' && (
+          <Button size="sm" onClick={handleDownload} className="h-7 px-3 text-xs">
+            Download
+          </Button>
+        )}
+        {state.phase === 'downloaded' && (
+          <Button
+            size="sm"
+            onClick={handleInstall}
+            className="h-7 px-3 text-xs bg-emerald-600 text-white hover:bg-emerald-700"
           >
-            <RefreshCw size={12} />
-            <span>Check</span>
+            Install & Restart
+          </Button>
+        )}
+        {state.phase !== 'downloading' && (
+          <button
+            onClick={() => setDismissed(true)}
+            className="text-current opacity-60 hover:opacity-100 transition-opacity"
+          >
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>

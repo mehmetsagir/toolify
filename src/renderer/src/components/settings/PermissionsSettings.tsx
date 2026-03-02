@@ -1,338 +1,230 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import {
-  Shield,
-  Accessibility,
-  Mic,
-  MessageSquare,
-  ExternalLink,
-  Check,
-  X,
-  Info,
-  RotateCcw
-} from 'lucide-react'
-import type { TranscriptionProvider } from '../../../../shared/types'
+import { useState, useEffect } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import { ShieldCheck, Mic, MessageSquare, AlertTriangle, RotateCcw } from 'lucide-react'
+import { Badge } from '@renderer/components/ui/badge'
+import { Button } from '@renderer/components/ui/button'
 
-type PermissionStatus = 'granted' | 'denied' | 'not_requested' | 'checking'
+type PermissionStatus = 'granted' | 'not_requested' | 'denied' | 'unknown'
 
-interface PermissionItem {
-  id: string
-  name: string
+interface PermissionState {
+  accessibility: boolean | null
+  microphone: PermissionStatus
+  speechRecognition: { available: boolean; permissionGranted: boolean } | null
+}
+
+function StatusBadge({ status }: { status: PermissionStatus | boolean | null }): ReactElement {
+  if (status === null) {
+    return (
+      <Badge variant="secondary" className="text-xs">
+        Checking...
+      </Badge>
+    )
+  }
+  if (status === true || status === 'granted') {
+    return (
+      <Badge variant="success" className="text-xs">
+        Granted
+      </Badge>
+    )
+  }
+  if (status === 'not_requested') {
+    return (
+      <Badge className="text-xs border-transparent bg-yellow-700 text-yellow-100 hover:bg-yellow-700">
+        Not Requested
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="destructive" className="text-xs">
+      Denied
+    </Badge>
+  )
+}
+
+interface PermissionRowProps {
+  icon: ReactNode
+  label: string
   description: string
-  icon: React.ElementType
-  status: PermissionStatus
-  panelKey: string
-  canRequest?: boolean
+  status: PermissionStatus | boolean | null
+  action?: ReactElement
 }
 
-interface PermissionsSettingsProps {
-  transcriptionProvider: TranscriptionProvider
-  onPermissionStatusChange?: (hasIssue: boolean) => void
+function PermissionRow({
+  icon,
+  label,
+  description,
+  status,
+  action
+}: PermissionRowProps): ReactElement {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 shrink-0 rounded-xl bg-black/24 p-1.5 text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+          {icon}
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-zinc-200">{label}</span>
+            <StatusBadge status={status} />
+          </div>
+          <span className="text-xs text-zinc-500">{description}</span>
+        </div>
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  )
 }
 
-export const PermissionsSettings: React.FC<PermissionsSettingsProps> = ({
-  transcriptionProvider,
-  onPermissionStatusChange
-}) => {
-  const [accessibilityStatus, setAccessibilityStatus] = useState<PermissionStatus>('checking')
-  const [microphoneStatus, setMicrophoneStatus] = useState<PermissionStatus>('checking')
-  const [speechRecognitionStatus, setSpeechRecognitionStatus] =
-    useState<PermissionStatus>('checking')
+export default function PermissionsSettings(): ReactElement {
+  const [permissions, setPermissions] = useState<PermissionState>({
+    accessibility: null,
+    microphone: 'unknown',
+    speechRecognition: null
+  })
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
-  const isAppleStt = transcriptionProvider === 'apple-stt'
+  const refresh = async (): Promise<void> => {
+    const [accessibility, microphone, stt] = await Promise.all([
+      window.api.checkAccessibilityPermission(),
+      window.api.checkMicrophonePermission() as Promise<PermissionStatus>,
+      window.api.checkAppleStt()
+    ])
+    setPermissions({ accessibility, microphone, speechRecognition: stt })
+  }
 
-  const checkAllPermissions = useCallback(async () => {
-    // Accessibility
-    if (window.api?.checkAccessibilityPermission) {
-      try {
-        const result = await window.api.checkAccessibilityPermission()
-        setAccessibilityStatus(result.granted ? 'granted' : 'denied')
-      } catch {
-        setAccessibilityStatus('denied')
-      }
-    }
-
-    // Microphone
-    if (window.api?.checkMicrophonePermission) {
-      try {
-        const result = await window.api.checkMicrophonePermission()
-        if (result === 'granted') {
-          setMicrophoneStatus('granted')
-        } else if (result === 'not-determined') {
-          setMicrophoneStatus('not_requested')
-        } else {
-          setMicrophoneStatus('denied')
-        }
-      } catch {
-        setMicrophoneStatus('denied')
-      }
-    }
-
-    // Speech Recognition
-    if (window.api?.checkAppleStt) {
-      try {
-        const result = await window.api.checkAppleStt()
-        if (result.permissionGranted) {
-          setSpeechRecognitionStatus('granted')
-        } else if (result.authStatus === 'denied' || result.authStatus === 'restricted') {
-          setSpeechRecognitionStatus('denied')
-        } else {
-          setSpeechRecognitionStatus('not_requested')
-        }
-      } catch {
-        setSpeechRecognitionStatus('not_requested')
-      }
-    }
+  useEffect(() => {
+    refresh()
   }, [])
 
-  useEffect(() => {
-    checkAllPermissions()
-    const interval = setInterval(checkAllPermissions, 5000)
-    return () => clearInterval(interval)
-  }, [checkAllPermissions])
-
-  useEffect(() => {
-    if (accessibilityStatus === 'checking' || microphoneStatus === 'checking') {
-      return
-    }
-    let hasIssue = accessibilityStatus === 'denied' || microphoneStatus === 'denied'
-    // 'not_requested' for microphone is not an issue - macOS will prompt on first use
-    // Only count speech recognition as an issue when Apple STT is active
-    if (
-      isAppleStt &&
-      speechRecognitionStatus !== 'checking' &&
-      speechRecognitionStatus !== 'granted'
-    ) {
-      hasIssue = true
-    }
-    onPermissionStatusChange?.(hasIssue)
-  }, [
-    accessibilityStatus,
-    microphoneStatus,
-    speechRecognitionStatus,
-    isAppleStt,
-    onPermissionStatusChange
-  ])
-
-  const handleOpenSystemPreferences = (panel: string): void => {
-    if (window.api?.openSystemPreferences) {
-      window.api.openSystemPreferences(panel)
-    }
+  const handleGrantAccessibility = (): void => {
+    window.api.openAccessibilitySettings()
+    setTimeout(refresh, 2000)
   }
 
   const handleRequestMicrophone = async (): Promise<void> => {
-    if (window.api?.requestMicrophonePermission) {
-      try {
-        const granted = await window.api.requestMicrophonePermission()
-        setMicrophoneStatus(granted ? 'granted' : 'denied')
-      } catch {
-        setMicrophoneStatus('denied')
-      }
+    await window.api.requestMicrophonePermission()
+    await refresh()
+  }
+
+  const handleRequestSpeech = async (): Promise<void> => {
+    await window.api.requestSpeechRecognitionPermission()
+    await refresh()
+  }
+
+  const handleReset = async (): Promise<void> => {
+    setResetting(true)
+    try {
+      await window.api.resetPermissions()
+      window.api.restartApp()
+    } finally {
+      setResetting(false)
+      setShowResetConfirm(false)
     }
   }
 
-  const [requestingSpeechPermission, setRequestingSpeechPermission] = useState(false)
-  const [resettingPermissions, setResettingPermissions] = useState(false)
+  const micStatus: PermissionStatus =
+    permissions.microphone === 'unknown' ? 'not_requested' : permissions.microphone
 
-  const handleResetPermissions = async (): Promise<void> => {
-    if (window.api?.resetPermissions && window.api?.restartApp) {
-      setResettingPermissions(true)
-      try {
-        await window.api.resetPermissions()
-        window.api.restartApp()
-      } catch {
-        setResettingPermissions(false)
-      }
-    }
-  }
+  const accessibilityAction =
+    permissions.accessibility !== true ? (
+      <Button size="sm" variant="outline" onClick={handleGrantAccessibility}>
+        Grant
+      </Button>
+    ) : undefined
 
-  const handleRequestSpeechRecognition = async (): Promise<void> => {
-    if (window.api?.requestSpeechRecognitionPermission) {
-      setRequestingSpeechPermission(true)
-      try {
-        const result = await window.api.requestSpeechRecognitionPermission()
-        if (result.granted) {
-          setSpeechRecognitionStatus('granted')
-        } else if (result.alreadyDenied) {
-          setSpeechRecognitionStatus('denied')
+  const microphoneAction =
+    micStatus !== 'granted' ? (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={
+          micStatus === 'denied'
+            ? () => window.api.openSystemPreferences('microphone')
+            : handleRequestMicrophone
         }
-      } catch {
-        // ignore
-      } finally {
-        setRequestingSpeechPermission(false)
-        // Re-check all permissions to update states
-        checkAllPermissions()
-      }
-    }
-  }
+      >
+        {micStatus === 'denied' ? 'Open Settings' : 'Request'}
+      </Button>
+    ) : undefined
 
-  const permissions: PermissionItem[] = [
-    {
-      id: 'accessibility',
-      name: 'Accessibility',
-      description: 'Required for global shortcuts and auto-paste functionality.',
-      icon: Accessibility,
-      status: accessibilityStatus,
-      panelKey: 'accessibility'
-    },
-    {
-      id: 'microphone',
-      name: 'Microphone',
-      description: 'Required for voice recording and transcription.',
-      icon: Mic,
-      status: microphoneStatus,
-      panelKey: 'microphone',
-      canRequest: microphoneStatus === 'not_requested' || microphoneStatus === 'denied'
-    },
-    {
-      id: 'speechRecognition',
-      name: 'Speech Recognition',
-      description:
-        speechRecognitionStatus === 'granted'
-          ? 'Granted for Apple Speech transcription mode.'
-          : isAppleStt
-            ? 'macOS will prompt for permission on your first recording.'
-            : 'Only needed when using Apple Speech mode.',
-      icon: MessageSquare,
-      status: speechRecognitionStatus,
-      panelKey: 'speechRecognition'
-    }
-  ]
+  const speechGranted = permissions.speechRecognition?.permissionGranted ?? true
+  const speechAction =
+    permissions.speechRecognition !== null && !speechGranted ? (
+      <Button size="sm" variant="outline" onClick={handleRequestSpeech}>
+        Request
+      </Button>
+    ) : undefined
 
-  const getBadge = (perm: PermissionItem): React.ReactNode => {
-    if (perm.status === 'checking') return null
-
-    if (perm.status === 'granted') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/20 text-green-400">
-          <Check size={10} /> Granted
-        </span>
-      )
-    }
-
-    // Speech Recognition: show "Not Requested" when not using Apple STT
-    if (perm.id === 'speechRecognition' && !isAppleStt) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-500/20 text-zinc-400">
-          <Info size={10} /> Not Required
-        </span>
-      )
-    }
-
-    if (perm.status === 'not_requested') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/20 text-amber-400">
-          <Info size={10} /> Not Requested
-        </span>
-      )
-    }
-
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500/20 text-red-400">
-        <X size={10} /> Not Granted
-      </span>
-    )
-  }
-
-  const showActions = (perm: PermissionItem): boolean => {
-    if (perm.status === 'granted' || perm.status === 'checking') return false
-    // Don't show actions for speech recognition when not using Apple STT
-    if (perm.id === 'speechRecognition' && !isAppleStt) return false
-    return true
-  }
+  const speechStatus: PermissionStatus | null =
+    permissions.speechRecognition === null
+      ? null
+      : permissions.speechRecognition.permissionGranted
+        ? 'granted'
+        : 'not_requested'
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold text-white mb-1.5 tracking-tight">Permissions</h2>
-        <p className="text-sm text-zinc-500">
-          Manage system permissions required for Toolify to function properly
-        </p>
+    <div className="flex flex-col gap-4 p-4">
+      <div className="rounded-[20px] bg-white/[0.03] divide-y divide-white/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        <PermissionRow
+          icon={<ShieldCheck className="h-4 w-4" />}
+          label="Accessibility"
+          description="Required to pause media while recording"
+          status={permissions.accessibility}
+          action={accessibilityAction}
+        />
+        <PermissionRow
+          icon={<Mic className="h-4 w-4" />}
+          label="Microphone"
+          description="Required to capture your voice"
+          status={micStatus}
+          action={microphoneAction}
+        />
+        <PermissionRow
+          icon={<MessageSquare className="h-4 w-4" />}
+          label="Speech Recognition"
+          description="Required for Apple Speech to Text provider"
+          status={speechStatus}
+          action={speechAction}
+        />
       </div>
-      {/* Reset permissions helper */}
-      {(accessibilityStatus === 'denied' || microphoneStatus === 'denied') && (
-        <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/20">
-          <div className="flex items-start gap-3">
-            <Info size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-amber-200 text-sm font-medium">Permissions not detected?</p>
-              <p className="text-amber-200/70 text-xs mt-1">
-                After updating Toolify, macOS may not recognize previously granted permissions.
-                Reset and re-grant them to fix this.
-              </p>
-              <button
-                onClick={handleResetPermissions}
-                disabled={resettingPermissions}
-                className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <RotateCcw size={12} />
-                <span>{resettingPermissions ? 'Resetting...' : 'Reset Permissions & Restart'}</span>
-              </button>
+
+      {/* Reset permissions */}
+      <div className="rounded-[20px] bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+        {!showResetConfirm ? (
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-zinc-200">Reset Permissions</span>
+              <span className="text-xs text-zinc-500">
+                Clear stored permission states and restart
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowResetConfirm(true)}
+              className="text-yellow-400 border-yellow-900 hover:bg-yellow-950 hover:text-yellow-300"
+            >
+              <RotateCcw className="h-4 w-4 mr-1.5" />
+              Reset & Restart
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5 text-sm text-yellow-400">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              This will restart the app. Continue?
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="destructive" size="sm" onClick={handleReset} disabled={resetting}>
+                {resetting ? 'Restarting...' : 'Confirm'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowResetConfirm(false)}>
+                Cancel
+              </Button>
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {permissions.map((perm) => {
-          const Icon = perm.icon
-
-          return (
-            <div key={perm.id} className="bg-white/5 rounded-lg p-4 border border-white/5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="p-2 rounded-lg bg-white/5 text-zinc-400 flex-shrink-0 mt-0.5">
-                    <Icon size={18} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white text-sm font-medium">{perm.name}</span>
-                      {getBadge(perm)}
-                    </div>
-                    <p className="text-zinc-500 text-xs mt-1">{perm.description}</p>
-                  </div>
-                </div>
-              </div>
-
-              {showActions(perm) && (
-                <div className="flex gap-2 mt-3 ml-11">
-                  {/* Microphone: Grant Permission */}
-                  {perm.canRequest && (
-                    <button
-                      onClick={handleRequestMicrophone}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg transition-colors"
-                    >
-                      <Shield size={12} />
-                      <span>Grant Permission</span>
-                    </button>
-                  )}
-                  {/* Speech Recognition: Request Permission (triggers macOS prompt) */}
-                  {perm.id === 'speechRecognition' && perm.status === 'not_requested' && (
-                    <button
-                      onClick={handleRequestSpeechRecognition}
-                      disabled={requestingSpeechPermission}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <Shield size={12} />
-                      <span>
-                        {requestingSpeechPermission ? 'Requesting...' : 'Request Permission'}
-                      </span>
-                    </button>
-                  )}
-                  {/* Open System Settings (only for denied permissions or non-speech-recognition) */}
-                  {!(perm.id === 'speechRecognition' && perm.status === 'not_requested') && (
-                    <button
-                      onClick={() => handleOpenSystemPreferences(perm.panelKey)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 rounded-lg transition-colors"
-                    >
-                      <ExternalLink size={12} />
-                      <span>Open System Settings</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
+        )}
       </div>
     </div>
   )
