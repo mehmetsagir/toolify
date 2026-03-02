@@ -14,7 +14,8 @@ import { join } from 'path'
 import path from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
-import { exec } from 'child_process'
+import { exec, execFile } from 'child_process'
+import { promisify } from 'util'
 import { electronApp } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { transcribe } from './openai'
@@ -642,11 +643,16 @@ function closeRecordingOverlay(delayMs = 0): void {
       recordingOverlay.webContents.send('fade-out')
 
       // Track the close timeout so it can be cancelled if needed
+      // Capture reference to avoid nulling a newer overlay created in the meantime
+      const overlayToClose = recordingOverlay
       overlayCloseTimeout = setTimeout(() => {
-        if (recordingOverlay && !recordingOverlay.isDestroyed()) {
-          recordingOverlay.close()
+        if (overlayToClose && !overlayToClose.isDestroyed()) {
+          overlayToClose.close()
         }
-        recordingOverlay = null
+        // Only null the reference if it still points to the same overlay
+        if (recordingOverlay === overlayToClose) {
+          recordingOverlay = null
+        }
         overlayCloseTimeout = null
       }, 800)
     } catch (error) {
@@ -731,11 +737,7 @@ app.whenReady().then(() => {
     }
   }
 
-  setupAutoUpdater(mainWindow)
-
-  setTimeout(() => {
-    checkForUpdates()
-  }, 5000)
+  // Note: setupAutoUpdater is called after createWindow() below
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { systemPreferences } = require('electron')
@@ -755,9 +757,13 @@ app.whenReady().then(() => {
       })
 
       notification.on('click', () => {
-        shell.openExternal(
-          'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
-        )
+        shell
+          .openExternal(
+            'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
+          )
+          .catch(() => {
+            shell.openExternal('x-apple.systempreferences:com.apple.settings.PrivacySecurity')
+          })
       })
 
       notification.show()
@@ -826,10 +832,10 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('stop-recording')
       }
     } else {
-      // CRITICAL: Hide app immediately to prevent focus stealing on macOS
-      // This must happen before any window operations
+      // Hide dock icon to prevent focus stealing, but don't use app.hide()
+      // as it hides ALL windows including settings
       if (process.platform === 'darwin' && app.dock) {
-        app.hide()
+        app.dock.hide()
       }
 
       // Start recording
@@ -961,6 +967,8 @@ app.whenReady().then(() => {
           // Use uiohook for RightCommand on macOS
           try {
             const hook = getUIOhook()
+            // Remove previous listeners to prevent accumulation on re-register
+            hook.removeAllListeners('keydown')
             hook.on('keydown', (event) => {
               // Right Command key code is 3676 in uiohook on macOS
               if (event.keycode === 3676) {
@@ -1026,6 +1034,12 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // Setup auto-updater AFTER createWindow so mainWindow is available for IPC events
+  setupAutoUpdater(mainWindow)
+  setTimeout(() => {
+    checkForUpdates()
+  }, 5000)
+
   ipcMain.handle('get-settings', () => {
     return getSettings()
   })
@@ -1066,6 +1080,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.on('open-system-preferences', (_, panel: string) => {
+    // macOS 13+ uses new System Settings URL scheme
     const panels: Record<string, string> = {
       accessibility:
         'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
@@ -1074,8 +1089,28 @@ app.whenReady().then(() => {
         'x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition'
     }
     if (panels[panel]) {
-      shell.openExternal(panels[panel])
+      shell.openExternal(panels[panel]).catch(() => {
+        // Fallback: open Privacy & Security pane directly
+        shell.openExternal('x-apple.systempreferences:com.apple.settings.PrivacySecurity')
+      })
     }
+  })
+
+  ipcMain.handle('reset-permissions', async () => {
+    const execFileAsync = promisify(execFile)
+    const bundleId = 'com.toolify.app'
+    for (const service of ['Accessibility', 'Microphone', 'SpeechRecognition']) {
+      try {
+        await execFileAsync('tccutil', ['reset', service, bundleId])
+      } catch {
+        /* ignore - some services may not have entries */
+      }
+    }
+  })
+
+  ipcMain.on('restart-app', () => {
+    app.relaunch()
+    app.exit(0)
   })
 
   ipcMain.on('save-settings', (_, settings: Settings) => {
@@ -1178,6 +1213,8 @@ app.whenReady().then(() => {
 
   ipcMain.on('set-recording-state', (_, state) => {
     isRecording = state
+    // Read fresh settings to reflect any changes made since app startup
+    const currentSettings = getSettings()
     if (state) {
       // Register ESC shortcut when recording starts
       try {
@@ -1187,8 +1224,8 @@ app.whenReady().then(() => {
       }
 
       muteSystem()
-      updateTrayIcon('recording', settings.trayAnimations)
-      if (settings.processNotifications) {
+      updateTrayIcon('recording', currentSettings.trayAnimations)
+      if (currentSettings.processNotifications) {
         showNotification('Toolify', 'Recording started')
       }
     } else {
@@ -1196,9 +1233,7 @@ app.whenReady().then(() => {
       globalShortcut.unregister('Escape')
 
       unmuteSystem()
-      // Don't set to idle immediately - processing will start right after
-      // The processAudio handler will set the correct state (processing)
-      if (settings.processNotifications) {
+      if (currentSettings.processNotifications) {
         showNotification('Toolify', 'Processing...')
       }
     }
