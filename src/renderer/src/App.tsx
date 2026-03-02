@@ -171,7 +171,7 @@ function App(): React.JSX.Element {
       apiKey: newKey,
       googleApiKey: newGoogleApiKey,
       translate: newTranslate,
-      language: '',
+      language: newSourceLanguage,
       sourceLanguage: newSourceLanguage,
       targetLanguage: newTargetLanguage,
       shortcut: newShortcut,
@@ -405,14 +405,20 @@ function App(): React.JSX.Element {
         audioContextRef.current = null
       }
 
-      // Show user-friendly error message
+      // Show user-friendly error notification (never use alert() - it freezes the renderer)
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          alert('Microphone permission denied. Please grant microphone access in System Settings.')
+          new Notification('Toolify', {
+            body: 'Microphone permission denied. Please grant access in System Settings > Privacy & Security > Microphone.'
+          })
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-          alert('No microphone found. Please connect a microphone and try again.')
+          new Notification('Toolify', {
+            body: 'No microphone found. Please connect a microphone and try again.'
+          })
         } else {
-          alert(`Failed to start recording: ${error.message}`)
+          new Notification('Toolify Error', {
+            body: `Failed to start recording: ${error.message}`
+          })
         }
       }
     }
