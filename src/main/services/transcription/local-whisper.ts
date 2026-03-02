@@ -4,13 +4,10 @@ import fs from 'fs'
 import { exec } from 'child_process'
 import { app } from 'electron'
 import OpenAI from 'openai'
-import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
-import { logger } from './utils/logger'
-import { getFfmpegPath } from './utils/ffmpeg'
-import type { LocalModelInfo, LocalModelType } from '../shared/types'
-
-// Note: We no longer use whisper-node's createCppCommand due to path quoting issues
-// Instead, we build the whisper.cpp command manually with proper path escaping
+import { getLanguageName, cleanTranslationText } from '../../utils/helpers'
+import { logger } from '../../utils/logger'
+import { getFfmpegPath } from '../../utils/ffmpeg'
+import type { LocalModelInfo, LocalModelType } from '../../../shared/types'
 
 // Check if we're in production build (packaged app)
 const isProductionBuild = (): boolean => {
@@ -21,7 +18,6 @@ const isProductionBuild = (): boolean => {
 
 // Get the base path for whisper.cpp executables - works in both dev and production
 const getBasePath = (): string => {
-  // Always try build/whisper-executables first (works in both dev and production)
   const projectRoot = process.cwd()
   const buildExecutablesPath = path.join(projectRoot, 'build', 'whisper-executables')
 
@@ -34,14 +30,11 @@ const getBasePath = (): string => {
     }
   }
 
-  // In production build, try unpacked location
   if (isProductionBuild()) {
     const resourcesPath = process.resourcesPath || app.getAppPath()
 
     const possiblePaths = [
-      // Unpacked executables location (from build/whisper-executables)
       path.join(resourcesPath, 'app.asar.unpacked', 'build', 'whisper-executables'),
-      // Fallback: old location (for backwards compatibility)
       path.join(
         resourcesPath,
         'app.asar.unpacked',
@@ -67,7 +60,6 @@ const getBasePath = (): string => {
     }
 
     console.warn('whisper.cpp executables not found in bundle, using userData fallback')
-    // Fallback: use userData directory
     const fallbackPath = path.join(app.getPath('userData'), 'whisper-executables')
     if (!fs.existsSync(fallbackPath)) {
       fs.mkdirSync(fallbackPath, { recursive: true })
@@ -75,7 +67,6 @@ const getBasePath = (): string => {
     return fallbackPath
   }
 
-  // Development mode fallback - node_modules (though this typically won't have the executable)
   const cwd = process.cwd()
   if (cwd.includes('whisper-node/lib/whisper.cpp')) {
     return cwd
@@ -83,9 +74,7 @@ const getBasePath = (): string => {
   return path.join(cwd, 'node_modules/whisper-node/lib/whisper.cpp')
 }
 
-// Get models directory - always use userData (models are downloaded from CDN, never bundled)
 export const getModelsDir = (): string => {
-  // Always store models in userData (never bundle them)
   const modelsDir = path.join(app.getPath('userData'), 'models')
   if (!fs.existsSync(modelsDir)) {
     fs.mkdirSync(modelsDir, { recursive: true })
@@ -97,8 +86,30 @@ const getModelPath = (modelType: LocalModelType): string => {
   return path.join(getModelsDir(), `ggml-${modelType}.bin`)
 }
 
-// Note: Script-based download is no longer used - we always download from HuggingFace CDN
-// This ensures consistent behavior in both dev and production environments
+export const MODEL_TYPES: LocalModelType[] = ['base', 'small', 'medium', 'large-v3']
+
+const MODEL_LABELS: Record<LocalModelType, string> = {
+  base: 'Whisper Base',
+  small: 'Whisper Small',
+  medium: 'Whisper Medium (GGML)',
+  'large-v3': 'Whisper Large V3 (GGML)'
+}
+
+const MODEL_URLS: Record<LocalModelType, string> = {
+  base: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
+  small: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
+  medium: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
+  'large-v3': 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin'
+}
+
+const MODEL_SIZES: Record<LocalModelType, number> = {
+  base: 142 * 1024 * 1024,
+  small: 466 * 1024 * 1024,
+  medium: 1500 * 1024 * 1024,
+  'large-v3': 2900 * 1024 * 1024
+}
+
+const bytesToMB = (bytes: number): number => Number((bytes / 1024 / 1024).toFixed(1))
 
 export async function checkLocalModelExists(modelType: LocalModelType): Promise<boolean> {
   const modelPath = getModelPath(modelType)
@@ -124,37 +135,8 @@ export async function downloadLocalModel(
   logger.log(`Model will be saved to: ${modelPath}`)
   logger.log(`Models directory: ${modelsDir}`)
 
-  // Always use CDN download for both dev and production
-  // This ensures consistent behavior and smaller bundle size
   return downloadWithCurl(modelType, modelPath, modelsDir, onProgress)
 }
-
-// HuggingFace CDN URLs for Whisper models
-export const MODEL_TYPES: LocalModelType[] = ['base', 'small', 'medium', 'large-v3']
-
-const MODEL_LABELS: Record<LocalModelType, string> = {
-  base: 'Whisper Base',
-  small: 'Whisper Small',
-  medium: 'Whisper Medium (GGML)',
-  'large-v3': 'Whisper Large V3 (GGML)'
-}
-
-const MODEL_URLS: Record<LocalModelType, string> = {
-  base: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
-  small: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
-  medium: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
-  'large-v3': 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin'
-}
-
-// Expected model sizes in bytes (approximate, for progress calculation)
-const MODEL_SIZES: Record<LocalModelType, number> = {
-  base: 142 * 1024 * 1024, // ~142 MB
-  small: 466 * 1024 * 1024, // ~466 MB
-  medium: 1500 * 1024 * 1024, // ~1.5 GB
-  'large-v3': 2900 * 1024 * 1024 // ~2.9 GB
-}
-
-const bytesToMB = (bytes: number): number => Number((bytes / 1024 / 1024).toFixed(1))
 
 export function getLocalModelsInfo(): LocalModelInfo[] {
   return MODEL_TYPES.map((modelType) => {
@@ -178,8 +160,6 @@ export function getLocalModelsInfo(): LocalModelInfo[] {
   })
 }
 
-// Helper function to download model using curl from HuggingFace CDN
-// Works in both dev and production environments - always downloads from CDN
 function downloadWithCurl(
   modelType: LocalModelType,
   modelPath: string,
@@ -195,28 +175,17 @@ function downloadWithCurl(
     logger.log(`Saving to: ${modelPath}`)
     logger.log(`Expected size: ${(expectedSize / 1024 / 1024).toFixed(2)} MB`)
 
-    // Ensure models directory exists
     if (!fs.existsSync(modelsDir)) {
       fs.mkdirSync(modelsDir, { recursive: true })
       logger.log(`Created models directory: ${modelsDir}`)
     }
 
-    // Use curl with progress indicator and retry logic
-    // -L: Follow redirects
-    // --silent: Don't show progress bar (we'll track it ourselves)
-    // --show-error: Show errors
-    // --fail: Fail silently on HTTP errors
-    // --retry 3: Retry up to 3 times
-    // --retry-delay 2: Wait 2 seconds between retries
-    // -o: Output file
     const curlCommand = `curl -L --silent --show-error --fail --retry 3 --retry-delay 2 -o "${modelPath}" "${modelUrl}"`
 
     logger.log('Starting download...')
 
-    // Start progress tracking if callback provided
     let progressInterval: NodeJS.Timeout | null = null
     if (onProgress && expectedSize > 0) {
-      // Send initial progress
       onProgress({ percent: 0, downloaded: 0, total: expectedSize })
 
       progressInterval = setInterval(() => {
@@ -230,21 +199,18 @@ function downloadWithCurl(
             )
             onProgress({ percent, downloaded, total: expectedSize })
           } else {
-            // File doesn't exist yet, send 0% progress
             onProgress({ percent: 0, downloaded: 0, total: expectedSize })
           }
         } catch (e) {
-          // File might be locked, ignore
           console.warn('Failed to check download progress:', e)
         }
-      }, 300) // Check every 300ms for smoother updates
+      }, 300)
     }
 
     exec(curlCommand, { maxBuffer: 1024 * 1024 * 100 }, (error, _stdout, stderr) => {
       try {
         if (error) {
           console.error('Model download failed:', stderr)
-          // Clean up partial download
           if (fs.existsSync(modelPath)) {
             try {
               fs.unlinkSync(modelPath)
@@ -259,25 +225,22 @@ function downloadWithCurl(
             )
           )
         } else {
-          // Verify file was downloaded successfully
           if (fs.existsSync(modelPath)) {
             const stats = fs.statSync(modelPath)
             if (stats.size > 0) {
               const sizeMB = (stats.size / 1024 / 1024).toFixed(2)
-              logger.log(`✓ Model download successful: ${sizeMB} MB`)
+              logger.log(`Model download successful: ${sizeMB} MB`)
               logger.log(`  Saved to: ${modelPath}`)
 
-              // Send final progress update
               if (onProgress) {
                 onProgress({ percent: 100, downloaded: stats.size, total: stats.size })
               }
 
-              // Verify the file is actually readable before resolving
               try {
                 fs.accessSync(modelPath, fs.constants.R_OK)
-                logger.log(`✓ Model file verified and readable: ${modelPath}`)
+                logger.log(`Model file verified and readable: ${modelPath}`)
               } catch (accessError) {
-                console.error(`✗ Model file exists but is not readable: ${accessError}`)
+                console.error(`Model file exists but is not readable: ${accessError}`)
                 reject(new Error(`Model file downloaded but is not accessible: ${accessError}`))
                 return
               }
@@ -291,7 +254,6 @@ function downloadWithCurl(
           }
         }
       } finally {
-        // Clear progress interval - always execute, even on error
         if (progressInterval) {
           clearInterval(progressInterval)
         }
@@ -325,10 +287,6 @@ export async function transcribeLocal(
   try {
     fs.writeFileSync(tempInputPath, audioBuffer)
 
-    // Convert to 16kHz WAV for Whisper using ffmpeg
-    // -ar 16000: Set audio sample rate to 16kHz
-    // -ac 1: Set audio channels to 1 (mono)
-    // -c:a pcm_s16le: Set audio codec to PCM signed 16-bit little-endian
     await new Promise<void>((resolve, reject) => {
       exec(
         `"${getFfmpegPath()}" -i "${tempInputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${tempWavPath}"`,
@@ -353,7 +311,6 @@ export async function transcribeLocal(
 
     logger.log('Starting local transcription with model:', modelType)
 
-    // whisper-node takes file path strings
     const modelPath = getModelPath(modelType)
     logger.log('Using local model path:', modelPath)
 
@@ -361,14 +318,13 @@ export async function transcribeLocal(
       throw new Error('Local model not found. Please download the model in Settings.')
     }
 
-    // Execute directly to bypass whisper-node's buggy parsing (it shifts/removes the first line!)
+    // Execute whisper.cpp directly to bypass whisper-node's buggy parsing
+    // (it shifts/removes the first line of output)
     const transcript = await new Promise<string>((resolve, reject) => {
-      // Find the main executable
-      const whisperDir = getBasePath() // this points to whisper.cpp folder
+      const whisperDir = getBasePath()
 
       let executablePath = path.join(whisperDir, 'main')
       if (!fs.existsSync(executablePath)) {
-        // Try alternative paths
         const altPaths = [
           path.join(
             process.resourcesPath || app.getAppPath(),
@@ -398,7 +354,6 @@ export async function transcribeLocal(
         }
       }
 
-      // If still not found, throw clear error
       if (!fs.existsSync(executablePath) && executablePath !== 'whisper-main') {
         throw new Error(
           `Whisper executable not found at: ${executablePath}\n` +
@@ -411,19 +366,14 @@ export async function transcribeLocal(
       logger.log('Audio file:', tempWavPath)
       logger.log('Working directory:', whisperDir)
 
-      // Build command manually with proper quoting for paths with spaces
       const language = options.language || 'auto'
       const finalCmd = `"${executablePath}" -l ${language} -m "${modelPath}" -f "${tempWavPath}"`
 
       logger.log('Executing whisper command:', finalCmd)
 
-      // Use cwd only if we're using a relative path (doesn't start with /)
       const execOptions = path.isAbsolute(executablePath) ? {} : { cwd: whisperDir }
 
       exec(finalCmd, execOptions, (error, stdout, stderr) => {
-        // whisper.cpp prints details to stderr, and result to stdout (usually)
-        // But if it fails, error will be set.
-        // If code is 0, we take stdout.
         if (error) {
           console.error('Whisper execution error:', stderr)
           console.error('Error details:', error)
@@ -439,9 +389,7 @@ export async function transcribeLocal(
     // Format: [00:00:00.000 --> 00:00:02.000]   Hello world
     const lines = transcript.match(/\[[0-9:.]+\s-->\s[0-9:.]+\].*/g) || []
 
-    // Do NOT shift!
-    // lines.shift() <--- This was the bug in whisper-node
-
+    // Do NOT shift! lines.shift() was the bug in whisper-node
     const result = lines
       .map((line) => {
         let speech = line.split(']  ')[1]
@@ -462,7 +410,6 @@ export async function transcribeLocal(
       return ''
     }
 
-    // If translation is requested, use OpenAI API to translate
     logger.log('Translation check:', {
       translate: options.translate,
       translateType: typeof options.translate,
@@ -487,7 +434,6 @@ export async function transcribeLocal(
 
       try {
         const openai = new OpenAI({ apiKey: options.apiKey })
-
         const targetLangName = getLanguageName(options.targetLanguage)
 
         logger.log(`Translating to ${targetLangName} (source language auto-detected)...`)

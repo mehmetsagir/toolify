@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
 import { getAppleSttPath, getLocaleForLanguage } from './apple-stt'
-import { logger } from './utils/logger'
+import { logger } from '../../utils/logger'
 
 let streamProcess: ChildProcess | null = null
 let lastFinalText = ''

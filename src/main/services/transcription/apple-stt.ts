@@ -4,9 +4,9 @@ import fs from 'fs'
 import { exec } from 'child_process'
 import { app } from 'electron'
 import OpenAI from 'openai'
-import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
-import { logger } from './utils/logger'
-import { getFfmpegPath } from './utils/ffmpeg'
+import { getLanguageName, cleanTranslationText } from '../../utils/helpers'
+import { logger } from '../../utils/logger'
+import { getFfmpegPath } from '../../utils/ffmpeg'
 
 // Persistent flag for speech recognition permission state.
 // authorizationStatus() returns notDetermined for directly-executed binaries even after
@@ -181,7 +181,6 @@ export async function requestAppleSttPermission(): Promise<{
         logger.log('Apple STT permission request failed:', error.message)
       }
 
-      // Read result from temp file
       try {
         if (fs.existsSync(resultPath)) {
           const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'))
@@ -283,7 +282,6 @@ export async function transcribeAppleStt(
 
     logger.log('Apple STT transcription result:', result)
 
-    // Basic hallucination filter
     if (!result || result.length === 0) {
       return ''
     }

@@ -2,7 +2,7 @@ import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
-import { getSettings, saveSettings } from './settings'
+import { getSettings, saveSettings } from '../store/settings'
 
 /**
  * Gets the display where the focused window is located, or primary display if no focused window
@@ -82,9 +82,9 @@ export function createSettingsWindow(preferredDisplay?: Electron.Display): Brows
   const { width: displayWidth, height: screenHeight } = baseDisplay.workAreaSize
   const { x: displayX, y: displayY } = baseDisplay.workArea
 
-  const defaultWidth = 1200
+  const defaultWidth = 1120
   const defaultHeight = Math.min(700, Math.floor(screenHeight * 0.85))
-  const minWidth = 1000
+  const minWidth = 760
   const minHeight = 500
 
   const windowWidth = Math.min(displayWidth, Math.max(minWidth, savedLayout?.width ?? defaultWidth))

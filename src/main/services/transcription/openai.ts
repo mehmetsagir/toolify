@@ -2,8 +2,14 @@ import OpenAI from 'openai'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { getLanguageName, cleanTranslationText } from './utils/transcription-helpers'
+import { getLanguageName, cleanTranslationText } from '../../utils/helpers'
 
+/**
+ * Transcribe audio using the OpenAI Whisper API.
+ * If translate is true, transcribes first (auto-detecting source language) then
+ * translates the result with gpt-4o-mini to targetLanguage.
+ * The temp file written to disk is always cleaned up in the finally block.
+ */
 export async function transcribe(
   apiKey: string,
   audioBuffer: Buffer,
@@ -18,6 +24,7 @@ export async function transcribe(
 
   try {
     let text = ''
+
     if (translate) {
       const fileStream1 = fs.createReadStream(tempFilePath)
       // Always auto-detect source language when translating
