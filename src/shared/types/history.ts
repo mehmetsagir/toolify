@@ -6,13 +6,13 @@ export interface HistoryItem {
   sourceLanguage?: string
   targetLanguage?: string
   translated: boolean
-  duration?: number // Recording duration in seconds
+  duration?: number
   provider?: string
   audioPath?: string
-  success?: boolean // Whether transcription was successful
+  success?: boolean
 }
 
 export interface HistorySettings {
-  autoDeleteDays: number // 0 = never delete
-  maxHistoryItems: number // 0 = unlimited
+  autoDeleteDays: number
+  maxHistoryItems: number
 }

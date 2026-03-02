@@ -1,4 +1,6 @@
-export type LocalModelType = 'base' | 'small' | 'medium' | 'large-v3'
+import type { LocalModelType } from './settings'
+
+export type { LocalModelType }
 
 export interface LocalModelInfo {
   type: LocalModelType

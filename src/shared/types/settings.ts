@@ -1,5 +1,15 @@
-import type { LocalModelType } from './local-models.types'
 export type TranscriptionProvider = 'openai' | 'local-whisper' | 'apple-stt' | 'google-cloud'
+
+export type LocalModelType = 'base' | 'small' | 'medium' | 'large-v3'
+
+export interface Statistics {
+  totalRecordings: number
+  totalCharacters: number
+  totalDuration: number
+  successfulTranscriptions: number
+  failedTranscriptions: number
+  providerUsage: Record<TranscriptionProvider, number>
+}
 
 export interface Settings {
   apiKey?: string
@@ -15,13 +25,13 @@ export interface Settings {
   soundType?: string
   autoStart?: boolean
   showRecordingOverlay?: boolean
-  overlayStyle?: 'compact' | 'large' // Overlay display style
-  historyAutoDeleteDays?: number // 0 = never delete
-  historyMaxItems?: number // 0 = unlimited
+  overlayStyle?: 'compact' | 'large'
+  historyAutoDeleteDays?: number
+  historyMaxItems?: number
   transcriptionProvider?: TranscriptionProvider
   useLocalModel?: boolean // deprecated, kept for migration
   localModelType?: LocalModelType
-  overlayPosition?: { x: number; y: number } // Custom overlay position
+  overlayPosition?: { x: number; y: number }
   settingsWindowLayout?: {
     width: number
     height: number
@@ -35,18 +45,4 @@ export interface Settings {
 export interface AccessibilityPermission {
   granted: boolean
   required: boolean
-}
-
-export interface Statistics {
-  totalRecordings: number
-  totalCharacters: number
-  totalDuration: number // in seconds
-  successfulTranscriptions: number
-  failedTranscriptions: number
-  providerUsage: {
-    openai: number
-    'local-whisper': number
-    'apple-stt': number
-    'google-cloud': number
-  }
 }
