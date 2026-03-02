@@ -7,7 +7,8 @@ import {
   ExternalLink,
   Check,
   X,
-  Info
+  Info,
+  RotateCcw
 } from 'lucide-react'
 import type { TranscriptionProvider } from '../../../../shared/types'
 
@@ -130,6 +131,19 @@ export const PermissionsSettings: React.FC<PermissionsSettingsProps> = ({
   }
 
   const [requestingSpeechPermission, setRequestingSpeechPermission] = useState(false)
+  const [resettingPermissions, setResettingPermissions] = useState(false)
+
+  const handleResetPermissions = async (): Promise<void> => {
+    if (window.api?.resetPermissions && window.api?.restartApp) {
+      setResettingPermissions(true)
+      try {
+        await window.api.resetPermissions()
+        window.api.restartApp()
+      } catch {
+        setResettingPermissions(false)
+      }
+    }
+  }
 
   const handleRequestSpeechRecognition = async (): Promise<void> => {
     if (window.api?.requestSpeechRecognitionPermission) {
@@ -234,6 +248,30 @@ export const PermissionsSettings: React.FC<PermissionsSettingsProps> = ({
           Manage system permissions required for Toolify to function properly
         </p>
       </div>
+      {/* Reset permissions helper */}
+      {(accessibilityStatus === 'denied' || microphoneStatus === 'denied') && (
+        <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/20">
+          <div className="flex items-start gap-3">
+            <Info size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-amber-200 text-sm font-medium">Permissions not detected?</p>
+              <p className="text-amber-200/70 text-xs mt-1">
+                After updating Toolify, macOS may not recognize previously granted permissions.
+                Reset and re-grant them to fix this.
+              </p>
+              <button
+                onClick={handleResetPermissions}
+                disabled={resettingPermissions}
+                className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <RotateCcw size={12} />
+                <span>{resettingPermissions ? 'Resetting...' : 'Reset Permissions & Restart'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {permissions.map((perm) => {
           const Icon = perm.icon
