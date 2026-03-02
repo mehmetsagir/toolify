@@ -39,6 +39,8 @@ export interface Settings {
     offsetY: number
     displayId?: number
   }
+  onboardingCompleted?: boolean
+  onboardingDismissed?: boolean
   statistics?: Statistics
 }
 

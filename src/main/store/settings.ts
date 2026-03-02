@@ -38,6 +38,8 @@ const defaultSettings: Settings = {
   historyMaxItems: 0,
   transcriptionProvider: 'openai',
   localModelType: 'medium',
+  onboardingCompleted: false,
+  onboardingDismissed: false,
   statistics: defaultStatistics
 }
 

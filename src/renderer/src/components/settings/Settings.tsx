@@ -21,6 +21,8 @@ import HistorySettings from './HistorySettings'
 import PermissionsSettings from './PermissionsSettings'
 import UpdateBanner from './UpdateBanner'
 import AboutSection from './AboutSection'
+import OnboardingFlow from './OnboardingFlow'
+import { Button } from '@renderer/components/ui/button'
 
 const TABS = [
   {
@@ -116,6 +118,7 @@ function SectionPanel({ tab, children }: SectionPanelProps): ReactElement {
 
 export default function Settings(): ReactElement {
   const [activeTab, setActiveTab] = useState<TabValue>('general')
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
   const { settings, loading, saveSettings } = useSettings()
 
   useEffect(() => {
@@ -124,6 +127,13 @@ export default function Settings(): ReactElement {
     })
     return cleanup
   }, [])
+
+  useEffect(() => {
+    if (!settings) return
+    if (!settings.onboardingCompleted && !settings.onboardingDismissed) {
+      setOnboardingOpen(true)
+    }
+  }, [settings])
 
   if (loading || !settings) {
     return (
@@ -157,6 +167,13 @@ export default function Settings(): ReactElement {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,63,94,0.08),transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.08),transparent_30%),linear-gradient(180deg,#09090b_0%,#111318_100%)] text-zinc-100">
+      {onboardingOpen && (
+        <OnboardingFlow
+          settings={settings}
+          saveSettings={saveSettings}
+          onClose={() => setOnboardingOpen(false)}
+        />
+      )}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0,transparent_32%,transparent_68%,rgba(255,255,255,0.03)_100%)] opacity-50" />
       <UpdateBanner />
       <div className="relative flex min-h-0 flex-1 overflow-hidden p-2.5 sm:p-3.5 md:p-4">
@@ -178,6 +195,17 @@ export default function Settings(): ReactElement {
                 <p className="mt-2.5 max-w-md text-sm leading-6 text-zinc-400">
                   A focused desktop workspace for dictation, automation, privacy and product status.
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 rounded-xl border-zinc-700/70 bg-black/20"
+                  onClick={() => {
+                    saveSettings({ onboardingDismissed: false })
+                    setOnboardingOpen(true)
+                  }}
+                >
+                  Open setup guide
+                </Button>
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 pb-2.5 sm:px-3 sm:pb-3">
