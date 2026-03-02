@@ -8,7 +8,8 @@ import {
   clipboard,
   Notification,
   screen,
-  systemPreferences
+  systemPreferences,
+  nativeImage
 } from 'electron'
 import { join } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
@@ -97,7 +98,17 @@ let lastKeyPressTime = 0
 
 function showDockIcon(): void {
   if (process.platform === 'darwin' && app.dock) {
+    const dockIcon = nativeImage.createFromPath(icon)
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon)
+    }
     app.dock.show()
+  }
+}
+
+function hideDockIcon(): void {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.hide()
   }
 }
 
@@ -326,6 +337,7 @@ function createSettingsWindowInstance(): void {
   settingsWindow.on('closed', () => {
     if (settingsWindow) unregisterWindow(settingsWindow)
     settingsWindow = null
+    hideDockIcon()
   })
   settingsWindow.on('enter-full-screen', () => settingsWindow?.setFullScreen(false))
   settingsWindow.on('enter-html-full-screen', () => settingsWindow?.setFullScreen(false))
@@ -598,7 +610,8 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.setName('Toolify')
 
-    if (app.dock) app.dock.setIcon(icon)
+    const dockIcon = nativeImage.createFromPath(icon)
+    if (app.dock && !dockIcon.isEmpty()) app.dock.setIcon(dockIcon)
 
     let iconPathForAbout: string | undefined
     const isDev = process.env.NODE_ENV === 'development' && process.env.NODE_ENV !== undefined
@@ -629,7 +642,7 @@ app.whenReady().then(() => {
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
-  showDockIcon()
+  hideDockIcon()
 
   // Check accessibility without prompting (false param) — only show notification when missing
   const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(false)
