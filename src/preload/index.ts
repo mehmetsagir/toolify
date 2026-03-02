@@ -72,26 +72,32 @@ const api = {
   checkForUpdates: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: (): Promise<boolean> => ipcRenderer.invoke('download-update'),
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
-  getUpdateStatus: (): Promise<{ available: boolean; downloaded: boolean; version?: string }> =>
-    ipcRenderer.invoke('get-update-status'),
+  getUpdateStatus: (): Promise<{
+    updateAvailable: boolean
+    updateDownloaded: boolean
+    latestVersion: string | null
+  }> => ipcRenderer.invoke('get-update-status'),
   onUpdateAvailable: (callback: (info: UpdateInfo) => void): (() => void) => {
-    ipcRenderer.on('update-available', (_, info) => callback(info))
+    const handler = (_: unknown, info: UpdateInfo): void => callback(info)
+    ipcRenderer.on('update-available', handler)
     return () => {
-      ipcRenderer.removeAllListeners('update-available')
+      ipcRenderer.removeListener('update-available', handler)
     }
   },
   onUpdateDownloaded: (callback: (info: Pick<UpdateInfo, 'version'>) => void): (() => void) => {
-    ipcRenderer.on('update-downloaded', (_, info) => callback(info))
+    const handler = (_: unknown, info: Pick<UpdateInfo, 'version'>): void => callback(info)
+    ipcRenderer.on('update-downloaded', handler)
     return () => {
-      ipcRenderer.removeAllListeners('update-downloaded')
+      ipcRenderer.removeListener('update-downloaded', handler)
     }
   },
   onUpdateDownloadProgress: (
     callback: (progress: UpdateDownloadProgress) => void
   ): (() => void) => {
-    ipcRenderer.on('update-download-progress', (_, progress) => callback(progress))
+    const handler = (_: unknown, progress: UpdateDownloadProgress): void => callback(progress)
+    ipcRenderer.on('update-download-progress', handler)
     return () => {
-      ipcRenderer.removeAllListeners('update-download-progress')
+      ipcRenderer.removeListener('update-download-progress', handler)
     }
   },
   // History API
@@ -132,6 +138,8 @@ const api = {
     ipcRenderer.send('open-system-preferences', panel),
   requestSpeechRecognitionPermission: (): Promise<{ granted: boolean; alreadyDenied?: boolean }> =>
     ipcRenderer.invoke('request-speech-recognition-permission'),
+  resetPermissions: (): Promise<void> => ipcRenderer.invoke('reset-permissions'),
+  restartApp: (): void => ipcRenderer.send('restart-app'),
   onModelDownloadProgress: (
     callback: (progress: {
       modelType: LocalModelType
