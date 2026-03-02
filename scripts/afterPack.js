@@ -25,6 +25,10 @@ exports.default = async function afterPack(context) {
       'NSSpeechRecognitionUsageDescription',
       'Toolify uses speech recognition to transcribe your voice recordings.'
     ],
+    [
+      'NSAppleEventsUsageDescription',
+      'Toolify uses macOS automation to paste transcriptions and control media shortcuts.'
+    ],
     ['NSDocumentsFolderUsageDescription', 'Application requests access to the Documents folder.'],
     ['NSDownloadsFolderUsageDescription', 'Application requests access to the Downloads folder.']
   ]
