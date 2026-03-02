@@ -95,6 +95,12 @@ let isInPenaltyLockout = false
 let penaltyTimeout: NodeJS.Timeout | null = null
 let lastKeyPressTime = 0
 
+function showDockIcon(): void {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.show()
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tray icon
 // ---------------------------------------------------------------------------
@@ -304,6 +310,8 @@ function createWindow(): void {
 }
 
 function createSettingsWindowInstance(): void {
+  showDockIcon()
+
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     if (settingsWindow.isMinimized()) settingsWindow.restore()
     settingsWindow.focus()
@@ -621,10 +629,7 @@ app.whenReady().then(() => {
 
   const settings = getSettings()
   configureAutoStart(settings.autoStart !== false)
-
-  if (process.platform === 'darwin' && app.dock) {
-    app.dock.hide()
-  }
+  showDockIcon()
 
   // Check accessibility without prompting (false param) — only show notification when missing
   const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(false)
@@ -737,10 +742,6 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('stop-recording')
       }
     } else {
-      if (process.platform === 'darwin' && app.dock) {
-        app.dock.hide()
-      }
-
       if (!mainWindow || mainWindow.isDestroyed()) {
         createWindow()
         if (mainWindow) {
@@ -1118,9 +1119,23 @@ app.whenReady().then(() => {
   })
 
   app.on('activate', () => {
+    showDockIcon()
+
     if (settingsWindow && settingsWindow.isDestroyed()) {
       settingsWindow = null
     }
+
+    if (!settingsWindow || settingsWindow.isDestroyed()) {
+      createSettingsWindowInstance()
+      return
+    }
+
+    if (settingsWindow.isMinimized()) {
+      settingsWindow.restore()
+    }
+
+    settingsWindow.show()
+    settingsWindow.focus()
   })
 })
 
