@@ -36,6 +36,7 @@ declare global {
       }) => void
       previewSound: (soundType: string) => void
       checkAccessibilityPermission: () => Promise<boolean>
+      requestAccessibilityPermission: () => Promise<boolean>
       openAccessibilitySettings: () => void
       checkMicrophonePermission: () => Promise<string>
       requestMicrophonePermission: () => Promise<boolean>

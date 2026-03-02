@@ -19,6 +19,16 @@ export function registerPermissionsHandlers(): void {
     return { granted: hasAccessibility, required: true }
   })
 
+  ipcMain.handle('request-accessibility-permission', () => {
+    if (process.platform !== 'darwin') {
+      return { granted: true, required: false, prompted: false }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { systemPreferences } = require('electron')
+    const granted = systemPreferences.isTrustedAccessibilityClient(true)
+    return { granted, required: true, prompted: true }
+  })
+
   ipcMain.on('open-accessibility-settings', () => {
     shell
       .openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')

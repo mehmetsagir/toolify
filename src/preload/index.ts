@@ -81,6 +81,13 @@ const api = {
         return (result as { granted: boolean }).granted
       return false
     }),
+  requestAccessibilityPermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('request-accessibility-permission').then((result: unknown) => {
+      if (typeof result === 'boolean') return result
+      if (result && typeof result === 'object' && 'granted' in result)
+        return (result as { granted: boolean }).granted
+      return false
+    }),
   openAccessibilitySettings: (): void => ipcRenderer.send('open-accessibility-settings'),
   checkMicrophonePermission: (): Promise<string> =>
     ipcRenderer.invoke('check-microphone-permission'),

@@ -7,7 +7,8 @@ import {
   globalShortcut,
   clipboard,
   Notification,
-  screen
+  screen,
+  systemPreferences
 } from 'electron'
 import { join } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
@@ -625,9 +626,6 @@ app.whenReady().then(() => {
     app.dock.hide()
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { systemPreferences } = require('electron')
-
   // Check accessibility without prompting (false param) — only show notification when missing
   const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(false)
 
@@ -928,16 +926,25 @@ app.whenReady().then(() => {
           updateTrayIcon('copied', currentSettings.trayAnimations)
         }, 1400)
 
-        // exec is safe here: hardcoded AppleScript, no user input interpolated
-        exec(
-          'osascript -e "tell application \\"System Events\\" to keystroke \\"v\\" using command down"',
-          (error, _stdout, stderr) => {
-            if (error) {
-              console.error('Failed to paste text:', stderr || error)
-              showNotification('Toolify Warning', 'Text copied but could not auto-paste')
+        // Auto-paste requires Accessibility permission. Skip the AppleScript when it
+        // is missing to avoid hanging permission-sensitive macOS automation calls.
+        if (systemPreferences.isTrustedAccessibilityClient(false)) {
+          exec(
+            'osascript -e "tell application \\"System Events\\" to keystroke \\"v\\" using command down"',
+            { timeout: 5000 },
+            (error, _stdout, stderr) => {
+              if (error) {
+                console.error('Failed to paste text:', stderr || error)
+                showNotification('Toolify Warning', 'Text copied but could not auto-paste')
+              }
             }
-          }
-        )
+          )
+        } else {
+          showNotification(
+            'Toolify',
+            'Text copied. Grant Accessibility permission if you want automatic paste.'
+          )
+        }
       } else {
         updateTrayIcon('idle', currentSettings.trayAnimations)
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1018,6 +1025,12 @@ app.whenReady().then(() => {
   registerShortcutHandler(initialSettings.shortcut || 'Command+Space', handleRecordingToggle)
 
   createWindow()
+
+  if (!initialSettings.onboardingCompleted && !initialSettings.onboardingDismissed) {
+    setTimeout(() => {
+      createSettingsWindowInstance()
+    }, 700)
+  }
 
   // Setup auto-updater AFTER createWindow so mainWindow is available for IPC
   setupAutoUpdater(mainWindow)

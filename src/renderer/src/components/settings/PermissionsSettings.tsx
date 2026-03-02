@@ -97,9 +97,14 @@ export default function PermissionsSettings(): ReactElement {
     refresh()
   }, [])
 
-  const handleGrantAccessibility = (): void => {
-    window.api.openAccessibilitySettings()
-    setTimeout(refresh, 2000)
+  const handleGrantAccessibility = async (): Promise<void> => {
+    const granted = await window.api.requestAccessibilityPermission()
+    if (!granted) {
+      window.api.openAccessibilitySettings()
+    }
+    setTimeout(() => {
+      void refresh()
+    }, 1500)
   }
 
   const handleRequestMicrophone = async (): Promise<void> => {
@@ -128,7 +133,7 @@ export default function PermissionsSettings(): ReactElement {
 
   const accessibilityAction =
     permissions.accessibility !== true ? (
-      <Button size="sm" variant="outline" onClick={handleGrantAccessibility}>
+      <Button size="sm" variant="outline" onClick={() => void handleGrantAccessibility()}>
         Grant
       </Button>
     ) : undefined
