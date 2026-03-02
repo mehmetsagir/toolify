@@ -11,64 +11,97 @@ import type {
 } from '../shared/types'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
 const api = {
+  // Recording lifecycle
   onStartRecording: (callback: () => void): (() => void) => {
-    const handler: () => void = () => callback()
+    const handler = (): void => callback()
     ipcRenderer.on('start-recording', handler)
-    return (): void => {
+    return () => {
       ipcRenderer.removeListener('start-recording', handler)
     }
   },
   onStopRecording: (callback: () => void): (() => void) => {
-    const handler: () => void = () => callback()
+    const handler = (): void => callback()
     ipcRenderer.on('stop-recording', handler)
-    return (): void => {
+    return () => {
       ipcRenderer.removeListener('stop-recording', handler)
     }
   },
   onCancelRecording: (callback: () => void): (() => void) => {
-    const handler: () => void = () => callback()
+    const handler = (): void => callback()
     ipcRenderer.on('cancel-recording', handler)
-    return (): void => {
+    return () => {
       ipcRenderer.removeListener('cancel-recording', handler)
     }
   },
   onProcessingComplete: (callback: () => void): (() => void) => {
-    const handler: () => void = () => callback()
+    const handler = (): void => callback()
     ipcRenderer.on('processing-complete', handler)
-    return (): void => {
+    return () => {
       ipcRenderer.removeListener('processing-complete', handler)
     }
   },
   onShowHistory: (callback: () => void): (() => void) => {
-    const handler: () => void = () => callback()
+    const handler = (): void => callback()
     ipcRenderer.on('show-history', handler)
-    return (): void => {
+    return () => {
       ipcRenderer.removeListener('show-history', handler)
     }
   },
   processAudio: (buffer: ArrayBuffer, duration: number): void =>
     ipcRenderer.send('process-audio', buffer, duration),
+
+  // Settings
   saveSettings: (settings: Settings): void => ipcRenderer.send('save-settings', settings),
   getSettings: (): Promise<Settings> => ipcRenderer.invoke('get-settings'),
   getStatistics: (): Promise<Statistics | undefined> => ipcRenderer.invoke('get-statistics'),
   openSettings: (): void => ipcRenderer.send('open-settings'),
   openHistory: (): void => ipcRenderer.send('open-history'),
   closeSettings: (): void => ipcRenderer.send('close-settings'),
-  setRecordingState: (state: boolean): void => ipcRenderer.send('set-recording-state', state),
-  setProcessingState: (state: boolean): void => ipcRenderer.send('set-processing-state', state),
-  previewSound: (soundType: string): void => ipcRenderer.send('preview-sound', soundType),
-  checkAccessibilityPermission: (): Promise<boolean> =>
-    ipcRenderer.invoke('check-accessibility-permission'),
-  openAccessibilitySettings: (): void => ipcRenderer.send('open-accessibility-settings'),
   resizeSettingsWindow: (height: number): void =>
     ipcRenderer.send('resize-settings-window', height),
+
+  // Recording state
+  setRecordingState: (state: boolean): void => ipcRenderer.send('set-recording-state', state),
+  setProcessingState: (state: boolean): void => ipcRenderer.send('set-processing-state', state),
   updateRecordingAudioLevel: (payload: {
     level: number
     spectrum?: number[]
     durationMs?: number
   }): void => ipcRenderer.send('update-recording-audio-level', payload),
+
+  // Sound
+  previewSound: (soundType: string): void => ipcRenderer.send('preview-sound', soundType),
+
+  // Permissions
+  checkAccessibilityPermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('check-accessibility-permission').then((result: unknown) => {
+      if (typeof result === 'boolean') return result
+      if (result && typeof result === 'object' && 'granted' in result)
+        return (result as { granted: boolean }).granted
+      return false
+    }),
+  openAccessibilitySettings: (): void => ipcRenderer.send('open-accessibility-settings'),
+  checkMicrophonePermission: (): Promise<string> =>
+    ipcRenderer.invoke('check-microphone-permission'),
+  requestMicrophonePermission: (): Promise<boolean> =>
+    ipcRenderer.invoke('request-microphone-permission'),
+  openSystemPreferences: (panel: string): void =>
+    ipcRenderer.send('open-system-preferences', panel),
+  checkAppleStt: (
+    language?: string
+  ): Promise<{
+    available: boolean
+    permissionGranted: boolean
+    supportsOnDevice?: boolean
+    authStatus?: string
+  }> => ipcRenderer.invoke('check-apple-stt', language),
+  requestSpeechRecognitionPermission: (): Promise<{ granted: boolean; alreadyDenied?: boolean }> =>
+    ipcRenderer.invoke('request-speech-recognition-permission'),
+  resetPermissions: (): Promise<void> => ipcRenderer.invoke('reset-permissions'),
+  restartApp: (): void => ipcRenderer.send('restart-app'),
+
+  // Updates
   checkForUpdates: (): Promise<UpdateInfo | null> => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: (): Promise<boolean> => ipcRenderer.invoke('download-update'),
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
@@ -100,7 +133,22 @@ const api = {
       ipcRenderer.removeListener('update-download-progress', handler)
     }
   },
-  // History API
+  onUpdateNotAvailable: (callback: () => void): (() => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('update-not-available', handler)
+    return () => {
+      ipcRenderer.removeListener('update-not-available', handler)
+    }
+  },
+  onUpdateError: (callback: (message: string) => void): (() => void) => {
+    const handler = (_: unknown, message: string): void => callback(message)
+    ipcRenderer.on('update-error', handler)
+    return () => {
+      ipcRenderer.removeListener('update-error', handler)
+    }
+  },
+
+  // History
   getAllHistory: (): Promise<HistoryItem[]> => ipcRenderer.invoke('get-all-history'),
   getHistoryItem: (id: string): Promise<HistoryItem | null> =>
     ipcRenderer.invoke('get-history-item', id),
@@ -111,7 +159,8 @@ const api = {
   saveHistorySettings: (settings: HistorySettings): Promise<boolean> =>
     ipcRenderer.invoke('save-history-settings', settings),
   clearOldHistory: (): Promise<number> => ipcRenderer.invoke('clear-old-history'),
-  // Local Model
+
+  // Local models
   checkLocalModel: (modelType: LocalModelType): Promise<boolean> =>
     ipcRenderer.invoke('check-local-model', modelType),
   downloadLocalModel: (modelType: LocalModelType): Promise<void> =>
@@ -120,26 +169,6 @@ const api = {
     ipcRenderer.invoke('delete-local-model', modelType),
   getLocalModelsInfo: (): Promise<LocalModelInfo[]> => ipcRenderer.invoke('get-local-models-info'),
   openModelsFolder: (): Promise<string> => ipcRenderer.invoke('open-models-folder'),
-  checkAppleStt: (
-    language?: string
-  ): Promise<{
-    available: boolean
-    permissionGranted: boolean
-    supportsOnDevice?: boolean
-    authStatus?: string
-  }> => ipcRenderer.invoke('check-apple-stt', language),
-  getVersion: (): Promise<string> => ipcRenderer.invoke('get-version'),
-  openExternal: (url: string): void => ipcRenderer.send('open-external', url),
-  checkMicrophonePermission: (): Promise<string> =>
-    ipcRenderer.invoke('check-microphone-permission'),
-  requestMicrophonePermission: (): Promise<boolean> =>
-    ipcRenderer.invoke('request-microphone-permission'),
-  openSystemPreferences: (panel: string): void =>
-    ipcRenderer.send('open-system-preferences', panel),
-  requestSpeechRecognitionPermission: (): Promise<{ granted: boolean; alreadyDenied?: boolean }> =>
-    ipcRenderer.invoke('request-speech-recognition-permission'),
-  resetPermissions: (): Promise<void> => ipcRenderer.invoke('reset-permissions'),
-  restartApp: (): void => ipcRenderer.send('restart-app'),
   onModelDownloadProgress: (
     callback: (progress: {
       modelType: LocalModelType
@@ -153,29 +182,16 @@ const api = {
       progress: { modelType: LocalModelType; percent: number; downloaded: number; total: number }
     ): void => callback(progress)
     ipcRenderer.on('model-download-progress', handler)
-    return (): void => {
+    return () => {
       ipcRenderer.removeListener('model-download-progress', handler)
     }
   },
-  onUpdateNotAvailable: (callback: () => void): (() => void) => {
-    const handler = (): void => callback()
-    ipcRenderer.on('update-not-available', handler)
-    return (): void => {
-      ipcRenderer.removeListener('update-not-available', handler)
-    }
-  },
-  onUpdateError: (callback: (message: string) => void): (() => void) => {
-    const handler = (_: unknown, message: string): void => callback(message)
-    ipcRenderer.on('update-error', handler)
-    return (): void => {
-      ipcRenderer.removeListener('update-error', handler)
-    }
-  }
+
+  // System
+  getVersion: (): Promise<string> => ipcRenderer.invoke('get-version'),
+  openExternal: (url: string): void => ipcRenderer.send('open-external', url)
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
