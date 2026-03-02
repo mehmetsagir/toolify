@@ -75,7 +75,17 @@ import {
   unregisterWindow,
   getIsQuittingForUpdate
 } from './auto-updater'
-import { uIOhook } from 'uiohook-napi'
+// Lazy-loaded: uiohook-napi crashes (SIGABRT) if loaded without Accessibility permission
+// Only import when RightCommand shortcut is actually needed
+let uIOhookInstance: typeof import('uiohook-napi').uIOhook | null = null
+function getUIOhook(): typeof import('uiohook-napi').uIOhook {
+  if (!uIOhookInstance) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { uIOhook } = require('uiohook-napi')
+    uIOhookInstance = uIOhook
+  }
+  return uIOhookInstance!
+}
 
 // Set app name and process title immediately for macOS dock label
 // CRITICAL: Must be set before any Electron events to override default "Electron" name
@@ -916,8 +926,12 @@ app.whenReady().then(() => {
     }
 
     // Stop keyboard hook if running
-    if (keyboardHookEnabled) {
-      uIOhook.stop()
+    if (keyboardHookEnabled && uIOhookInstance) {
+      try {
+        uIOhookInstance.stop()
+      } catch {
+        // ignore stop errors
+      }
       keyboardHookEnabled = false
     }
 
@@ -933,26 +947,39 @@ app.whenReady().then(() => {
         shortcut = 'Command+Space'
         // Fall through to normal registration
       } else {
-        // Use uiohook for RightCommand on macOS
-        try {
-          uIOhook.on('keydown', (event) => {
-            // Right Command key code is 3676 in uiohook on macOS
-            if (event.keycode === 3676) {
-              handleRecordingToggle()
-            }
-          })
-          uIOhook.start()
-          keyboardHookEnabled = true
-          currentRecordingShortcut = 'RightCommand'
-          return
-        } catch (error) {
-          console.error('Failed to register Right Command via uiohook:', error)
+        // Check accessibility before loading uiohook (it crashes without it)
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { systemPreferences: sp } = require('electron')
+        if (!sp.isTrustedAccessibilityClient(false)) {
           showNotification(
-            'Toolify Error',
-            'Failed to register Right Command. Using Command+Space.'
+            'Toolify',
+            'Accessibility permission required for Right Command. Please grant it in System Settings.'
           )
           shortcut = 'Command+Space'
           // Fall through to normal registration
+        } else {
+          // Use uiohook for RightCommand on macOS
+          try {
+            const hook = getUIOhook()
+            hook.on('keydown', (event) => {
+              // Right Command key code is 3676 in uiohook on macOS
+              if (event.keycode === 3676) {
+                handleRecordingToggle()
+              }
+            })
+            hook.start()
+            keyboardHookEnabled = true
+            currentRecordingShortcut = 'RightCommand'
+            return
+          } catch (error) {
+            console.error('Failed to register Right Command via uiohook:', error)
+            showNotification(
+              'Toolify Error',
+              'Failed to register Right Command. Using Command+Space.'
+            )
+            shortcut = 'Command+Space'
+            // Fall through to normal registration
+          }
         }
       }
     }
@@ -1736,8 +1763,12 @@ app.on('before-quit', () => {
     closeRecordingOverlay()
     globalShortcut.unregisterAll()
     // Stop keyboard hook if running
-    if (keyboardHookEnabled) {
-      uIOhook.stop()
+    if (keyboardHookEnabled && uIOhookInstance) {
+      try {
+        uIOhookInstance.stop()
+      } catch {
+        /* ignore */
+      }
       keyboardHookEnabled = false
     }
     // Don't destroy tray here - let it be destroyed naturally
@@ -1760,8 +1791,12 @@ app.on('before-quit', () => {
   globalShortcut.unregisterAll()
 
   // Stop keyboard hook if running
-  if (keyboardHookEnabled) {
-    uIOhook.stop()
+  if (keyboardHookEnabled && uIOhookInstance) {
+    try {
+      uIOhookInstance.stop()
+    } catch {
+      /* ignore */
+    }
     keyboardHookEnabled = false
   }
 })
